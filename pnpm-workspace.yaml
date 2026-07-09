@@ -5,3 +5,7 @@ catalog:
 
 onlyBuiltDependencies:
   - esbuild
+
+allowBuilds:
+  esbuild: true
+
