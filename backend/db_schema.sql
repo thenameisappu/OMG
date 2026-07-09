@@ -38,6 +38,10 @@ CREATE TABLE IF NOT EXISTS `products` (
     `is_bestseller` BOOLEAN DEFAULT FALSE,
     `reviews_count` INT DEFAULT 0,
     `stock_status` ENUM('in_stock', 'out_of_stock') DEFAULT 'in_stock',
+    `stock_quantity` INT DEFAULT 0,
+    `is_active` TINYINT(1) DEFAULT 1,
+    `sku` VARCHAR(100) DEFAULT NULL,
+    `images` JSON DEFAULT NULL,
     `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
