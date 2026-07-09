@@ -4,7 +4,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "node -e \"if (process.platform !== 'win32') { try { require('child_process').execSync('find node_modules -type f -name \\\"esbuild\\\" -exec chmod +x {} +'); } catch (e) {} }\" && vite build",
+    "build": "node -e \"if (process.platform !== 'win32') { try { require('child_process').execSync('find node_modules -type f -name \\\"esbuild\\\" -exec chmod +x {} +'); } catch (e) {} }\" && vite build && node -e \"const fs = require('fs'); if (fs.existsSync('backend')) fs.cpSync('backend', 'dist/backend', { recursive: true });\"",
     "lint": "biome lint .",
     "preview": "vite preview"
   },
