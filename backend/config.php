@@ -1,5 +1,40 @@
 <?php
 
+// Load environment variables from the root .env file
+(static function () {
+    $envPath = __DIR__ . '/../.env';
+    if (!file_exists($envPath)) {
+        return;
+    }
+
+    $lines = file($envPath, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+    foreach ($lines as $line) {
+        $line = trim($line);
+        if (empty($line) || strpos($line, '#') === 0) {
+            continue;
+        }
+
+        $parts = explode('=', $line, 2);
+        if (count($parts) === 2) {
+            $key = trim($parts[0]);
+            $val = trim($parts[1]);
+
+            // Remove outer quotes if present
+            if (
+                strlen($val) >= 2 &&
+                (($val[0] === '"' && $val[strlen($val) - 1] === '"') ||
+                    ($val[0] === "'" && $val[strlen($val) - 1] === "'"))
+            ) {
+                $val = substr($val, 1, -1);
+            }
+
+            putenv("$key=$val");
+            $_ENV[$key] = $val;
+            $_SERVER[$key] = $val;
+        }
+    }
+})();
+
 date_default_timezone_set('Asia/Kolkata');
 
 // Start session for all requests
@@ -12,13 +47,16 @@ session_set_cookie_params([
 session_start();
 
 // Handle CORS dynamically
-$allowedOrigins = [
-    'http://localhost:5173',
-    'http://localhost:3000',
-    'http://localhost:8000',
-    'https://mediumspringgreen-loris-371923.hostingersite.com',
-    // Add other allowed origins here
-];
+$allowedOriginsStr = getenv('ALLOWED_ORIGINS') ?: ($_ENV['ALLOWED_ORIGINS'] ?? '');
+if (!empty($allowedOriginsStr)) {
+    $allowedOrigins = array_map('trim', explode(',', $allowedOriginsStr));
+} else {
+    $allowedOrigins = [
+        'http://localhost:5173',
+        'http://localhost:3000',
+        'http://localhost:8000'
+    ];
+}
 
 $origin = isset($_SERVER['HTTP_ORIGIN']) ? $_SERVER['HTTP_ORIGIN'] : '';
 
@@ -37,11 +75,19 @@ if ($_SERVER['REQUEST_METHOD'] == 'OPTIONS') {
 
 class Database
 {
-    private $host = 'localhost';
-    private $db_name = 'u981836125_OhMyGudness1';
-    private $username = 'u981836125_OhMyGudness1';
-    private $password = 'OhMyGudness@1234';
+    private $host;
+    private $db_name;
+    private $username;
+    private $password;
     private $conn;
+
+    public function __construct()
+    {
+        $this->host = getenv('DB_HOST') !== false ? getenv('DB_HOST') : ($_ENV['DB_HOST'] ?? 'localhost');
+        $this->db_name = getenv('DB_NAME') !== false ? getenv('DB_NAME') : ($_ENV['DB_NAME'] ?? '');
+        $this->username = getenv('DB_USER') !== false ? getenv('DB_USER') : ($_ENV['DB_USER'] ?? '');
+        $this->password = getenv('DB_PASS') !== false ? getenv('DB_PASS') : ($_ENV['DB_PASS'] ?? '');
+    }
 
     public function getConnection()
     {
@@ -51,7 +97,7 @@ class Database
                 "mysql:host=" . $this->host . ";dbname=" . $this->db_name,
                 $this->username,
                 $this->password
-                );
+            );
 
             // Set UTF8 encoding
             $this->conn->exec("SET NAMES utf8");
@@ -61,8 +107,7 @@ class Database
 
             // Enable PDO error mode
             $this->conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-        }
-        catch (PDOException $exception) {
+        } catch (PDOException $exception) {
             error_log("Connection error: " . $exception->getMessage());
             return null;
         }
