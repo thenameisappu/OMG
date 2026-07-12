@@ -258,7 +258,7 @@ export default function Products() {
         </div>
 
         {/* Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-10">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 md:gap-6">
           {filteredProducts.map((product, index) => (
             <div key={product.id} className="animate-slide-up" style={{ animationDelay: `${(index % 12) * 0.05}s` }}>
               <ProductCard product={product} />
@@ -412,7 +412,7 @@ export default function Products() {
 function ProductCard({ product }: { product: any }) {
   return (
     <div className="group relative bg-white border border-transparent hover:border-secondary/20 luxury-shadow hover-lift rounded-xl overflow-hidden flex flex-col h-full transition-all">
-      <Link to={`/product/${product.slug}`} className="relative block aspect-[4/5] overflow-hidden">
+      <Link to={`/product/${product.slug}`} className="relative block aspect-square overflow-hidden">
         <img
           src={product.image}
           alt={product.name}
@@ -421,31 +421,31 @@ function ProductCard({ product }: { product: any }) {
         <div className="absolute inset-0 bg-black/5 opacity-0 group-hover:opacity-100 transition-opacity" />
         {product.stock_status === 'out_of_stock' && (
           <div className="absolute inset-0 bg-white/60 backdrop-blur-[2px] flex items-center justify-center">
-            <Badge variant="destructive" className="px-5 py-2 text-base">Sold Out</Badge>
+            <Badge variant="destructive" className="px-3 py-1 text-xs">Sold Out</Badge>
           </div>
         )}
-        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 translate-y-16 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-300 w-[85%]">
-          <Button className="w-full h-12 bg-primary text-white hover:bg-secondary hover:text-primary font-semibold text-base">
+        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 translate-y-16 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-300 w-[90%]">
+          <Button className="w-full h-10 bg-primary text-white hover:bg-secondary hover:text-primary font-semibold text-xs rounded-full">
             Quick View
           </Button>
         </div>
       </Link>
-      <div className="p-6 flex flex-col flex-1">
-        <div className="mb-3">
-          <Badge variant="secondary" className="bg-secondary/10 text-secondary border-none text-xs uppercase tracking-wider font-bold px-3 py-1">
+      <div className="p-4 flex flex-col flex-1">
+        <div className="mb-2">
+          <Badge variant="secondary" className="bg-secondary/10 text-secondary border-none text-[10px] uppercase tracking-wider font-bold px-2 py-0.5">
             {product.category.replace('-', ' ')}
           </Badge>
         </div>
-        <Link to={`/product/${product.slug}`} className="hover:text-secondary transition-colors mb-3">
-          <h3 className="text-xl font-bold text-primary line-clamp-1">{product.name}</h3>
+        <Link to={`/product/${product.slug}`} className="hover:text-secondary transition-colors mb-2">
+          <h3 className="text-sm md:text-base font-bold text-primary line-clamp-1">{product.name}</h3>
         </Link>
-        <div className="flex items-center gap-1 text-yellow-500 mb-5">
-          {[1, 2, 3, 4, 5].map(i => <Star key={i} className="h-4 w-4 fill-current" />)}
-          <span className="text-xs text-muted-foreground font-bold ml-1">(42 Reviews)</span>
+        <div className="flex items-center gap-0.5 text-yellow-500 mb-3">
+          {[1, 2, 3, 4, 5].map(i => <Star key={i} className="h-3 w-3 fill-current" />)}
+          <span className="text-[10px] text-muted-foreground font-bold ml-1">(42)</span>
         </div>
         <div className="mt-auto flex items-center justify-between">
-          <span className="text-2xl font-bold text-primary">{formatINR(product.price)}</span>
-          <span className="text-sm text-muted-foreground italic">Free Delivery</span>
+          <span className="text-base md:text-lg font-bold text-primary">{formatINR(product.price)}</span>
+          <span className="text-xs text-muted-foreground italic">Free Delivery</span>
         </div>
       </div>
     </div>
