@@ -1,8 +1,8 @@
 <?php
 
-// Load environment variables from the root .env file
+// Load environment variables from the .env file (checks backend/ first, then the root directory)
 (static function () {
-    $envPath = __DIR__ . '/../.env';
+    $envPath = file_exists(__DIR__ . '/.env') ? __DIR__ . '/.env' : __DIR__ . '/../.env';
     if (!file_exists($envPath)) {
         return;
     }
