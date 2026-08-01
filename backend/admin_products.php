@@ -477,6 +477,7 @@ $categoryNames = [
     'signature-collection' => "Oh My Signature's",
     'occasions' => "Oh My Celebration's",
     'custom-orders' => "Oh My Customisation's"
+];
 $pageTitle = "Product Catalog Management";
 require_once 'admin_header.php';
 ?>

@@ -123,40 +123,11 @@ if (isset($_POST['action']) && $_POST['action'] === 'delete_upgrade') {
     }
 }
 
-// 5. Save / Add Pincode
-if (isset($_POST['action']) && $_POST['action'] === 'save_pincode') {
-    $pincode = trim($_POST['pincode'] ?? '');
-    $area_name = trim($_POST['area_name'] ?? '');
-
-    if (preg_match('/^[0-9]{6}$/', $pincode)) {
-        try {
-            $stmt = $db->prepare("INSERT INTO `serviceable_pincodes` (`pincode`, `area_name`, `is_active`) VALUES (:pincode, :area_name, 1) ON DUPLICATE KEY UPDATE `area_name` = :area_name, `is_active` = 1");
-            $stmt->execute([':pincode' => $pincode, ':area_name' => $area_name]);
-            $message = "Pincode $pincode saved successfully!";
-        } catch (Exception $e) {
-            $error = "Failed to save pincode: " . $e->getMessage();
-        }
-    } else {
-        $error = "Pincode must be exactly 6 numeric digits.";
-    }
-}
-
-// 6. Delete Pincode
-if (isset($_POST['action']) && $_POST['action'] === 'delete_pincode') {
-    $id = $_POST['id'] ?? null;
-    if ($id) {
-        $stmt = $db->prepare("DELETE FROM `serviceable_pincodes` WHERE `id` = :id");
-        $stmt->execute([':id' => $id]);
-        $message = "Pincode removed from serviceable list.";
-    }
-}
-
 // Fetch all data for display
 $experiences = $db->query("SELECT * FROM `surprise_experiences` ORDER BY `display_order` ASC, `id` ASC")->fetchAll(PDO::FETCH_ASSOC);
 $upgrades = $db->query("SELECT * FROM `surprise_upgrades` ORDER BY `display_order` ASC, `id` ASC")->fetchAll(PDO::FETCH_ASSOC);
-$pincodes = $db->query("SELECT * FROM `serviceable_pincodes` ORDER BY `pincode` ASC")->fetchAll(PDO::FETCH_ASSOC);
 
-$pageTitle = "Surprise Experience Builder & Pincodes";
+$pageTitle = "Surprise Experience Builder & Google Maps Pincodes";
 require_once 'admin_header.php';
 ?>
 
