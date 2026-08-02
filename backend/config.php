@@ -221,6 +221,9 @@ function ensureAuthTablesExist($db)
 
         // Safely add missing columns if table already exists
         $cols = $db->query("SHOW COLUMNS FROM `admin_users`")->fetchAll(PDO::FETCH_COLUMN);
+        if (!in_array('name', $cols)) {
+            $db->exec("ALTER TABLE `admin_users` ADD COLUMN `name` VARCHAR(255) AFTER `username`");
+        }
         if (!in_array('email', $cols)) {
             $db->exec("ALTER TABLE `admin_users` ADD COLUMN `email` VARCHAR(191) UNIQUE AFTER `password`");
         }

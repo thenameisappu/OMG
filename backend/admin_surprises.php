@@ -147,25 +147,20 @@ require_once 'admin_header.php';
     <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200 pb-6">
         <div>
             <h1 class="text-2xl sm:text-3xl font-serif font-bold text-slate-900">Surprise Experience & Area Control</h1>
-            <p class="text-slate-500 text-sm mt-1">Manage base surprise packages, upgrades, pricing, and Bengaluru
-                delivery pincodes.</p>
-        </div>
-        <div class="flex items-center gap-3">
-            <span
-                class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200">
-                ✨ Dynamic Configuration Active
-            </span>
+            <p class="text-slate-500 text-sm mt-1">Manage base surprise packages, upgrades, and pricing</p>
         </div>
     </div>
 
     <!-- Alert Messages -->
     <?php if ($message): ?>
         <div class="bg-emerald-50 border border-emerald-200 text-emerald-700 px-4 py-3 rounded-xl text-sm font-medium">
-            <?php echo htmlspecialchars($message); ?></div>
+            <?php echo htmlspecialchars($message); ?>
+        </div>
     <?php endif; ?>
     <?php if ($error): ?>
         <div class="bg-rose-50 border border-rose-200 text-rose-700 px-4 py-3 rounded-xl text-sm font-medium">
-            <?php echo htmlspecialchars($error); ?></div>
+            <?php echo htmlspecialchars($error); ?>
+        </div>
     <?php endif; ?>
 
     <!-- SECTION 1: BASE SURPRISE EXPERIENCES -->
@@ -202,7 +197,8 @@ require_once 'admin_header.php';
                                         class="px-2 py-0.5 text-[10px] font-bold rounded bg-amber-100 text-amber-800 border border-amber-200 ml-1"><?php echo htmlspecialchars($exp['badge']); ?></span>
                                 <?php endif; ?>
                                 <h4 class="font-serif font-bold text-base text-slate-900 mt-1">
-                                    <?php echo htmlspecialchars($exp['title']); ?></h4>
+                                    <?php echo htmlspecialchars($exp['title']); ?>
+                                </h4>
                             </div>
                             <span
                                 class="text-lg font-bold text-amber-600">₹<?php echo number_format($exp['base_price']); ?></span>
@@ -277,11 +273,13 @@ require_once 'admin_header.php';
                             <td class="py-3.5 px-4 text-xs font-mono font-bold text-slate-500">
                                 #<?php echo $upg['display_order']; ?></td>
                             <td class="py-3.5 px-4 font-semibold text-amber-600 text-xs">
-                                <?php echo htmlspecialchars($upg['icon']); ?></td>
+                                <?php echo htmlspecialchars($upg['icon']); ?>
+                            </td>
                             <td class="py-3.5 px-4 font-bold text-slate-900"><?php echo htmlspecialchars($upg['name']); ?>
                             </td>
                             <td class="py-3.5 px-4 text-xs text-slate-600 max-w-xs">
-                                <?php echo htmlspecialchars($upg['description']); ?></td>
+                                <?php echo htmlspecialchars($upg['description']); ?>
+                            </td>
                             <td class="py-3.5 px-4 font-bold text-amber-600">₹<?php echo number_format($upg['price']); ?>
                             </td>
                             <td class="py-3.5 px-4 text-xs">
