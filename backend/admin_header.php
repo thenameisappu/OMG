@@ -65,6 +65,7 @@ $currentPage = basename($_SERVER['PHP_SELF']);
         .gold-gradient { background: linear-gradient(135deg, #D4AF37 0%, #AA7C11 100%); }
         .glass-header { background: rgba(15, 23, 42, 0.95); backdrop-filter: blur(12px); }
         .table-wrapper { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+        .prod-thumb { width: 52px !important; height: 52px !important; min-width: 52px !important; min-height: 52px !important; max-width: 52px !important; max-height: 52px !important; object-fit: cover !important; border-radius: 10px; border: 1px solid #e2e8f0; }
     </style>
 </head>
 <body class="font-sans antialiased text-slate-800 bg-slate-50 min-h-full flex flex-col">

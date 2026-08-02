@@ -34,5 +34,6 @@ history/*.json
 !.env.example
 
 # Backend Uploads
-backend/uploads/
+backend/uploads/*
+!backend/uploads/.gitkeep
 

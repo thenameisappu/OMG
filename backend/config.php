@@ -39,6 +39,12 @@ date_default_timezone_set('Asia/Kolkata');
 
 session_start();
 
+// Auto-ensure backend/uploads directory exists with write permissions
+$uploadsDir = __DIR__ . '/uploads';
+if (!file_exists($uploadsDir)) {
+    @mkdir($uploadsDir, 0755, true);
+}
+
 // 24-hour session inactivity auto-logout check (configurable via SESSION_TIMEOUT_SECONDS in .env)
 $sessionTimeout = getenv('SESSION_TIMEOUT_SECONDS') ? (int)getenv('SESSION_TIMEOUT_SECONDS') : 86400; // 86400 seconds = 24 hours
 if (isset($_SESSION['last_activity']) && (time() - $_SESSION['last_activity'] > $sessionTimeout)) {

@@ -3,8 +3,8 @@ require_once 'config.php';
 
 header("Content-Type: application/json; charset=UTF-8");
 
-// Check Authentication
-if (!isset($_SESSION['user_id'])) {
+// Check Authentication (Allow both user sessions and admin sessions)
+if (!isset($_SESSION['user_id']) && !isset($_SESSION['admin_logged_in'])) {
     http_response_code(401);
     echo json_encode(['success' => false, 'message' => 'Unauthorized']);
     exit();

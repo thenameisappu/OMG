@@ -526,91 +526,93 @@ require_once 'admin_header.php';
     <!-- Product Table Card -->
     <div class="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
         <div class="table-wrapper">
-        <thead>
-            <tr>
-                <th>Thumbnail</th>
-                <th>Name / SKU</th>
-                <th>Category</th>
-                <th>Price</th>
-                <th>Stock Status / Qty</th>
-                <th>Badges</th>
-                <th>Status</th>
-                <?php if ($is_main_admin): ?>
-                    <th>Actions</th>
-                <?php endif; ?>
-            </tr>
-        </thead>
-        <tbody>
-            <?php if (empty($products)): ?>
-                <tr>
-                    <td colspan="<?php echo $is_main_admin ? 8 : 7; ?>" style="text-align:center; padding: 40px; color: #777;">No products found.</td>
-                </tr>
-            <?php else: ?>
-                <?php foreach ($products as $p): ?>
+            <table class="w-full text-left text-sm border-collapse">
+                <thead class="bg-slate-100/70 text-slate-600 uppercase text-[11px] font-bold tracking-wider border-b border-slate-200">
                     <tr>
-                        <td>
-                            <?php if (!empty($p['image'])): ?>
-                                <img src="<?php echo htmlspecialchars($p['image']); ?>" class="prod-thumb" alt="Product thumbnail">
-                            <?php else: ?>
-                                <span style="font-size: 24px;">🌸</span>
-                            <?php endif; ?>
-                        </td>
-                        <td>
-                            <strong><?php echo htmlspecialchars($p['name']); ?></strong><br>
-                            <small style="color: #666; font-family: monospace;">SKU: <?php echo htmlspecialchars($p['sku'] ?? 'N/A'); ?></small>
-                        </td>
-                        <td>
-                            <?php echo htmlspecialchars($categoryNames[$p['category']] ?? $p['category']); ?>
-                        </td>
-                        <td>
-                            ₹<?php echo number_format($p['price'], 2); ?>
-                        </td>
-                        <td>
-                            <?php 
-                            $qty = (int)$p['stock_quantity'];
-                            if ($p['stock_status'] === 'out_of_stock' || $qty <= 0) {
-                                echo '<span class="badge badge-danger">Out of Stock</span>';
-                            } elseif ($qty <= 5) {
-                                echo '<span class="badge badge-warning">Low Stock (' . $qty . ')</span>';
-                            } else {
-                                echo '<span class="badge badge-success">In Stock (' . $qty . ')</span>';
-                            }
-                            ?>
-                        </td>
-                        <td>
-                            <?php if ($p['is_featured']): ?>
-                                <span class="badge badge-info" style="margin-bottom: 2px;">Featured</span><br>
-                            <?php endif; ?>
-                            <?php if ($p['is_bestseller']): ?>
-                                <span class="badge badge-gold" style="background:#fcf8e3; color:#a68300; border:1px solid #fbeed5;">Bestseller</span>
-                            <?php endif; ?>
-                        </td>
-                        <td>
-                            <?php if ($p['is_active']): ?>
-                                <span class="badge badge-success">Active</span>
-                            <?php else: ?>
-                                <span class="badge badge-danger">Inactive</span>
-                            <?php endif; ?>
-                        </td>
+                        <th class="py-3.5 px-4 w-20">Thumbnail</th>
+                        <th class="py-3.5 px-4">Name / SKU</th>
+                        <th class="py-3.5 px-4">Category</th>
+                        <th class="py-3.5 px-4">Price</th>
+                        <th class="py-3.5 px-4">Stock Status / Qty</th>
+                        <th class="py-3.5 px-4">Badges</th>
+                        <th class="py-3.5 px-4">Status</th>
                         <?php if ($is_main_admin): ?>
-                            <td>
-                                <div class="action-links">
-                                    <span class="action-link link-edit" onclick="openEditModal(<?php echo htmlspecialchars(json_encode($p)); ?>)">Edit</span>
-                                    <span class="action-link link-stock" onclick="openStockModal('<?php echo $p['id']; ?>', <?php echo $qty; ?>)">Stock</span>
-                                    <form method="POST" style="display:inline;" onsubmit="return confirm('Are you sure you want to delete this product? If it has order history, it will be soft-deleted.');">
-                                        <input type="hidden" name="action" value="delete">
-                                        <input type="hidden" name="id" value="<?php echo $p['id']; ?>">
-                                        <button type="submit" class="action-link link-delete" style="background:none; border:none; padding:0; font-family:inherit; cursor:pointer;">Delete</button>
-                                    </form>
-                                </div>
-                            </td>
+                            <th class="py-3.5 px-4 text-right">Actions</th>
                         <?php endif; ?>
                     </tr>
-                <?php endforeach; ?>
-            <?php endif; ?>
-        </tbody>
-    </table>
-</div>
+                </thead>
+                <tbody class="divide-y divide-slate-100">
+                    <?php if (empty($products)): ?>
+                        <tr>
+                            <td colspan="<?php echo $is_main_admin ? 8 : 7; ?>" class="text-center py-12 text-slate-400 italic">No products found.</td>
+                        </tr>
+                    <?php else: ?>
+                        <?php foreach ($products as $p): ?>
+                            <tr class="hover:bg-slate-50/80 transition-colors">
+                                <td class="py-3 px-4 align-middle w-20">
+                                    <?php if (!empty($p['image'])): ?>
+                                        <img src="<?php echo htmlspecialchars($p['image']); ?>" class="w-13 h-13 min-w-[52px] min-h-[52px] max-w-[52px] max-h-[52px] object-cover rounded-xl border border-slate-200 shadow-2xs prod-thumb" alt="Product thumbnail">
+                                    <?php else: ?>
+                                        <div class="w-13 h-13 min-w-[52px] min-h-[52px] rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center text-xl">🌸</div>
+                                    <?php endif; ?>
+                                </td>
+                                <td class="py-3 px-4 align-middle">
+                                    <strong class="text-slate-900 font-bold text-sm block"><?php echo htmlspecialchars($p['name']); ?></strong>
+                                    <span class="text-xs text-slate-500 font-mono">SKU: <?php echo htmlspecialchars($p['sku'] ?? 'N/A'); ?></span>
+                                </td>
+                                <td class="py-3 px-4 align-middle text-xs font-semibold text-slate-600">
+                                    <?php echo htmlspecialchars($categoryNames[$p['category']] ?? $p['category']); ?>
+                                </td>
+                                <td class="py-3 px-4 align-middle font-bold text-slate-900 text-sm">
+                                    ₹<?php echo number_format($p['price'], 2); ?>
+                                </td>
+                                <td class="py-3 px-4 align-middle text-xs">
+                                    <?php 
+                                    $qty = (int)$p['stock_quantity'];
+                                    if ($p['stock_status'] === 'out_of_stock' || $qty <= 0) {
+                                        echo '<span class="px-2.5 py-1 rounded-full text-xs font-bold bg-rose-50 text-rose-700 border border-rose-200">Out of Stock</span>';
+                                    } elseif ($qty <= 5) {
+                                        echo '<span class="px-2.5 py-1 rounded-full text-xs font-bold bg-amber-50 text-amber-700 border border-amber-200">Low Stock (' . $qty . ')</span>';
+                                    } else {
+                                        echo '<span class="px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">In Stock (' . $qty . ')</span>';
+                                    }
+                                    ?>
+                                </td>
+                                <td class="py-3 px-4 align-middle text-xs">
+                                    <?php if ($p['is_featured']): ?>
+                                        <span class="inline-block px-2 py-0.5 rounded bg-sky-50 text-sky-700 font-semibold border border-sky-200 text-[11px] mb-1">Featured</span><br>
+                                    <?php endif; ?>
+                                    <?php if ($p['is_bestseller']): ?>
+                                        <span class="inline-block px-2 py-0.5 rounded bg-amber-50 text-amber-800 font-semibold border border-amber-200 text-[11px]">Bestseller</span>
+                                    <?php endif; ?>
+                                </td>
+                                <td class="py-3 px-4 align-middle text-xs">
+                                    <?php if ($p['is_active']): ?>
+                                        <span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700">Active</span>
+                                    <?php else: ?>
+                                        <span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-500">Inactive</span>
+                                    <?php endif; ?>
+                                </td>
+                                <?php if ($is_main_admin): ?>
+                                    <td class="py-3 px-4 align-middle text-right">
+                                        <div class="flex items-center justify-end gap-2 text-xs font-bold">
+                                            <button type="button" class="px-3 py-1.5 bg-slate-800 text-white rounded-lg hover:bg-slate-900 transition-colors" onclick="openEditModal(<?php echo htmlspecialchars(json_encode($p)); ?>)">Edit</button>
+                                            <button type="button" class="px-3 py-1.5 bg-amber-50 text-amber-800 border border-amber-200 rounded-lg hover:bg-amber-100 transition-colors" onclick="openStockModal('<?php echo $p['id']; ?>', <?php echo $qty; ?>)">Stock</button>
+                                            <form method="POST" class="inline" onsubmit="return confirm('Are you sure you want to delete this product? If it has order history, it will be soft-deleted.');">
+                                                <input type="hidden" name="action" value="delete">
+                                                <input type="hidden" name="id" value="<?php echo $p['id']; ?>">
+                                                <button type="submit" class="px-3 py-1.5 bg-rose-50 text-rose-600 border border-rose-200 rounded-lg hover:bg-rose-100 transition-colors">Delete</button>
+                                            </form>
+                                        </div>
+                                    </td>
+                                <?php endif; ?>
+                            </tr>
+                        <?php endforeach; ?>
+                    <?php endif; ?>
+                </tbody>
+            </table>
+        </div>
+    </div>
 
 <!-- --- MODALS (only rendered/used by main_admin) --- -->
 <?php if ($is_main_admin): ?>
