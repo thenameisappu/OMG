@@ -16,7 +16,7 @@ if (!isset($_SESSION['admin_logged_in']) || ($_SESSION['admin_username'] ?? '') 
 }
 
 // 24-Hour Session Lifetime Check
-$sessionTimeout = getenv('SESSION_TIMEOUT_SECONDS') ? (int)getenv('SESSION_TIMEOUT_SECONDS') : 86400;
+$sessionTimeout = getenv('SESSION_TIMEOUT_SECONDS') ? (int) getenv('SESSION_TIMEOUT_SECONDS') : 86400;
 if (isset($_SESSION['admin_last_activity']) && (time() - $_SESSION['admin_last_activity'] > $sessionTimeout)) {
     session_unset();
     session_destroy();
@@ -98,9 +98,11 @@ require_once 'admin_header.php';
     <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200 pb-6">
         <div>
             <h1 class="text-2xl sm:text-3xl font-serif font-bold text-slate-900">Administrator Accounts</h1>
-            <p class="text-slate-500 text-sm mt-1">Manage system administrators and security credentials (Root Access Only).</p>
+            <p class="text-slate-500 text-sm mt-1">Manage system administrators and security credentials (Root Access
+                Only).</p>
         </div>
-        <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200">
+        <span
+            class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200">
             🛡️ Root Control Active
         </span>
     </div>
@@ -118,21 +120,23 @@ require_once 'admin_header.php';
 
     <!-- Create Admin Card -->
     <div class="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-sm">
-        <h3 class="text-base font-semibold text-slate-900 mb-4 flex items-center gap-2">
-            <span>➕</span> Add New Administrator Account
+        <h3 class="text-base font-semibold text-slate-900 mb-4 flex items-center gap-2">Add New Administrator Account
         </h3>
         <form method="POST" class="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <input type="hidden" name="action" value="create_admin">
             <div>
                 <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">New Username</label>
-                <input type="text" name="new_username" required placeholder="username" class="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-amber-500 outline-none">
+                <input type="text" name="new_username" required placeholder="username"
+                    class="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-amber-500 outline-none">
             </div>
             <div>
                 <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">New Password</label>
-                <input type="password" name="new_password" required placeholder="••••••••" class="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-amber-500 outline-none">
+                <input type="password" name="new_password" required placeholder="••••••••"
+                    class="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-amber-500 outline-none">
             </div>
             <div class="flex items-end">
-                <button type="submit" class="w-full py-2.5 px-4 gold-gradient text-slate-950 font-bold rounded-xl text-sm shadow-md hover:shadow-lg transition-all">
+                <button type="submit"
+                    class="w-full py-2.5 px-4 gold-gradient text-slate-950 font-bold rounded-xl text-sm shadow-md hover:shadow-lg transition-all">
                     Create Admin User
                 </button>
             </div>
@@ -148,7 +152,8 @@ require_once 'admin_header.php';
 
         <div class="table-wrapper">
             <table class="w-full text-left text-sm">
-                <thead class="bg-slate-100/70 text-slate-600 uppercase text-[11px] font-bold tracking-wider border-b border-slate-200">
+                <thead
+                    class="bg-slate-100/70 text-slate-600 uppercase text-[11px] font-bold tracking-wider border-b border-slate-200">
                     <tr>
                         <th class="py-3.5 px-4">Username</th>
                         <th class="py-3.5 px-4">Role</th>
@@ -164,9 +169,12 @@ require_once 'admin_header.php';
                             </td>
                             <td class="py-4 px-4">
                                 <?php if ($admin['username'] === 'main_admin'): ?>
-                                    <span class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-300">Root Admin</span>
+                                    <span
+                                        class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-300">Root
+                                        Admin</span>
                                 <?php else: ?>
-                                    <span class="px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-700">Administrator</span>
+                                    <span
+                                        class="px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-700">Administrator</span>
                                 <?php endif; ?>
                             </td>
                             <td class="py-4 px-4 text-xs text-slate-500">
@@ -174,10 +182,13 @@ require_once 'admin_header.php';
                             </td>
                             <td class="py-4 px-4 text-right">
                                 <?php if ($admin['username'] !== 'main_admin'): ?>
-                                    <form method="POST" onsubmit="return confirm('Are you sure you want to delete this admin account?');" class="inline">
+                                    <form method="POST"
+                                        onsubmit="return confirm('Are you sure you want to delete this admin account?');"
+                                        class="inline">
                                         <input type="hidden" name="action" value="delete_admin">
                                         <input type="hidden" name="admin_id" value="<?php echo $admin['id']; ?>">
-                                        <button type="submit" class="text-xs font-bold text-rose-600 hover:text-rose-800 bg-rose-50 hover:bg-rose-100 px-3 py-1.5 rounded-lg transition-colors border border-rose-200">
+                                        <button type="submit"
+                                            class="text-xs font-bold text-rose-600 hover:text-rose-800 bg-rose-50 hover:bg-rose-100 px-3 py-1.5 rounded-lg transition-colors border border-rose-200">
                                             Delete Account
                                         </button>
                                     </form>

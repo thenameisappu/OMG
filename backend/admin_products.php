@@ -82,26 +82,17 @@ function deleteLocalImage($imagePath) {
  * Crop & resize any uploaded image to a perfect 1000x1000px (1:1) square.
  * Uses center-crop strategy: takes the largest centered square from the source
  * then scales it to 1000x1000. Output is always JPEG at 90% quality.
- *
- * Requires PHP GD extension (standard on most PHP installs).
- *
- * @param  string $tmpName   Path to the temporary uploaded file
- * @param  string $destPath  Full destination path (will be saved as JPEG)
- * @return bool              True on success, false on failure
  */
 function cropToSquare1000(string $tmpName, string $destPath): bool {
     if (!extension_loaded('gd')) {
-        // GD not available — just move the file as-is
         return move_uploaded_file($tmpName, $destPath);
     }
 
-    // Detect image type
     $info = getimagesize($tmpName);
     if (!$info) return false;
 
     [$srcW, $srcH, $imgType] = [$info[0], $info[1], $info[2]];
 
-    // Load source image
     switch ($imgType) {
         case IMAGETYPE_JPEG: $src = imagecreatefromjpeg($tmpName); break;
         case IMAGETYPE_PNG:  $src = imagecreatefrompng($tmpName);  break;
@@ -111,15 +102,12 @@ function cropToSquare1000(string $tmpName, string $destPath): bool {
     }
     if (!$src) return false;
 
-    // Calculate the centered square crop region
     $squareSize = min($srcW, $srcH);
     $cropX = (int)(($srcW - $squareSize) / 2);
     $cropY = (int)(($srcH - $squareSize) / 2);
 
-    // Create 1000x1000 output canvas
     $dst = imagecreatetruecolor(1000, 1000);
 
-    // Preserve transparency for PNG/WEBP
     if ($imgType === IMAGETYPE_PNG || $imgType === IMAGETYPE_WEBP) {
         imagealphablending($dst, false);
         imagesavealpha($dst, true);
@@ -127,10 +115,8 @@ function cropToSquare1000(string $tmpName, string $destPath): bool {
         imagefill($dst, 0, 0, $transparent);
     }
 
-    // Resample: crop the square center and scale to 1000x1000
     imagecopyresampled($dst, $src, 0, 0, $cropX, $cropY, 1000, 1000, $squareSize, $squareSize);
 
-    // Save as JPEG (90% quality) — universal & small
     $result = imagejpeg($dst, $destPath, 90);
 
     imagedestroy($src);
@@ -146,7 +132,6 @@ function handleFileUpload($fileKey, $existingUrl = '') {
     $file = $_FILES[$fileKey];
     $size = $file['size'];
     $tmpName = $file['tmp_name'];
-    $name = basename($file['name']);
 
     if ($size > 5 * 1024 * 1024) {
         throw new Exception("File is too large. Max limit is 5MB.");
@@ -162,17 +147,13 @@ function handleFileUpload($fileKey, $existingUrl = '') {
 
     $uploadDir = 'uploads/';
     if (!file_exists($uploadDir)) {
-        mkdir($uploadDir, 0777, true);
+        mkdir($uploadDir, 0755, true);
     }
 
-    // Always save as .jpg since we output JPEG after crop
     $uniqueName = uniqid('prod_', true) . '.jpg';
     $targetFile = $uploadDir . $uniqueName;
 
-    // Crop & resize to 1000x1000 (1:1 ratio)
-    $success = cropToSquare1000($tmpName, $targetFile);
-
-    if ($success) {
+    if (cropToSquare1000($tmpName, $targetFile)) {
         if (!empty($existingUrl)) {
             deleteLocalImage($existingUrl);
         }
@@ -198,11 +179,10 @@ function handleMultipleFileUploads($fileKey, $existingImages = []) {
         if ($files['error'][$i] !== UPLOAD_ERR_OK) continue;
         
         $tmpName = $files['tmp_name'][$i];
-        $name = basename($files['name'][$i]);
         $size = $files['size'][$i];
 
         if ($size > 5 * 1024 * 1024) {
-            throw new Exception("One of the additional images exceeds the 5MB size limit.");
+            throw new Exception("One of the additional images exceeds 5MB size limit.");
         }
 
         $finfo = new finfo(FILEINFO_MIME_TYPE);
@@ -215,14 +195,12 @@ function handleMultipleFileUploads($fileKey, $existingImages = []) {
 
         $uploadDir = 'uploads/';
         if (!file_exists($uploadDir)) {
-            mkdir($uploadDir, 0777, true);
+            mkdir($uploadDir, 0755, true);
         }
 
-        // Always save as .jpg since cropToSquare1000 outputs JPEG
         $uniqueName = uniqid('prod_', true) . '.jpg';
         $targetFile = $uploadDir . $uniqueName;
 
-        // Crop & resize to 1000x1000 (1:1 ratio)
         if (cropToSquare1000($tmpName, $targetFile)) {
             $protocol = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? "https" : "http";
             $host = $_SERVER['HTTP_HOST'];
@@ -236,7 +214,7 @@ function handleMultipleFileUploads($fileKey, $existingImages = []) {
 // --- HANDLE POST ACTIONS (main_admin only) ---
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     if (!$is_main_admin) {
-        $_SESSION['error_message'] = "Unauthorized. Only the main_admin can modify products.";
+        $_SESSION['error_message'] = "Unauthorized. Only main_admin can modify products.";
         header("Location: admin_products.php");
         exit();
     }
@@ -250,18 +228,35 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             $category = trim($_POST['category'] ?? '');
             $description = trim($_POST['description'] ?? '');
             $sku = trim($_POST['sku'] ?? '');
-            $stock_quantity = (int)($_POST['stock_quantity'] ?? 0);
+            $stock_quantity = max(0, (int)($_POST['stock_quantity'] ?? 0));
             $is_featured = isset($_POST['is_featured']) ? 1 : 0;
             $is_bestseller = isset($_POST['is_bestseller']) ? 1 : 0;
             $is_active = isset($_POST['is_active']) ? 1 : 0;
-            
+            $confirm_duplicate = isset($_POST['confirm_duplicate']) && $_POST['confirm_duplicate'] === '1';
+
+            if (empty($name)) {
+                throw new Exception("Product Name is required.");
+            }
+            if (empty($category)) {
+                throw new Exception("Category is required.");
+            }
+            if ($price <= 0) {
+                throw new Exception("Price must be a positive amount.");
+            }
+
+            // Duplicate Check on Backend (if not explicitly confirmed)
+            if (!$confirm_duplicate) {
+                $dupCheck = $db->prepare("SELECT id, name FROM products WHERE LOWER(name) = LOWER(:name) LIMIT 1");
+                $dupCheck->execute([':name' => $name]);
+                $existingDup = $dupCheck->fetch(PDO::FETCH_ASSOC);
+                if ($existingDup) {
+                    throw new Exception("A product named '" . htmlspecialchars($existingDup['name']) . "' already exists. Please confirm if you want to add a duplicate product.");
+                }
+            }
+
             // Features input parsing
             $featuresArr = array_filter(array_map('trim', explode("\n", $_POST['features'] ?? '')));
             $features = json_encode(array_values($featuresArr));
-
-            if (empty($name) || empty($category) || $price <= 0) {
-                throw new Exception("Product Name, Category, and positive Price are required.");
-            }
 
             // Image Uploads
             $image = handleFileUpload('product_image');
@@ -278,24 +273,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 VALUES 
                 (:id, :name, :slug, :description, :price, :category, :image, :hover_image, :features, :is_featured, :is_bestseller, :stock_status, :stock_quantity, :is_active, :sku, :images)");
             
-            $stmt->bindParam(':id', $id);
-            $stmt->bindParam(':name', $name);
-            $stmt->bindParam(':slug', $slug);
-            $stmt->bindParam(':description', $description);
-            $stmt->bindParam(':price', $price);
-            $stmt->bindParam(':category', $category);
-            $stmt->bindParam(':image', $image);
-            $stmt->bindParam(':hover_image', $hover_image);
-            $stmt->bindParam(':features', $features);
-            $stmt->bindParam(':is_featured', $is_featured);
-            $stmt->bindParam(':is_bestseller', $is_bestseller);
-            $stmt->bindParam(':stock_status', $stock_status);
-            $stmt->bindParam(':stock_quantity', $stock_quantity);
-            $stmt->bindParam(':is_active', $is_active);
-            $stmt->bindParam(':sku', $sku);
-            $stmt->bindParam(':images', $images);
+            $stmt->execute([
+                ':id' => $id,
+                ':name' => $name,
+                ':slug' => $slug,
+                ':description' => $description,
+                ':price' => $price,
+                ':category' => $category,
+                ':image' => $image,
+                ':hover_image' => $hover_image,
+                ':features' => $features,
+                ':is_featured' => $is_featured,
+                ':is_bestseller' => $is_bestseller,
+                ':stock_status' => $stock_status,
+                ':stock_quantity' => $stock_quantity,
+                ':is_active' => $is_active,
+                ':sku' => $sku,
+                ':images' => $images
+            ]);
 
-            $stmt->execute();
             $_SESSION['success_message'] = "Product '$name' created successfully!";
 
         } elseif ($action === 'update') {
@@ -305,19 +301,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             $category = trim($_POST['category'] ?? '');
             $description = trim($_POST['description'] ?? '');
             $sku = trim($_POST['sku'] ?? '');
-            $stock_quantity = (int)($_POST['stock_quantity'] ?? 0);
+            $stock_quantity = max(0, (int)($_POST['stock_quantity'] ?? 0));
             $is_featured = isset($_POST['is_featured']) ? 1 : 0;
             $is_bestseller = isset($_POST['is_bestseller']) ? 1 : 0;
             $is_active = isset($_POST['is_active']) ? 1 : 0;
 
-            if (empty($id) || empty($name) || empty($category) || $price <= 0) {
-                throw new Exception("Product ID, Name, Category, and positive Price are required.");
+            if (empty($id)) {
+                throw new Exception("Product ID is missing.");
+            }
+            if (empty($name)) {
+                throw new Exception("Product Name is required.");
+            }
+            if (empty($category)) {
+                throw new Exception("Category is required.");
+            }
+            if ($price <= 0) {
+                throw new Exception("Price must be a positive amount.");
             }
 
             // Fetch current images
             $check = $db->prepare("SELECT image, hover_image, images FROM products WHERE id = :id");
-            $check->bindParam(':id', $id);
-            $check->execute();
+            $check->execute([':id' => $id]);
             $curr = $check->fetch(PDO::FETCH_ASSOC);
 
             if (!$curr) {
@@ -333,14 +337,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             $hover_image = handleFileUpload('product_hover_image', $curr['hover_image']);
             
             // Delete selected additional images if specified
-            $oldImages = !empty($curr['images']) ? json_decode($curr['images']) : [];
+            $oldImages = !empty($curr['images']) ? json_decode($curr['images'], true) : [];
             $retainedImages = [];
             $deletedImages = $_POST['deleted_additional_images'] ?? [];
-            foreach ($oldImages as $oldImg) {
-                if (in_array($oldImg, $deletedImages)) {
-                    deleteLocalImage($oldImg);
-                } else {
-                    $retainedImages[] = $oldImg;
+            if (is_array($oldImages)) {
+                foreach ($oldImages as $oldImg) {
+                    if (in_array($oldImg, $deletedImages)) {
+                        deleteLocalImage($oldImg);
+                    } else {
+                        $retainedImages[] = $oldImg;
+                    }
                 }
             }
 
@@ -358,24 +364,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 is_active = :is_active, sku = :sku, images = :images 
                 WHERE id = :id");
             
-            $stmt->bindParam(':id', $id);
-            $stmt->bindParam(':name', $name);
-            $stmt->bindParam(':slug', $slug);
-            $stmt->bindParam(':description', $description);
-            $stmt->bindParam(':price', $price);
-            $stmt->bindParam(':category', $category);
-            $stmt->bindParam(':image', $image);
-            $stmt->bindParam(':hover_image', $hover_image);
-            $stmt->bindParam(':features', $features);
-            $stmt->bindParam(':is_featured', $is_featured);
-            $stmt->bindParam(':is_bestseller', $is_bestseller);
-            $stmt->bindParam(':stock_status', $stock_status);
-            $stmt->bindParam(':stock_quantity', $stock_quantity);
-            $stmt->bindParam(':is_active', $is_active);
-            $stmt->bindParam(':sku', $sku);
-            $stmt->bindParam(':images', $images);
+            $stmt->execute([
+                ':id' => $id,
+                ':name' => $name,
+                ':slug' => $slug,
+                ':description' => $description,
+                ':price' => $price,
+                ':category' => $category,
+                ':image' => $image,
+                ':hover_image' => $hover_image,
+                ':features' => $features,
+                ':is_featured' => $is_featured,
+                ':is_bestseller' => $is_bestseller,
+                ':stock_status' => $stock_status,
+                ':stock_quantity' => $stock_quantity,
+                ':is_active' => $is_active,
+                ':sku' => $sku,
+                ':images' => $images
+            ]);
 
-            $stmt->execute();
             $_SESSION['success_message'] = "Product '$name' updated successfully!";
 
         } elseif ($action === 'delete') {
@@ -386,57 +393,62 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
 
             // Fetch info
             $check = $db->prepare("SELECT name, image, hover_image, images FROM products WHERE id = :id");
-            $check->bindParam(':id', $id);
-            $check->execute();
+            $check->execute([':id' => $id]);
             $prod = $check->fetch(PDO::FETCH_ASSOC);
 
             if (!$prod) {
                 throw new Exception("Product not found.");
             }
 
-            // Check orders
+            // Check if referenced in customer orders
             $checkOrders = $db->prepare("SELECT COUNT(*) FROM order_items WHERE product_id = :id");
-            $checkOrders->bindParam(':id', $id);
-            $checkOrders->execute();
+            $checkOrders->execute([':id' => $id]);
             $refs = (int)$checkOrders->fetchColumn();
 
             if ($refs > 0) {
-                // Soft delete
+                // Soft delete to protect historical order records
                 $stmt = $db->prepare("UPDATE products SET is_active = 0 WHERE id = :id");
-                $stmt->bindParam(':id', $id);
-                $stmt->execute();
-                $_SESSION['warning_message'] = "Product '" . htmlspecialchars($prod['name']) . "' is referenced in existing customer orders. It has been set to Inactive (soft-deleted) to protect historical data.";
+                $stmt->execute([':id' => $id]);
+                $_SESSION['warning_message'] = "Product '" . htmlspecialchars($prod['name']) . "' is linked to existing customer orders. It has been set to Inactive (soft-deleted) to protect historical data.";
             } else {
-                // Hard delete
+                // Permanent deletion
                 $stmt = $db->prepare("DELETE FROM products WHERE id = :id");
-                $stmt->bindParam(':id', $id);
-                $stmt->execute();
+                $stmt->execute([':id' => $id]);
 
                 deleteLocalImage($prod['image']);
                 deleteLocalImage($prod['hover_image']);
-                $addImgs = !empty($prod['images']) ? json_decode($prod['images']) : [];
-                foreach ($addImgs as $img) {
-                    deleteLocalImage($img);
+                $addImgs = !empty($prod['images']) ? json_decode($prod['images'], true) : [];
+                if (is_array($addImgs)) {
+                    foreach ($addImgs as $img) {
+                        deleteLocalImage($img);
+                    }
                 }
-                $_SESSION['success_message'] = "Product permanently deleted.";
+                $_SESSION['success_message'] = "Product '" . htmlspecialchars($prod['name']) . "' permanently deleted.";
             }
 
         } elseif ($action === 'quick_stock') {
             $id = trim($_POST['id'] ?? '');
-            $stock_quantity = (int)($_POST['stock_quantity'] ?? 0);
+            $stock_quantity = max(0, (int)($_POST['stock_quantity'] ?? 0));
 
             if (empty($id)) {
                 throw new Exception("Product ID is required.");
             }
 
+            // Fetch product name
+            $nameCheck = $db->prepare("SELECT name FROM products WHERE id = :id");
+            $nameCheck->execute([':id' => $id]);
+            $prodRow = $nameCheck->fetch(PDO::FETCH_ASSOC);
+            $pName = $prodRow ? $prodRow['name'] : 'Product';
+
             $stock_status = $stock_quantity > 0 ? 'in_stock' : 'out_of_stock';
             $stmt = $db->prepare("UPDATE products SET stock_quantity = :qty, stock_status = :status WHERE id = :id");
-            $stmt->bindParam(':qty', $stock_quantity);
-            $stmt->bindParam(':status', $stock_status);
-            $stmt->bindParam(':id', $id);
-            $stmt->execute();
+            $stmt->execute([
+                ':qty' => $stock_quantity,
+                ':status' => $stock_status,
+                ':id' => $id
+            ]);
 
-            $_SESSION['success_message'] = "Stock inventory updated successfully!";
+            $_SESSION['success_message'] = "Stock inventory updated for '$pName' (Qty: $stock_quantity, Status: $stock_status).";
         }
     } catch (Exception $e) {
         $_SESSION['error_message'] = $e->getMessage();
@@ -454,7 +466,7 @@ $queryStr = "SELECT * FROM products WHERE 1=1";
 $params = [];
 
 if (!empty($search)) {
-    $queryStr .= " AND (name LIKE :search OR description LIKE :search OR sku LIKE :search)";
+    $queryStr .= " AND (name LIKE :search OR sku LIKE :search OR description LIKE :search)";
     $params[':search'] = '%' . $search . '%';
 }
 if (!empty($categoryFilter)) {
@@ -470,7 +482,7 @@ foreach ($params as $key => $val) {
 $stmt->execute();
 $products = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-// Map categories for rendering
+// Category Name Mapping
 $categoryNames = [
     'flower-arrangements' => "Oh My Bloom's",
     'gift-hampers' => "Oh My Love's",
@@ -478,6 +490,7 @@ $categoryNames = [
     'occasions' => "Oh My Celebration's",
     'custom-orders' => "Oh My Customisation's"
 ];
+
 $pageTitle = "Product Catalog Management";
 require_once 'admin_header.php';
 ?>
@@ -486,7 +499,7 @@ require_once 'admin_header.php';
     <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200 pb-6">
         <div>
             <h1 class="text-2xl sm:text-3xl font-serif font-bold text-slate-900">Product Catalog</h1>
-            <p class="text-slate-500 text-sm mt-1">Manage floral products, pricing, categories, stock & badges.</p>
+            <p class="text-slate-500 text-sm mt-1">Manage floral products, pricing, categories, inventory & badges.</p>
         </div>
         <?php if ($is_main_admin): ?>
             <button onclick="openAddModal()" class="py-2.5 px-5 gold-gradient text-slate-950 font-bold rounded-xl text-sm shadow-md hover:shadow-lg transition-all flex items-center gap-2">
@@ -497,13 +510,28 @@ require_once 'admin_header.php';
 
     <!-- Feedback Alerts -->
     <?php if ($message): ?>
-        <div class="bg-emerald-50 border border-emerald-200 text-emerald-700 px-4 py-3 rounded-xl text-sm font-medium"><?php echo $message; ?></div>
+        <div class="bg-emerald-50 border border-emerald-200 text-emerald-700 px-4 py-3 rounded-xl text-sm font-medium flex items-center justify-between">
+            <div class="flex items-center gap-2">
+                <span>✅</span> <span><?php echo htmlspecialchars($message); ?></span>
+            </div>
+            <button onclick="this.parentElement.remove()" class="text-emerald-500 hover:text-emerald-800 font-bold">×</button>
+        </div>
     <?php endif; ?>
     <?php if ($warning): ?>
-        <div class="bg-amber-50 border border-amber-200 text-amber-800 px-4 py-3 rounded-xl text-sm font-medium"><?php echo $warning; ?></div>
+        <div class="bg-amber-50 border border-amber-200 text-amber-800 px-4 py-3 rounded-xl text-sm font-medium flex items-center justify-between">
+            <div class="flex items-center gap-2">
+                <span>⚠️</span> <span><?php echo htmlspecialchars($warning); ?></span>
+            </div>
+            <button onclick="this.parentElement.remove()" class="text-amber-500 hover:text-amber-800 font-bold">×</button>
+        </div>
     <?php endif; ?>
     <?php if ($error): ?>
-        <div class="bg-rose-50 border border-rose-200 text-rose-700 px-4 py-3 rounded-xl text-sm font-medium"><?php echo $error; ?></div>
+        <div class="bg-rose-50 border border-rose-200 text-rose-700 px-4 py-3 rounded-xl text-sm font-medium flex items-center justify-between">
+            <div class="flex items-center gap-2">
+                <span>❌</span> <span><?php echo htmlspecialchars($error); ?></span>
+            </div>
+            <button onclick="this.parentElement.remove()" class="text-rose-500 hover:text-rose-800 font-bold">×</button>
+        </div>
     <?php endif; ?>
 
     <!-- Toolbar & Search Filters -->
@@ -521,6 +549,7 @@ require_once 'admin_header.php';
                 <a href="admin_products.php" class="py-2 px-3 text-slate-500 hover:text-slate-800 text-sm font-medium">Reset</a>
             <?php endif; ?>
         </form>
+        <span class="text-xs text-slate-500 font-medium">Showing <strong><?php echo count($products); ?></strong> products</span>
     </div>
 
     <!-- Product Table Card -->
@@ -544,7 +573,7 @@ require_once 'admin_header.php';
                 <tbody class="divide-y divide-slate-100">
                     <?php if (empty($products)): ?>
                         <tr>
-                            <td colspan="<?php echo $is_main_admin ? 8 : 7; ?>" class="text-center py-12 text-slate-400 italic">No products found.</td>
+                            <td colspan="<?php echo $is_main_admin ? 8 : 7; ?>" class="text-center py-12 text-slate-400 italic">No products found matching your search.</td>
                         </tr>
                     <?php else: ?>
                         <?php foreach ($products as $p): ?>
@@ -570,7 +599,7 @@ require_once 'admin_header.php';
                                     <?php 
                                     $qty = (int)$p['stock_quantity'];
                                     if ($p['stock_status'] === 'out_of_stock' || $qty <= 0) {
-                                        echo '<span class="px-2.5 py-1 rounded-full text-xs font-bold bg-rose-50 text-rose-700 border border-rose-200">Out of Stock</span>';
+                                        echo '<span class="px-2.5 py-1 rounded-full text-xs font-bold bg-rose-50 text-rose-700 border border-rose-200">Out of Stock (0)</span>';
                                     } elseif ($qty <= 5) {
                                         echo '<span class="px-2.5 py-1 rounded-full text-xs font-bold bg-amber-50 text-amber-700 border border-amber-200">Low Stock (' . $qty . ')</span>';
                                     } else {
@@ -588,21 +617,17 @@ require_once 'admin_header.php';
                                 </td>
                                 <td class="py-3 px-4 align-middle text-xs">
                                     <?php if ($p['is_active']): ?>
-                                        <span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700">Active</span>
+                                        <span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">Active</span>
                                     <?php else: ?>
-                                        <span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-500">Inactive</span>
+                                        <span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-500 border border-slate-200">Inactive</span>
                                     <?php endif; ?>
                                 </td>
                                 <?php if ($is_main_admin): ?>
                                     <td class="py-3 px-4 align-middle text-right">
                                         <div class="flex items-center justify-end gap-2 text-xs font-bold">
-                                            <button type="button" class="px-3 py-1.5 bg-slate-800 text-white rounded-lg hover:bg-slate-900 transition-colors" onclick="openEditModal(<?php echo htmlspecialchars(json_encode($p)); ?>)">Edit</button>
-                                            <button type="button" class="px-3 py-1.5 bg-amber-50 text-amber-800 border border-amber-200 rounded-lg hover:bg-amber-100 transition-colors" onclick="openStockModal('<?php echo $p['id']; ?>', <?php echo $qty; ?>)">Stock</button>
-                                            <form method="POST" class="inline" onsubmit="return confirm('Are you sure you want to delete this product? If it has order history, it will be soft-deleted.');">
-                                                <input type="hidden" name="action" value="delete">
-                                                <input type="hidden" name="id" value="<?php echo $p['id']; ?>">
-                                                <button type="submit" class="px-3 py-1.5 bg-rose-50 text-rose-600 border border-rose-200 rounded-lg hover:bg-rose-100 transition-colors">Delete</button>
-                                            </form>
+                                            <button type="button" class="px-3 py-1.5 bg-slate-900 text-white rounded-lg hover:bg-slate-800 transition-colors shadow-2xs" onclick="openEditModal(<?php echo htmlspecialchars(json_encode($p)); ?>)">Edit</button>
+                                            <button type="button" class="px-3 py-1.5 bg-amber-50 text-amber-800 border border-amber-200 rounded-lg hover:bg-amber-100 transition-colors" onclick="openStockModal('<?php echo $p['id']; ?>', '<?php echo htmlspecialchars(addslashes($p['name'])); ?>', <?php echo $qty; ?>)">Stock</button>
+                                            <button type="button" class="px-3 py-1.5 bg-rose-50 text-rose-600 border border-rose-200 rounded-lg hover:bg-rose-100 transition-colors" onclick="openDeleteModal('<?php echo $p['id']; ?>', '<?php echo htmlspecialchars(addslashes($p['name'])); ?>', '<?php echo htmlspecialchars(addslashes($p['sku'] ?? '')); ?>')">Delete</button>
                                         </div>
                                     </td>
                                 <?php endif; ?>
@@ -613,195 +638,282 @@ require_once 'admin_header.php';
             </table>
         </div>
     </div>
+</div>
 
-<!-- --- MODALS (only rendered/used by main_admin) --- -->
+<!-- --- MODALS (only rendered for main_admin) --- -->
 <?php if ($is_main_admin): ?>
-    <!-- Add Product Modal -->
-    <div id="addModal" class="modal">
-        <div class="modal-content">
-            <span class="close" onclick="closeModal('addModal')">&times;</span>
-            <h2 style="margin-top: 0; color: #d4af37;">+ Add New Product</h2>
-            <form method="POST" enctype="multipart/form-data">
+    <!-- 1. ADD NEW PRODUCT MODAL -->
+    <div id="addModal" class="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-xs hidden items-center justify-center p-4">
+        <div class="bg-white max-w-2xl w-full rounded-2xl p-6 shadow-2xl space-y-6 max-h-[90vh] overflow-y-auto">
+            <div class="flex items-center justify-between border-b border-slate-100 pb-4">
+                <div class="flex items-center gap-2">
+                    <span class="w-8 h-8 rounded-lg gold-gradient flex items-center justify-center text-slate-950 font-bold text-sm">✨</span>
+                    <h3 class="text-xl font-serif font-bold text-slate-900">Add New Product</h3>
+                </div>
+                <button type="button" onclick="closeModal('addModal')" class="text-slate-400 hover:text-slate-700 text-xl font-bold">×</button>
+            </div>
+
+            <form id="addForm" method="POST" enctype="multipart/form-data" onsubmit="return handleAddSubmit(event)" class="space-y-4">
                 <input type="hidden" name="action" value="create">
+                <input type="hidden" name="confirm_duplicate" id="add_confirm_duplicate" value="0">
                 
-                <div class="form-group">
-                    <label>Product Name *</label>
-                    <input type="text" name="name" required placeholder="Midnight Velvet Roses">
+                <div class="space-y-1">
+                    <label class="block text-xs font-bold uppercase tracking-wider text-slate-700">Product Name <span class="text-rose-500">*</span></label>
+                    <input type="text" name="name" id="add_name" required placeholder="e.g. Pink Box Bouquet" class="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:ring-2 focus:ring-amber-500 text-sm outline-none">
                 </div>
 
-                <div class="form-row">
-                    <div class="form-group">
-                        <label>Category *</label>
-                        <select name="category" required>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div class="space-y-1">
+                        <label class="block text-xs font-bold uppercase tracking-wider text-slate-700">Category <span class="text-rose-500">*</span></label>
+                        <select name="category" id="add_category" required class="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:ring-2 focus:ring-amber-500 text-sm outline-none bg-white">
                             <option value="">Select Category</option>
                             <?php foreach ($categoryNames as $key => $val): ?>
                                 <option value="<?php echo $key; ?>"><?php echo $val; ?></option>
                             <?php endforeach; ?>
                         </select>
                     </div>
-                    <div class="form-group">
-                        <label>SKU</label>
-                        <input type="text" name="sku" placeholder="FL-ROSE-01">
+                    <div class="space-y-1">
+                        <label class="block text-xs font-bold uppercase tracking-wider text-slate-700">SKU Code</label>
+                        <input type="text" name="sku" id="add_sku" placeholder="e.g. FL-PINK-01" class="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:ring-2 focus:ring-amber-500 text-sm outline-none">
                     </div>
                 </div>
 
-                <div class="form-row">
-                    <div class="form-group">
-                        <label>Price (₹) *</label>
-                        <input type="number" name="price" step="0.01" min="1" required placeholder="999.00">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div class="space-y-1">
+                        <label class="block text-xs font-bold uppercase tracking-wider text-slate-700">Price (₹) <span class="text-rose-500">*</span></label>
+                        <input type="number" name="price" id="add_price" step="0.01" min="1" required placeholder="3000.00" class="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:ring-2 focus:ring-amber-500 text-sm outline-none">
                     </div>
-                    <div class="form-group">
-                        <label>Stock Quantity *</label>
-                        <input type="number" name="stock_quantity" min="0" required value="10">
-                    </div>
-                </div>
-
-                <div class="form-group">
-                    <label>Description</label>
-                    <textarea name="description" placeholder="Exquisite floral arrangement details..."></textarea>
-                </div>
-
-                <div class="form-group">
-                    <label>Features (One feature per line)</label>
-                    <textarea name="features" placeholder="Premium Long-stem Roses&#10;Luxury Velvet Wrap&#10;Hand-delivered"></textarea>
-                </div>
-
-                <div class="form-row">
-                    <div class="form-group">
-                        <label>Main Image File</label>
-                        <input type="file" name="product_image" accept="image/*" onchange="previewImage(this, 'addImagePreview')">
-                        <div id="addImagePreview" class="image-preview-container"></div>
-                    </div>
-                    <div class="form-group">
-                        <label>Hover Image File</label>
-                        <input type="file" name="product_hover_image" accept="image/*" onchange="previewImage(this, 'addHoverPreview')">
-                        <div id="addHoverPreview" class="image-preview-container"></div>
+                    <div class="space-y-1">
+                        <label class="block text-xs font-bold uppercase tracking-wider text-slate-700">Initial Stock Quantity <span class="text-rose-500">*</span></label>
+                        <input type="number" name="stock_quantity" id="add_stock_quantity" min="0" required value="10" class="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:ring-2 focus:ring-amber-500 text-sm outline-none">
                     </div>
                 </div>
 
-                <div class="form-group">
-                    <label>Additional Images (Multiple files)</label>
-                    <input type="file" name="additional_images[]" accept="image/*" multiple onchange="previewMultipleImages(this, 'addMultiPreview')">
-                    <div id="addMultiPreview" class="image-preview-container"></div>
+                <div class="space-y-1">
+                    <label class="block text-xs font-bold uppercase tracking-wider text-slate-700">Description</label>
+                    <textarea name="description" rows="3" placeholder="Exquisite floral arrangement details..." class="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:ring-2 focus:ring-amber-500 text-sm outline-none"></textarea>
                 </div>
 
-                <div class="form-group-checkbox">
-                    <label><input type="checkbox" name="is_featured" value="1"> Featured Product</label>
-                    <label><input type="checkbox" name="is_bestseller" value="1"> Bestseller</label>
-                    <label><input type="checkbox" name="is_active" value="1" checked> Active & Visible</label>
+                <div class="space-y-1">
+                    <label class="block text-xs font-bold uppercase tracking-wider text-slate-700">Key Features (One feature per line)</label>
+                    <textarea name="features" rows="3" placeholder="Fresh Pink Roses&#10;Signature Hat Box&#10;Hand-crafted Ribbon" class="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:ring-2 focus:ring-amber-500 text-sm outline-none font-mono text-xs"></textarea>
                 </div>
 
-                <button type="submit" class="btn-gold" style="width:100%; margin-top:15px; padding:12px;">Create Product</button>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div class="space-y-1">
+                        <label class="block text-xs font-bold uppercase tracking-wider text-slate-700">Main Product Image</label>
+                        <input type="file" name="product_image" accept="image/*" onchange="previewImage(this, 'addImagePreview')" class="text-xs text-slate-500 file:mr-3 file:py-2 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-amber-50 file:text-amber-800 hover:file:bg-amber-100">
+                        <div id="addImagePreview" class="mt-2"></div>
+                    </div>
+                    <div class="space-y-1">
+                        <label class="block text-xs font-bold uppercase tracking-wider text-slate-700">Hover Image (Optional)</label>
+                        <input type="file" name="product_hover_image" accept="image/*" onchange="previewImage(this, 'addHoverPreview')" class="text-xs text-slate-500 file:mr-3 file:py-2 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-amber-50 file:text-amber-800 hover:file:bg-amber-100">
+                        <div id="addHoverPreview" class="mt-2"></div>
+                    </div>
+                </div>
+
+                <div class="space-y-1">
+                    <label class="block text-xs font-bold uppercase tracking-wider text-slate-700">Additional Gallery Images (Multiple)</label>
+                    <input type="file" name="additional_images[]" accept="image/*" multiple onchange="previewMultipleImages(this, 'addMultiPreview')" class="text-xs text-slate-500 file:mr-3 file:py-2 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-amber-50 file:text-amber-800 hover:file:bg-amber-100">
+                    <div id="addMultiPreview" class="mt-2 flex flex-wrap gap-2"></div>
+                </div>
+
+                <div class="flex flex-wrap gap-6 pt-2">
+                    <label class="flex items-center gap-2 text-xs font-bold text-slate-700 cursor-pointer">
+                        <input type="checkbox" name="is_featured" value="1" class="w-4 h-4 text-amber-600 rounded"> Featured Product
+                    </label>
+                    <label class="flex items-center gap-2 text-xs font-bold text-slate-700 cursor-pointer">
+                        <input type="checkbox" name="is_bestseller" value="1" class="w-4 h-4 text-amber-600 rounded"> Bestseller Badge
+                    </label>
+                    <label class="flex items-center gap-2 text-xs font-bold text-slate-700 cursor-pointer">
+                        <input type="checkbox" name="is_active" value="1" checked class="w-4 h-4 text-amber-600 rounded"> Active & Visible
+                    </label>
+                </div>
+
+                <div class="flex items-center justify-end gap-3 pt-4 border-t border-slate-100">
+                    <button type="button" onclick="closeModal('addModal')" class="py-2.5 px-5 rounded-xl border border-slate-300 text-slate-600 text-sm font-semibold hover:bg-slate-50">Cancel</button>
+                    <button type="submit" class="py-2.5 px-6 gold-gradient text-slate-950 font-bold rounded-xl text-sm shadow-md hover:shadow-lg transition-all">Create Product</button>
+                </div>
             </form>
         </div>
     </div>
 
-    <!-- Edit Product Modal -->
-    <div id="editModal" class="modal">
-        <div class="modal-content">
-            <span class="close" onclick="closeModal('editModal')">&times;</span>
-            <h2 style="margin-top: 0; color: #d4af37;">Edit Product</h2>
-            <form id="editForm" method="POST" enctype="multipart/form-data">
+    <!-- 2. DUPLICATE PRODUCT WARNING MODAL -->
+    <div id="duplicateModal" class="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-xs hidden items-center justify-center p-4">
+        <div class="bg-white max-w-md w-full rounded-2xl p-6 shadow-2xl space-y-4 text-center">
+            <div class="w-14 h-14 bg-amber-100 border border-amber-200 rounded-full flex items-center justify-center mx-auto text-amber-600 text-2xl">
+                ⚠️
+            </div>
+            <h3 class="text-lg font-serif font-bold text-slate-900">Duplicate Product Detected</h3>
+            <p id="duplicateWarningText" class="text-xs text-slate-600 leading-relaxed px-2">
+                This product already exists in your catalog. Are you sure you want to add it again?
+            </p>
+            <div class="flex items-center justify-center gap-3 pt-4 border-t border-slate-100">
+                <button type="button" onclick="closeModal('duplicateModal')" class="py-2.5 px-5 rounded-xl border border-slate-300 text-slate-700 text-sm font-semibold hover:bg-slate-50">Cancel</button>
+                <button type="button" onclick="confirmAndSubmitDuplicate()" class="py-2.5 px-5 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold rounded-xl text-sm shadow-md transition-all">Yes, Continue Adding</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 3. EDIT PRODUCT MODAL -->
+    <div id="editModal" class="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-xs hidden items-center justify-center p-4">
+        <div class="bg-white max-w-2xl w-full rounded-2xl p-6 shadow-2xl space-y-6 max-h-[90vh] overflow-y-auto">
+            <div class="flex items-center justify-between border-b border-slate-100 pb-4">
+                <div class="flex items-center gap-2">
+                    <span class="w-8 h-8 rounded-lg bg-slate-900 text-amber-400 flex items-center justify-center font-bold text-sm">✏️</span>
+                    <h3 class="text-xl font-serif font-bold text-slate-900">Edit Product Details</h3>
+                </div>
+                <button type="button" onclick="closeModal('editModal')" class="text-slate-400 hover:text-slate-700 text-xl font-bold">×</button>
+            </div>
+
+            <form id="editForm" method="POST" enctype="multipart/form-data" class="space-y-4">
                 <input type="hidden" name="action" value="update">
                 <input type="hidden" name="id" id="edit_id">
                 
-                <div class="form-group">
-                    <label>Product Name *</label>
-                    <input type="text" name="name" id="edit_name" required>
+                <div class="space-y-1">
+                    <label class="block text-xs font-bold uppercase tracking-wider text-slate-700">Product Name <span class="text-rose-500">*</span></label>
+                    <input type="text" name="name" id="edit_name" required class="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:ring-2 focus:ring-amber-500 text-sm outline-none">
                 </div>
 
-                <div class="form-row">
-                    <div class="form-group">
-                        <label>Category *</label>
-                        <select name="category" id="edit_category" required>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div class="space-y-1">
+                        <label class="block text-xs font-bold uppercase tracking-wider text-slate-700">Category <span class="text-rose-500">*</span></label>
+                        <select name="category" id="edit_category" required class="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:ring-2 focus:ring-amber-500 text-sm outline-none bg-white">
                             <?php foreach ($categoryNames as $key => $val): ?>
                                 <option value="<?php echo $key; ?>"><?php echo $val; ?></option>
                             <?php endforeach; ?>
                         </select>
                     </div>
-                    <div class="form-group">
-                        <label>SKU</label>
-                        <input type="text" name="sku" id="edit_sku">
+                    <div class="space-y-1">
+                        <label class="block text-xs font-bold uppercase tracking-wider text-slate-700">SKU Code</label>
+                        <input type="text" name="sku" id="edit_sku" class="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:ring-2 focus:ring-amber-500 text-sm outline-none">
                     </div>
                 </div>
 
-                <div class="form-row">
-                    <div class="form-group">
-                        <label>Price (₹) *</label>
-                        <input type="number" name="price" id="edit_price" step="0.01" min="1" required>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div class="space-y-1">
+                        <label class="block text-xs font-bold uppercase tracking-wider text-slate-700">Price (₹) <span class="text-rose-500">*</span></label>
+                        <input type="number" name="price" id="edit_price" step="0.01" min="1" required class="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:ring-2 focus:ring-amber-500 text-sm outline-none">
                     </div>
-                    <div class="form-group">
-                        <label>Stock Quantity *</label>
-                        <input type="number" name="stock_quantity" id="edit_stock_quantity" min="0" required>
-                    </div>
-                </div>
-
-                <div class="form-group">
-                    <label>Description</label>
-                    <textarea name="description" id="edit_description"></textarea>
-                </div>
-
-                <div class="form-group">
-                    <label>Features (One feature per line)</label>
-                    <textarea name="features" id="edit_features"></textarea>
-                </div>
-
-                <div class="form-row">
-                    <div class="form-group">
-                        <label>Replace Main Image</label>
-                        <input type="file" name="product_image" accept="image/*" onchange="previewImage(this, 'editImagePreview')">
-                        <div id="editImagePreview" class="image-preview-container"></div>
-                    </div>
-                    <div class="form-group">
-                        <label>Replace Hover Image</label>
-                        <input type="file" name="product_hover_image" accept="image/*" onchange="previewImage(this, 'editHoverPreview')">
-                        <div id="editHoverPreview" class="image-preview-container"></div>
+                    <div class="space-y-1">
+                        <label class="block text-xs font-bold uppercase tracking-wider text-slate-700">Stock Quantity <span class="text-rose-500">*</span></label>
+                        <input type="number" name="stock_quantity" id="edit_stock_quantity" min="0" required class="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:ring-2 focus:ring-amber-500 text-sm outline-none">
                     </div>
                 </div>
 
-                <div class="form-group">
-                    <label>Upload More Additional Images</label>
-                    <input type="file" name="additional_images[]" accept="image/*" multiple onchange="previewMultipleImages(this, 'editMultiUploadPreview')">
-                    <div id="editMultiUploadPreview" class="image-preview-container"></div>
+                <div class="space-y-1">
+                    <label class="block text-xs font-bold uppercase tracking-wider text-slate-700">Description</label>
+                    <textarea name="description" id="edit_description" rows="3" class="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:ring-2 focus:ring-amber-500 text-sm outline-none"></textarea>
                 </div>
 
-                <!-- Existing Additional Images with deletion checkboxes -->
-                <div class="form-group">
-                    <label>Existing Additional Images (Check to Delete)</label>
-                    <div id="existingAdditionalImages" class="image-preview-container"></div>
+                <div class="space-y-1">
+                    <label class="block text-xs font-bold uppercase tracking-wider text-slate-700">Key Features (One feature per line)</label>
+                    <textarea name="features" id="edit_features" rows="3" class="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:ring-2 focus:ring-amber-500 text-sm outline-none font-mono text-xs"></textarea>
                 </div>
 
-                <div class="form-group-checkbox">
-                    <label><input type="checkbox" name="is_featured" id="edit_is_featured" value="1"> Featured Product</label>
-                    <label><input type="checkbox" name="is_bestseller" id="edit_is_bestseller" value="1"> Bestseller</label>
-                    <label><input type="checkbox" name="is_active" id="edit_is_active" value="1"> Active & Visible</label>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div class="space-y-1">
+                        <label class="block text-xs font-bold uppercase tracking-wider text-slate-700">Replace Main Image</label>
+                        <input type="file" name="product_image" accept="image/*" onchange="previewImage(this, 'editImagePreview')" class="text-xs text-slate-500 file:mr-3 file:py-2 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-slate-100 file:text-slate-800">
+                        <div id="editImagePreview" class="mt-2"></div>
+                    </div>
+                    <div class="space-y-1">
+                        <label class="block text-xs font-bold uppercase tracking-wider text-slate-700">Replace Hover Image</label>
+                        <input type="file" name="product_hover_image" accept="image/*" onchange="previewImage(this, 'editHoverPreview')" class="text-xs text-slate-500 file:mr-3 file:py-2 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-slate-100 file:text-slate-800">
+                        <div id="editHoverPreview" class="mt-2"></div>
+                    </div>
                 </div>
 
-                <button type="submit" class="btn-gold" style="width:100%; margin-top:15px; padding:12px;">Save Changes</button>
+                <div class="space-y-1">
+                    <label class="block text-xs font-bold uppercase tracking-wider text-slate-700">Upload More Gallery Images</label>
+                    <input type="file" name="additional_images[]" accept="image/*" multiple onchange="previewMultipleImages(this, 'editMultiUploadPreview')" class="text-xs text-slate-500 file:mr-3 file:py-2 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-slate-100 file:text-slate-800">
+                    <div id="editMultiUploadPreview" class="mt-2 flex flex-wrap gap-2"></div>
+                </div>
+
+                <div class="space-y-1">
+                    <label class="block text-xs font-bold uppercase tracking-wider text-slate-700">Existing Gallery Images (Check to Delete)</label>
+                    <div id="existingAdditionalImages" class="flex flex-wrap gap-3 p-3 bg-slate-50 rounded-xl border border-slate-200"></div>
+                </div>
+
+                <div class="flex flex-wrap gap-6 pt-2">
+                    <label class="flex items-center gap-2 text-xs font-bold text-slate-700 cursor-pointer">
+                        <input type="checkbox" name="is_featured" id="edit_is_featured" value="1" class="w-4 h-4 text-amber-600 rounded"> Featured Product
+                    </label>
+                    <label class="flex items-center gap-2 text-xs font-bold text-slate-700 cursor-pointer">
+                        <input type="checkbox" name="is_bestseller" id="edit_is_bestseller" value="1" class="w-4 h-4 text-amber-600 rounded"> Bestseller Badge
+                    </label>
+                    <label class="flex items-center gap-2 text-xs font-bold text-slate-700 cursor-pointer">
+                        <input type="checkbox" name="is_active" id="edit_is_active" value="1" class="w-4 h-4 text-amber-600 rounded"> Active & Visible
+                    </label>
+                </div>
+
+                <div class="flex items-center justify-end gap-3 pt-4 border-t border-slate-100">
+                    <button type="button" onclick="closeModal('editModal')" class="py-2.5 px-5 rounded-xl border border-slate-300 text-slate-600 text-sm font-semibold hover:bg-slate-50">Cancel</button>
+                    <button type="submit" class="py-2.5 px-6 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl text-sm shadow-md transition-all">Save Changes</button>
+                </div>
             </form>
         </div>
     </div>
 
-    <!-- Quick Stock Modal -->
-    <div id="stockModal" class="modal">
-        <div class="modal-content" style="max-width: 320px;">
-            <span class="close" onclick="closeModal('stockModal')">&times;</span>
-            <h2 style="margin-top: 0; color: #28a745;">Quick Stock Update</h2>
-            <form method="POST">
+    <!-- 4. QUICK STOCK UPDATE MODAL -->
+    <div id="stockModal" class="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-xs hidden items-center justify-center p-4">
+        <div class="bg-white max-w-sm w-full rounded-2xl p-6 shadow-2xl space-y-4">
+            <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+                <div class="flex items-center gap-2">
+                    <span class="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold text-sm">📦</span>
+                    <h3 class="text-lg font-serif font-bold text-slate-900">Update Inventory Stock</h3>
+                </div>
+                <button type="button" onclick="closeModal('stockModal')" class="text-slate-400 hover:text-slate-700 text-xl font-bold">×</button>
+            </div>
+
+            <p class="text-xs text-slate-500">Product: <strong id="stock_product_name" class="text-slate-900"></strong></p>
+
+            <form method="POST" class="space-y-4">
                 <input type="hidden" name="action" value="quick_stock">
                 <input type="hidden" name="id" id="stock_id">
                 
-                <div class="form-group">
-                    <label>New Stock Quantity</label>
-                    <input type="number" name="stock_quantity" id="stock_qty_input" min="0" required>
+                <div class="space-y-1">
+                    <label class="block text-xs font-bold uppercase tracking-wider text-slate-700">New Stock Quantity <span class="text-rose-500">*</span></label>
+                    <input type="number" name="stock_quantity" id="stock_qty_input" min="0" required class="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:ring-2 focus:ring-emerald-500 text-sm outline-none">
                 </div>
-                <button type="submit" class="btn-gold" style="width: 100%; background: #28a745; color: white;">Update Stock</button>
+
+                <div class="flex items-center justify-end gap-3 pt-2">
+                    <button type="button" onclick="closeModal('stockModal')" class="py-2 px-4 rounded-xl border border-slate-300 text-slate-600 text-xs font-semibold hover:bg-slate-50">Cancel</button>
+                    <button type="submit" class="py-2 px-5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs shadow-md transition-all">Update Stock</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 5. CONFIRM DELETE MODAL -->
+    <div id="deleteModal" class="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-xs hidden items-center justify-center p-4">
+        <div class="bg-white max-w-md w-full rounded-2xl p-6 shadow-2xl space-y-4 text-center">
+            <div class="w-14 h-14 bg-rose-100 border border-rose-200 rounded-full flex items-center justify-center mx-auto text-rose-600 text-2xl">
+                🗑️
+            </div>
+            <h3 class="text-lg font-serif font-bold text-slate-900">Confirm Product Deletion</h3>
+            <p class="text-xs text-slate-600 leading-relaxed">
+                Are you sure you want to delete <strong id="delete_product_name" class="text-slate-900"></strong>?
+            </p>
+            <p class="text-[11px] text-slate-400 bg-slate-50 p-2.5 rounded-xl border border-slate-100">
+                ℹ️ If this product is linked to existing customer orders, it will be safely set to Inactive (soft-deleted) to preserve order history.
+            </p>
+            <form method="POST" class="flex items-center justify-center gap-3 pt-2">
+                <input type="hidden" name="action" value="delete">
+                <input type="hidden" name="id" id="delete_product_id">
+                <button type="button" onclick="closeModal('deleteModal')" class="py-2.5 px-5 rounded-xl border border-slate-300 text-slate-700 text-sm font-semibold hover:bg-slate-50">Cancel</button>
+                <button type="submit" class="py-2.5 px-5 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-xl text-sm shadow-md transition-all">Yes, Delete</button>
             </form>
         </div>
     </div>
 
     <script>
-    // Preview single image file
+    // Existing Products Data for Duplicate Checking
+    const existingProductsList = <?php echo json_encode(array_map(function($p) {
+        return ['id' => $p['id'], 'name' => strtolower($p['name']), 'sku' => strtolower($p['sku'] ?? '')];
+    }, $products)); ?>;
+
+    // Single image preview helper
     function previewImage(input, previewContainerId) {
         const container = document.getElementById(previewContainerId);
         container.innerHTML = '';
@@ -810,16 +922,14 @@ require_once 'admin_header.php';
             reader.onload = function(e) {
                 const img = document.createElement('img');
                 img.src = e.target.result;
-                img.className = 'prod-thumb';
-                img.style.width = '80px';
-                img.style.height = '80px';
+                img.className = 'w-16 h-16 object-cover rounded-xl border border-slate-200 shadow-2xs mt-1';
                 container.appendChild(img);
             }
             reader.readAsDataURL(input.files[0]);
         }
     }
 
-    // Preview multiple image files
+    // Multiple image preview helper
     function previewMultipleImages(input, previewContainerId) {
         const container = document.getElementById(previewContainerId);
         container.innerHTML = '';
@@ -829,9 +939,7 @@ require_once 'admin_header.php';
                 reader.onload = function(e) {
                     const img = document.createElement('img');
                     img.src = e.target.result;
-                    img.className = 'prod-thumb';
-                    img.style.width = '60px';
-                    img.style.height = '60px';
+                    img.className = 'w-14 h-14 object-cover rounded-xl border border-slate-200 shadow-2xs mt-1';
                     container.appendChild(img);
                 }
                 reader.readAsDataURL(file);
@@ -839,15 +947,70 @@ require_once 'admin_header.php';
         }
     }
 
-    // Modal Control
-    function openAddModal() {
-        document.getElementById('addModal').style.display = 'flex';
+    // Duplicate Check Handler on Add Form Submit
+    function handleAddSubmit(event) {
+        const confirmInput = document.getElementById('add_confirm_duplicate');
+        if (confirmInput.value === '1') {
+            return true; // Explicitly confirmed duplicate
+        }
+
+        const nameInput = document.getElementById('add_name').value.trim().toLowerCase();
+        const skuInput = document.getElementById('add_sku').value.trim().toLowerCase();
+
+        const isDuplicate = existingProductsList.some(p => 
+            p.name === nameInput || (skuInput !== '' && p.sku === skuInput)
+        );
+
+        if (isDuplicate) {
+            event.preventDefault();
+            document.getElementById('duplicateWarningText').innerHTML = 
+                `This product (<strong>"${document.getElementById('add_name').value}"</strong>) already exists in your catalog. Are you sure you want to add it again?`;
+            openModal('duplicateModal');
+            return false;
+        }
+
+        return true;
     }
 
-    function openStockModal(productId, currentQty) {
+    function confirmAndSubmitDuplicate() {
+        document.getElementById('add_confirm_duplicate').value = '1';
+        closeModal('duplicateModal');
+        document.getElementById('addForm').submit();
+    }
+
+    // Modal Opening & Closing Control
+    function openModal(id) {
+        const el = document.getElementById(id);
+        if (el) {
+            el.classList.remove('hidden');
+            el.classList.add('flex');
+        }
+    }
+
+    function closeModal(id) {
+        const el = document.getElementById(id);
+        if (el) {
+            el.classList.add('hidden');
+            el.classList.remove('flex');
+        }
+    }
+
+    function openAddModal() {
+        document.getElementById('add_confirm_duplicate').value = '0';
+        openModal('addModal');
+    }
+
+    function openStockModal(productId, productName, currentQty) {
         document.getElementById('stock_id').value = productId;
+        document.getElementById('stock_product_name').textContent = productName;
         document.getElementById('stock_qty_input').value = currentQty;
-        document.getElementById('stockModal').style.display = 'flex';
+        openModal('stockModal');
+    }
+
+    function openDeleteModal(productId, productName, sku) {
+        document.getElementById('delete_product_id').value = productId;
+        document.getElementById('delete_product_name').textContent = productName + (sku ? ` (SKU: ${sku})` : '');
+        openModal('deleteModal');
     }
 
     function openEditModal(product) {
@@ -859,7 +1022,7 @@ require_once 'admin_header.php';
         document.getElementById('edit_stock_quantity').value = product.stock_quantity;
         document.getElementById('edit_description').value = product.description || '';
 
-        // Features textarea population
+        // Features textarea
         let features = '';
         if (product.features) {
             try {
@@ -877,8 +1040,8 @@ require_once 'admin_header.php';
         document.getElementById('edit_is_active').checked = (parseInt(product.is_active) === 1);
 
         // Previews reset
-        document.getElementById('editImagePreview').innerHTML = product.image ? `<img src="${product.image}" class="prod-thumb" style="width: 80px; height: 80px;">` : '';
-        document.getElementById('editHoverPreview').innerHTML = product.hover_image ? `<img src="${product.hover_image}" class="prod-thumb" style="width: 80px; height: 80px;">` : '';
+        document.getElementById('editImagePreview').innerHTML = product.image ? `<img src="${product.image}" class="w-16 h-16 object-cover rounded-xl border border-slate-200 shadow-2xs mt-1">` : '';
+        document.getElementById('editHoverPreview').innerHTML = product.hover_image ? `<img src="${product.hover_image}" class="w-16 h-16 object-cover rounded-xl border border-slate-200 shadow-2xs mt-1">` : '';
         document.getElementById('editMultiUploadPreview').innerHTML = '';
 
         // Existing additional images list
@@ -887,45 +1050,39 @@ require_once 'admin_header.php';
         if (product.images) {
             try {
                 let parsedImages = JSON.parse(product.images);
-                if (Array.isArray(parsedImages)) {
+                if (Array.isArray(parsedImages) && parsedImages.length > 0) {
                     parsedImages.forEach(imgUrl => {
                         const div = document.createElement('div');
-                        div.style.position = 'relative';
+                        div.className = 'flex flex-col items-center gap-1 bg-white p-2 rounded-lg border border-slate-200';
                         div.innerHTML = `
-                            <img src="${imgUrl}" class="prod-thumb" style="width: 60px; height: 60px;">
-                            <label style="display:block; font-size:11px; color:red; text-align:center; cursor:pointer; margin-top:2px;">
-                                <input type="checkbox" name="deleted_additional_images[]" value="${imgUrl}"> Delete
+                            <img src="${imgUrl}" class="w-14 h-14 object-cover rounded-lg">
+                            <label class="text-[10px] text-rose-600 font-bold flex items-center gap-1 cursor-pointer">
+                                <input type="checkbox" name="deleted_additional_images[]" value="${imgUrl}" class="w-3 h-3 text-rose-600 rounded"> Delete
                             </label>
                         `;
                         existingContainer.appendChild(div);
                     });
+                } else {
+                    existingContainer.innerHTML = '<span class="text-xs text-slate-400 italic">No additional images uploaded.</span>';
                 }
-            } catch(e) {}
+            } catch(e) {
+                existingContainer.innerHTML = '<span class="text-xs text-slate-400 italic">No additional images uploaded.</span>';
+            }
+        } else {
+            existingContainer.innerHTML = '<span class="text-xs text-slate-400 italic">No additional images uploaded.</span>';
         }
 
-        document.getElementById('editModal').style.display = 'flex';
-    }
-
-    function closeModal(modalId) {
-        document.getElementById(modalId).style.display = 'none';
-    }
-
-    window.onclick = function(event) {
-        if (event.target.className === 'modal') {
-            event.target.style.display = 'none';
-        }
+        openModal('editModal');
     }
     </script>
 <?php endif; ?>
 
-<!-- Polling script for notifications of new orders/inquiries/customisations -->
+<!-- Real-time Order / Inquiry Background Polling Notification Script -->
 <script>
-// Auto-refresh after 2 minutes (120 seconds)
 setTimeout(() => {
     location.reload();
 }, 120000);
 
-// Check for new orders, inquiries, or customizations periodically
 (function() {
     let initialData = null;
     let isInitialized = false;
@@ -1047,7 +1204,3 @@ setTimeout(() => {
     checkUpdates();
 })();
 </script>
-</div>
-</div>
-
-<?php require_once 'admin_footer.php'; ?>
