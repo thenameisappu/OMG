@@ -1,7 +1,6 @@
 SET time_zone = '+05:30';
-SELECT CURRENT_TIMESTAMP AS indian_time;
 
--- Users Table (handling Authentication)
+-- 1. Users Table (handling Authentication)
 CREATE TABLE IF NOT EXISTS `users` (
     `id` CHAR(36) PRIMARY KEY, -- UUID
     `email` VARCHAR(191) UNIQUE NOT NULL,
@@ -10,9 +9,9 @@ CREATE TABLE IF NOT EXISTS `users` (
     `otp_code` VARCHAR(6),
     `otp_expiry` DATETIME,
     `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- User Profiles Table
+-- 2. User Profiles Table
 CREATE TABLE IF NOT EXISTS `user_profiles` (
     `id` CHAR(36) PRIMARY KEY, -- References users.id
     `name` VARCHAR(255),
@@ -21,9 +20,9 @@ CREATE TABLE IF NOT EXISTS `user_profiles` (
     `city` VARCHAR(100) DEFAULT 'Bangalore',
     `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (`id`) REFERENCES `users`(`id`) ON DELETE CASCADE
-);
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- Products Table
+-- 3. Products Table
 CREATE TABLE IF NOT EXISTS `products` (
     `id` CHAR(36) PRIMARY KEY, -- UUID
     `name` VARCHAR(255) NOT NULL,
@@ -43,9 +42,9 @@ CREATE TABLE IF NOT EXISTS `products` (
     `sku` VARCHAR(100) DEFAULT NULL,
     `images` LONGTEXT DEFAULT NULL,
     `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- Orders Table
+-- 4. Orders Table
 CREATE TABLE IF NOT EXISTS `orders` (
     `id` CHAR(36) PRIMARY KEY, -- UUID
     `user_id` CHAR(36) NOT NULL,
@@ -59,12 +58,12 @@ CREATE TABLE IF NOT EXISTS `orders` (
     `delivery_date` DATE,
     `delivery_time` VARCHAR(50),
     `payment_method` VARCHAR(50) NOT NULL,
-    `status` ENUM('pending','confirmed','processing','shipped','delivered','cancelled') DEFAULT 'pending',
+    `status` VARCHAR(50) DEFAULT 'pending',
     `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (`user_id`) REFERENCES `users`(`id`)
-);
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- Order Items Table
+-- 5. Order Items Table
 CREATE TABLE IF NOT EXISTS `order_items` (
     `id` INT AUTO_INCREMENT PRIMARY KEY,
     `order_id` CHAR(36) NOT NULL,
@@ -73,9 +72,9 @@ CREATE TABLE IF NOT EXISTS `order_items` (
     `unit_price` DECIMAL(10, 2) NOT NULL,
     FOREIGN KEY (`order_id`) REFERENCES `orders`(`id`) ON DELETE CASCADE,
     FOREIGN KEY (`product_id`) REFERENCES `products`(`id`)
-);
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- Wishlist Table
+-- 6. Wishlist Table
 CREATE TABLE IF NOT EXISTS `wishlist` (
     `id` INT AUTO_INCREMENT PRIMARY KEY,
     `user_id` CHAR(36) NOT NULL,
@@ -84,17 +83,29 @@ CREATE TABLE IF NOT EXISTS `wishlist` (
     UNIQUE KEY `unique_wishlist` (`user_id`, `product_id`),
     FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE,
     FOREIGN KEY (`product_id`) REFERENCES `products`(`id`) ON DELETE CASCADE
-);
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- Admin Users Table
+-- 7. Admin Users Table (Full Credentials, Email & OTP)
 CREATE TABLE IF NOT EXISTS `admin_users` (
     `id` INT AUTO_INCREMENT PRIMARY KEY,
-    `username` VARCHAR(50) UNIQUE NOT NULL,
+    `username` VARCHAR(100) UNIQUE NOT NULL,
+    `name` VARCHAR(255) DEFAULT NULL,
     `password` VARCHAR(255) NOT NULL,
+    `email` VARCHAR(191) UNIQUE DEFAULT NULL,
+    `is_main_admin` TINYINT(1) DEFAULT 0,
+    `otp_code` VARCHAR(6) DEFAULT NULL,
+    `otp_expiry` DATETIME DEFAULT NULL,
     `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- Inquiries Table (Surprise / Bespoke Service requests)
+-- Safely add missing columns to admin_users if importing into an existing database
+ALTER TABLE `admin_users` ADD COLUMN `name` VARCHAR(255) AFTER `username`;
+ALTER TABLE `admin_users` ADD COLUMN `email` VARCHAR(191) UNIQUE AFTER `password`;
+ALTER TABLE `admin_users` ADD COLUMN `is_main_admin` TINYINT(1) DEFAULT 0 AFTER `email`;
+ALTER TABLE `admin_users` ADD COLUMN `otp_code` VARCHAR(6) AFTER `is_main_admin`;
+ALTER TABLE `admin_users` ADD COLUMN `otp_expiry` DATETIME AFTER `otp_code`;
+
+-- 8. Inquiries Table (Surprise / Bespoke Service requests)
 CREATE TABLE IF NOT EXISTS `inquiries` (
     `id` INT AUTO_INCREMENT PRIMARY KEY,
     `name` VARCHAR(255) NOT NULL,
@@ -106,9 +117,9 @@ CREATE TABLE IF NOT EXISTS `inquiries` (
     `service_name` VARCHAR(255) DEFAULT NULL,
     `message` TEXT NOT NULL,
     `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- Customisations Table (Oh My Customisation's requests)
+-- 9. Customisations Table (Oh My Customisation's requests)
 CREATE TABLE IF NOT EXISTS `customisations` (
     `id` INT AUTO_INCREMENT PRIMARY KEY,
     `name` VARCHAR(255) NOT NULL,
@@ -120,16 +131,16 @@ CREATE TABLE IF NOT EXISTS `customisations` (
     `service_name` VARCHAR(255) DEFAULT NULL,
     `message` TEXT NOT NULL,
     `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- Newsletter Subscribers Table
+-- 10. Newsletter Subscribers Table
 CREATE TABLE IF NOT EXISTS `newsletter_subscribers` (
     `id` INT AUTO_INCREMENT PRIMARY KEY,
     `email` VARCHAR(191) UNIQUE NOT NULL,
     `subscribed_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- Base Surprise Experiences Table
+-- 11. Base Surprise Experiences Table
 CREATE TABLE IF NOT EXISTS `surprise_experiences` (
     `id` INT AUTO_INCREMENT PRIMARY KEY,
     `title` VARCHAR(255) NOT NULL,
@@ -144,7 +155,7 @@ CREATE TABLE IF NOT EXISTS `surprise_experiences` (
     `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- Experience Upgrades Table
+-- 12. Experience Upgrades Table
 CREATE TABLE IF NOT EXISTS `surprise_upgrades` (
     `id` INT AUTO_INCREMENT PRIMARY KEY,
     `name` VARCHAR(255) NOT NULL,
@@ -156,4 +167,3 @@ CREATE TABLE IF NOT EXISTS `surprise_upgrades` (
     `is_active` TINYINT(1) DEFAULT 1,
     `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-

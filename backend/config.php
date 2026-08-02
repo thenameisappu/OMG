@@ -220,25 +220,29 @@ function ensureAuthTablesExist($db)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
 
         // Safely add missing columns if table already exists
-        $cols = $db->query("SHOW COLUMNS FROM `admin_users`")->fetchAll(PDO::FETCH_COLUMN);
-        if (!in_array('name', $cols)) {
-            $db->exec("ALTER TABLE `admin_users` ADD COLUMN `name` VARCHAR(255) AFTER `username`");
-        }
-        if (!in_array('email', $cols)) {
-            $db->exec("ALTER TABLE `admin_users` ADD COLUMN `email` VARCHAR(191) UNIQUE AFTER `password`");
-        }
-        if (!in_array('otp_code', $cols)) {
-            $db->exec("ALTER TABLE `admin_users` ADD COLUMN `otp_code` VARCHAR(6) AFTER `is_main_admin`");
-        }
-        if (!in_array('otp_expiry', $cols)) {
-            $db->exec("ALTER TABLE `admin_users` ADD COLUMN `otp_expiry` DATETIME AFTER `otp_code`");
+        try {
+            $cols = $db->query("SHOW COLUMNS FROM `admin_users`")->fetchAll(PDO::FETCH_COLUMN);
+            if (!in_array('name', $cols)) {
+                @$db->exec("ALTER TABLE `admin_users` ADD COLUMN `name` VARCHAR(255) AFTER `username`");
+            }
+            if (!in_array('email', $cols)) {
+                @$db->exec("ALTER TABLE `admin_users` ADD COLUMN `email` VARCHAR(191) UNIQUE AFTER `password`");
+            }
+            if (!in_array('otp_code', $cols)) {
+                @$db->exec("ALTER TABLE `admin_users` ADD COLUMN `otp_code` VARCHAR(6) AFTER `is_main_admin`");
+            }
+            if (!in_array('otp_expiry', $cols)) {
+                @$db->exec("ALTER TABLE `admin_users` ADD COLUMN `otp_expiry` DATETIME AFTER `otp_code`");
+            }
+        } catch (Exception $alterEx) {
+            error_log("Notice in ALTER TABLE admin_users: " . $alterEx->getMessage());
         }
 
         // Seed main_admin if empty
         $stmt = $db->query("SELECT COUNT(*) as cnt FROM `admin_users`");
-        if ($stmt->fetch(PDO::FETCH_ASSOC)['cnt'] == 0) {
+        if ($stmt && $stmt->fetch(PDO::FETCH_ASSOC)['cnt'] == 0) {
             $hash = password_hash('admin123', PASSWORD_DEFAULT);
-            $db->exec("INSERT INTO `admin_users` (`username`, `password`, `email`, `is_main_admin`) VALUES ('main_admin', '$hash', 'admin@ohmygudness.in', 1)");
+            @$db->exec("INSERT INTO `admin_users` (`username`, `password`, `email`, `is_main_admin`) VALUES ('main_admin', '$hash', 'admin@ohmygudness.in', 1)");
         }
     } catch (Exception $e) {
         error_log("Error in ensureAuthTablesExist: " . $e->getMessage());

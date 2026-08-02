@@ -15,6 +15,13 @@ $database = new Database();
 $db = $database->getConnection();
 ensureAuthTablesExist($db);
 
+// Inline Migration Protection: ensure columns exist before running queries
+try { @$db->exec("ALTER TABLE `admin_users` ADD COLUMN `name` VARCHAR(255) AFTER `username`"); } catch (Exception $e) {}
+try { @$db->exec("ALTER TABLE `admin_users` ADD COLUMN `email` VARCHAR(191) UNIQUE AFTER `password`"); } catch (Exception $e) {}
+try { @$db->exec("ALTER TABLE `admin_users` ADD COLUMN `is_main_admin` TINYINT(1) DEFAULT 0 AFTER `email`"); } catch (Exception $e) {}
+try { @$db->exec("ALTER TABLE `admin_users` ADD COLUMN `otp_code` VARCHAR(6) AFTER `is_main_admin`"); } catch (Exception $e) {}
+try { @$db->exec("ALTER TABLE `admin_users` ADD COLUMN `otp_expiry` DATETIME AFTER `otp_code`"); } catch (Exception $e) {}
+
 $message = "";
 $error = "";
 
