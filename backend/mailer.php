@@ -2,22 +2,24 @@
 // Centralized Mailer Helper with SMTP, Native PHP mail() Fallback, and Dynamic HTML Email Templates
 require_once __DIR__ . '/config.php';
 
-function getSmtpConfig() {
+function getSmtpConfig()
+{
     return [
-        'host'       => getenv('SMTP_HOST') ?: ($_ENV['SMTP_HOST'] ?? ''),
-        'port'       => (int)(getenv('SMTP_PORT') ?: ($_ENV['SMTP_PORT'] ?? 465)),
-        'user'       => getenv('SMTP_USER') ?: ($_ENV['SMTP_USER'] ?? ''),
-        'pass'       => getenv('SMTP_PASS') ?: ($_ENV['SMTP_PASS'] ?? ''),
-        'from'       => getenv('SMTP_FROM') ?: ($_ENV['SMTP_FROM'] ?? 'info@ohmygudness.in'),
-        'from_name'  => getenv('SMTP_FROM_NAME') ?: ($_ENV['SMTP_FROM_NAME'] ?? 'OH MY GUDNESS'),
-        'secure'     => strtolower(getenv('SMTP_SECURE') ?: ($_ENV['SMTP_SECURE'] ?? 'ssl'))
+        'host' => getenv('SMTP_HOST') ?: ($_ENV['SMTP_HOST'] ?? ''),
+        'port' => (int) (getenv('SMTP_PORT') ?: ($_ENV['SMTP_PORT'] ?? 465)),
+        'user' => getenv('SMTP_USER') ?: ($_ENV['SMTP_USER'] ?? ''),
+        'pass' => getenv('SMTP_PASS') ?: ($_ENV['SMTP_PASS'] ?? ''),
+        'from' => getenv('SMTP_FROM') ?: ($_ENV['SMTP_FROM'] ?? 'info@ohmygudness.in'),
+        'from_name' => getenv('SMTP_FROM_NAME') ?: ($_ENV['SMTP_FROM_NAME'] ?? 'OH MY GUDNESS'),
+        'secure' => strtolower(getenv('SMTP_SECURE') ?: ($_ENV['SMTP_SECURE'] ?? 'ssl'))
     ];
 }
 
 /**
  * Sends HTML Email using SMTP socket client or native PHP mail() fallback
  */
-function sendEmail($to, $subject, $htmlBody) {
+function sendEmail($to, $subject, $htmlBody)
+{
     $config = getSmtpConfig();
 
     // 1. Try sending via SMTP socket if credentials exist
@@ -33,11 +35,11 @@ function sendEmail($to, $subject, $htmlBody) {
     }
 
     // 2. Fallback to native PHP mail() function
-    $fromHeader = !empty($config['from_name']) 
+    $fromHeader = !empty($config['from_name'])
         ? '="UTF-8"B?' . base64_encode($config['from_name']) . '?= <' . $config['from'] . '>'
         : $config['from'];
 
-    $headers  = "MIME-Version: 1.0\r\n";
+    $headers = "MIME-Version: 1.0\r\n";
     $headers .= "Content-Type: text/html; charset=UTF-8\r\n";
     $headers .= "From: {$fromHeader}\r\n";
     $headers .= "Reply-To: {$config['from']}\r\n";
@@ -49,7 +51,8 @@ function sendEmail($to, $subject, $htmlBody) {
 /**
  * Socket-based SMTP Client (supports SSL port 465 & TLS port 587 without external libraries)
  */
-function sendViaSmtpSocket($to, $subject, $htmlBody, $config) {
+function sendViaSmtpSocket($to, $subject, $htmlBody, $config)
+{
     $host = $config['host'];
     $port = $config['port'];
     $user = $config['user'];
@@ -73,16 +76,17 @@ function sendViaSmtpSocket($to, $subject, $htmlBody, $config) {
         throw new Exception("Could not connect to SMTP host {$host}:{$port} ({$errstr})");
     }
 
-    $read = function() use ($socket) {
+    $read = function () use ($socket) {
         $response = '';
         while ($str = fgets($socket, 515)) {
             $response .= $str;
-            if (substr($str, 3, 1) === ' ') break;
+            if (substr($str, 3, 1) === ' ')
+                break;
         }
         return $response;
     };
 
-    $send = function($cmd) use ($socket, $read) {
+    $send = function ($cmd) use ($socket, $read) {
         fputs($socket, $cmd . "\r\n");
         return $read();
     };
@@ -110,7 +114,7 @@ function sendViaSmtpSocket($to, $subject, $htmlBody, $config) {
     $send("RCPT TO: <{$to}>");
     $send("DATA");
 
-    $headers  = "MIME-Version: 1.0\r\n";
+    $headers = "MIME-Version: 1.0\r\n";
     $headers .= "Content-Type: text/html; charset=UTF-8\r\n";
     $headers .= "From: {$fromName} <{$from}>\r\n";
     $headers .= "To: <{$to}>\r\n";
@@ -129,21 +133,23 @@ function sendViaSmtpSocket($to, $subject, $htmlBody, $config) {
 /**
  * Returns Default Dynamic Placeholders
  */
-function getDefaultEmailPlaceholders() {
+function getDefaultEmailPlaceholders()
+{
     $baseUrl = getenv('BASE_URL') ?: (isset($_SERVER['HTTP_HOST']) ? 'https://' . $_SERVER['HTTP_HOST'] : 'https://ohmygudness.in');
     return [
-        '{{APP_NAME}}'       => getenv('APP_NAME') ?: 'OH MY GUDNESS',
-        '{{SUPPORT_EMAIL}}'  => getenv('SUPPORT_EMAIL') ?: 'info@ohmygudness.in',
-        '{{WEBSITE_URL}}'    => getenv('WEBSITE_URL') ?: 'https://ohmygudness.in',
-        '{{LOGO_URL}}'       => getenv('LOGO_URL') ?: ($baseUrl . '/backend/assets/logo.png'),
-        '{{CURRENT_YEAR}}'   => date('Y')
+        '{{APP_NAME}}' => getenv('APP_NAME') ?: 'OH MY GUDNESS',
+        '{{SUPPORT_EMAIL}}' => getenv('SUPPORT_EMAIL') ?: 'info@ohmygudness.in',
+        '{{WEBSITE_URL}}' => getenv('WEBSITE_URL') ?: 'https://ohmygudness.in',
+        '{{LOGO_URL}}' => getenv('LOGO_URL') ?: ($baseUrl . '/backend/assets/logo.png'),
+        '{{CURRENT_YEAR}}' => date('Y')
     ];
 }
 
 /**
  * MASTER DYNAMIC HTML EMAIL TEMPLATE RENDERER
  */
-function renderEmailTemplate($templateType, $customPlaceholders = []) {
+function renderEmailTemplate($templateType, $customPlaceholders = [])
+{
     $defaults = getDefaultEmailPlaceholders();
     $placeholders = array_merge($defaults, $customPlaceholders);
 
@@ -155,13 +161,13 @@ function renderEmailTemplate($templateType, $customPlaceholders = []) {
         $placeholders['{{OTP_CODE}}'] = '000000';
     }
 
-    $appName      = $placeholders['{{APP_NAME}}'];
-    $userName     = $placeholders['{{USER_NAME}}'];
-    $otpCode      = $placeholders['{{OTP_CODE}}'];
+    $appName = $placeholders['{{APP_NAME}}'];
+    $userName = $placeholders['{{USER_NAME}}'];
+    $otpCode = $placeholders['{{OTP_CODE}}'];
     $supportEmail = $placeholders['{{SUPPORT_EMAIL}}'];
-    $websiteUrl   = $placeholders['{{WEBSITE_URL}}'];
-    $logoUrl      = $placeholders['{{LOGO_URL}}'];
-    $currentYear  = $placeholders['{{CURRENT_YEAR}}'];
+    $websiteUrl = $placeholders['{{WEBSITE_URL}}'];
+    $logoUrl = $placeholders['{{LOGO_URL}}'];
+    $currentYear = $placeholders['{{CURRENT_YEAR}}'];
 
     // Template Configurations
     if ($templateType === 'email_verification') {
@@ -193,11 +199,11 @@ function renderEmailTemplate($templateType, $customPlaceholders = []) {
         $subHeading = "Your account has been successfully verified! We are thrilled to welcome you to our exclusive world of luxury floral arrangements, bespoke gift hampers, and unforgettable surprise experiences.";
         $showOtp = false;
         $validityText = "✨ Your account is active & fully verified";
-        $securityNote = "You can now sign in to track live orders, save custom preferences, and enjoy VIP member privileges.";
+        $securityNote = "You can now sign in to track live orders and save custom preferences";
         $ignoreNote = "Thank you for choosing " . htmlspecialchars($appName) . ".";
         $ctaButton = [
             'label' => 'Explore Collections',
-            'url'   => $websiteUrl . '/products'
+            'url' => $websiteUrl . '/products'
         ];
     }
 
@@ -334,21 +340,24 @@ function renderEmailTemplate($templateType, $customPlaceholders = []) {
 /**
  * Convenience Helper Functions
  */
-function buildEmailVerificationTemplate($userName, $otpCode) {
+function buildEmailVerificationTemplate($userName, $otpCode)
+{
     return renderEmailTemplate('email_verification', [
         '{{USER_NAME}}' => $userName,
-        '{{OTP_CODE}}'  => $otpCode
+        '{{OTP_CODE}}' => $otpCode
     ]);
 }
 
-function buildForgotPasswordTemplate($userName, $otpCode) {
+function buildForgotPasswordTemplate($userName, $otpCode)
+{
     return renderEmailTemplate('forgot_password', [
         '{{USER_NAME}}' => $userName,
-        '{{OTP_CODE}}'  => $otpCode
+        '{{OTP_CODE}}' => $otpCode
     ]);
 }
 
-function buildWelcomeEmailTemplate($userName) {
+function buildWelcomeEmailTemplate($userName)
+{
     return renderEmailTemplate('welcome', [
         '{{USER_NAME}}' => $userName
     ]);

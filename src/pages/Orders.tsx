@@ -118,10 +118,6 @@ export default function Orders() {
                     <div>
                         <div className="flex items-center gap-3 mb-1">
                             <h1 className="text-3xl md:text-4xl font-bold tracking-tight">My Orders</h1>
-                            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 shadow-xs">
-                                <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                                Live Tracking (Auto 60s)
-                            </span>
                         </div>
                         <p className="text-muted-foreground">Track and manage your recent purchases</p>
                     </div>

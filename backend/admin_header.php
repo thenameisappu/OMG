@@ -194,8 +194,7 @@ if (!$isLoggedIn && $currentPage !== 'admin.php') {
                     <div class="hidden sm:flex items-center gap-4">
                         <div
                             class="flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-800/80 border border-slate-700 text-xs">
-                            <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-                            <span class="text-slate-300">Logged as <strong
+                            <span class="text-slate-300">Logged in as <strong
                                     class="text-white"><?php echo htmlspecialchars($adminUsername); ?></strong></span>
                         </div>
                         <a href="admin.php?logout=1"

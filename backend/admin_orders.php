@@ -137,11 +137,6 @@ require_once 'admin_header.php';
             <h1 class="text-2xl sm:text-3xl font-serif font-bold text-slate-900">Order Management</h1>
             <p class="text-slate-500 text-sm mt-1">Track customer orders, manage statuses, and view live purchases.</p>
         </div>
-        <div class="flex items-center gap-3">
-            <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                <span class="h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></span> Live Sync Active (60s)
-            </span>
-        </div>
     </div>
 
     <!-- Quick Stats Grid -->

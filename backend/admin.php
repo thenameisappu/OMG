@@ -254,10 +254,6 @@ if (!isset($_SESSION['admin_logged_in']) || $_SESSION['admin_logged_in'] !== tru
                 <h2 class="text-2xl sm:text-3xl font-serif font-bold text-amber-400 tracking-wide">Admin Portal Access</h2>
                 <p class="mt-1 text-xs text-slate-400">Sign in to manage orders, products, inquiries & configurations</p>
             </div>
-            <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-800 border border-slate-700 text-[11px] font-semibold text-slate-300">
-                <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-                <span>⏱️ 3-Hour Active Session Protection</span>
-            </div>
         </div>
 
         <?php if (!empty($expiredError)): ?>

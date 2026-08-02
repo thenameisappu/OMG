@@ -160,7 +160,7 @@ export default function Login() {
             </h2>
 
             <p className="text-emerald-100/80 text-sm leading-relaxed font-light">
-              Sign in to manage your orders, track surprise deliveries, save favorite blooms to your wishlist, and enjoy VIP member privileges.
+              Sign in to manage your orders, track surprise deliveries, save favorite blooms to your wishlist, and
             </p>
 
             <div className="pt-6 border-t border-white/15 flex items-center gap-6 text-xs text-white/70">

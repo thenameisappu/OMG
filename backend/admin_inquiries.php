@@ -32,11 +32,6 @@ require_once 'admin_header.php';
             <h1 class="text-2xl sm:text-3xl font-serif font-bold text-slate-900">Bespoke Event Inquiries</h1>
             <p class="text-slate-500 text-sm mt-1">Review custom surprise requests and event planning inquiries.</p>
         </div>
-        <div class="flex items-center gap-3">
-            <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                <span class="h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></span> Auto 60s Sync
-            </span>
-        </div>
     </div>
 
     <!-- Main Card -->
