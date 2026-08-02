@@ -143,15 +143,24 @@ export default function SurpriseServices() {
     setPincodeStatus({ loading: true });
     try {
       const res = await surpriseService.checkPincode(code);
-      setPincodeStatus({
-        valid: res.valid,
-        message: res.message,
-        loading: false
-      });
+      if (res && res.valid) {
+        setPincodeStatus({
+          valid: true,
+          message: "✅ Delivery Available",
+          detail: "Same-day delivery is available for your location.",
+          loading: false
+        });
+      } else {
+        setPincodeStatus({
+          valid: false,
+          message: "❌ Sorry, we currently deliver only within Bengaluru.",
+          loading: false
+        });
+      }
     } catch (err) {
       setPincodeStatus({
         valid: false,
-        message: "Unable to verify pincode. Please try again.",
+        message: "❌ Sorry, we currently deliver only within Bengaluru.",
         loading: false
       });
     }
@@ -734,9 +743,14 @@ export default function SurpriseServices() {
                       </p>
                     )}
                     {pincodeStatus.valid === true && (
-                      <div className="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-xs flex items-center gap-2">
-                        <Check className="h-4 w-4 shrink-0 text-emerald-400" />
-                        <span>{pincodeStatus.message}</span>
+                      <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-xs space-y-0.5">
+                        <p className="font-bold flex items-center gap-1.5 text-emerald-300">
+                          <Check className="h-4 w-4 shrink-0 text-emerald-400" />
+                          <span>{pincodeStatus.message}</span>
+                        </p>
+                        <p className="text-[11px] text-emerald-400/90 pl-5 font-medium">
+                          {pincodeStatus.detail || "Same-day delivery is available for your location."}
+                        </p>
                       </div>
                     )}
                     {pincodeStatus.valid === false && (

@@ -309,35 +309,7 @@ require_once 'admin_header.php';
         </div>
     </div>
 
-    <!-- SECTION 3: GOOGLE MAPS API PINCODE VALIDATION -->
-    <div class="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-6 space-y-4">
-        <div
-            class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-slate-100 pb-4">
-            <div>
-                <h3 class="text-lg font-serif font-bold text-slate-900">3. Google Maps API Pincode Validation</h3>
-                <p class="text-xs text-slate-500">Live delivery area validation is powered by Google Maps Geocoding API.
-                </p>
-            </div>
-            <span
-                class="px-3 py-1.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                🗺️ Google Maps API Active
-            </span>
-        </div>
 
-        <div class="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-2 text-xs text-slate-600">
-            <p><strong class="text-slate-900">How Google Maps Validation Works:</strong></p>
-            <ul class="list-disc list-inside space-y-1 text-slate-500">
-                <li>Users can enter any 6-digit numeric pincode.</li>
-                <li>The backend validates pincodes via the Google Maps Geocoding API using <code
-                        class="font-mono text-amber-700 bg-amber-50 px-1 py-0.5 rounded">GOOGLE_MAPS_API_KEY</code>
-                    configured in <code class="font-mono text-slate-800 font-bold">.env</code>.</li>
-                <li>If the geocoded location resides within <strong>Bengaluru (Bangalore)</strong>, delivery is accepted
-                    as <em>"Delivery Available"</em>.</li>
-                <li>If outside Bengaluru or invalid, the user is informed: <em>"Sorry, we currently deliver only within
-                        Bengaluru."</em></li>
-            </ul>
-        </div>
-    </div>
 </div>
 
 <!-- MODAL: ADD/EDIT EXPERIENCE -->

@@ -16,7 +16,8 @@ import {
   MapPin,
   Check,
   Clock,
-  Sparkles
+  Sparkles,
+  Loader2
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -45,7 +46,8 @@ export default function ProductDetail() {
 
   // Pincode Checker state
   const [pincode, setPincode] = useState('');
-  const [pincodeStatus, setPincodeStatus] = useState<null | 'valid' | 'invalid'>(null);
+  const [pincodeLoading, setPincodeLoading] = useState(false);
+  const [pincodeStatus, setPincodeStatus] = useState<{ valid: boolean; message: string; detail?: string } | null>(null);
 
   useEffect(() => {
     if (slug) {
@@ -131,18 +133,35 @@ export default function ProductDetail() {
     e.preventDefault();
     const cleanPin = pincode.replace(/\D/g, '').slice(0, 6);
     if (!cleanPin || cleanPin.length !== 6) {
-      setPincodeStatus({ valid: false, message: 'Please enter a valid 6-digit numeric pincode.' });
+      setPincodeStatus({
+        valid: false,
+        message: '❌ Sorry, we currently deliver only within Bengaluru.'
+      });
       return;
     }
+    setPincodeLoading(true);
+    setPincodeStatus(null);
     try {
       const res = await surpriseService.checkPincode(cleanPin);
       if (res && res.valid) {
-        setPincodeStatus({ valid: true, message: res.message || `Delivery Available in Bengaluru for ${cleanPin} ✨` });
+        setPincodeStatus({
+          valid: true,
+          message: '✅ Delivery Available',
+          detail: 'Same-day delivery is available for your location.'
+        });
       } else {
-        setPincodeStatus({ valid: false, message: res.message || 'Sorry, we currently deliver only within Bengaluru.' });
+        setPincodeStatus({
+          valid: false,
+          message: '❌ Sorry, we currently deliver only within Bengaluru.'
+        });
       }
     } catch (e) {
-      setPincodeStatus({ valid: false, message: 'Sorry, we currently deliver only within Bengaluru.' });
+      setPincodeStatus({
+        valid: false,
+        message: '❌ Sorry, we currently deliver only within Bengaluru.'
+      });
+    } finally {
+      setPincodeLoading(false);
     }
   };
 
@@ -297,17 +316,37 @@ export default function ProductDetail() {
                     setPincodeStatus(null);
                   }}
                 />
-                <Button type="submit" variant="secondary" className="h-11 px-6 font-bold text-xs uppercase tracking-wider whitespace-nowrap">
-                  Check Slot
+                <Button 
+                  type="submit" 
+                  variant="secondary" 
+                  disabled={pincodeLoading}
+                  className="h-11 px-6 font-bold text-xs uppercase tracking-wider whitespace-nowrap min-w-[120px] flex items-center justify-center gap-2"
+                >
+                  {pincodeLoading ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <span>Checking...</span>
+                    </>
+                  ) : (
+                    "Check Slot"
+                  )}
                 </Button>
               </form>
               {pincodeStatus?.valid === true && (
-                <p className="text-xs text-emerald-700 font-bold flex items-center gap-1">
-                  <Check className="h-4 w-4" /> {pincodeStatus.message}
-                </p>
+                <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200/80 text-emerald-800 space-y-0.5 animate-fadeIn">
+                  <p className="text-xs font-bold flex items-center gap-1.5 text-emerald-800">
+                    <Check className="h-4 w-4 text-emerald-600 shrink-0" />
+                    {pincodeStatus.message}
+                  </p>
+                  <p className="text-[11px] text-emerald-700 pl-5 font-medium">
+                    {pincodeStatus.detail || "Same-day delivery is available for your location."}
+                  </p>
+                </div>
               )}
               {pincodeStatus?.valid === false && (
-                <p className="text-xs text-red-500 font-medium">{pincodeStatus.message}</p>
+                <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200/80 text-rose-700 font-medium text-xs animate-fadeIn">
+                  {pincodeStatus.message}
+                </div>
               )}
             </div>
 
