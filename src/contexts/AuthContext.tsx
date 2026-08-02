@@ -106,14 +106,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signUp = async (email: string, password: string, name: string) => {
     try {
-      await authService.register(email, password);
-      await profileService.update({ name });
-      await checkAuth();
-
+      const res = await authService.register(email, password);
+      try {
+        await profileService.update({ name });
+      } catch (e) {}
+      
       toast({
-        title: 'Account created!',
-        description: 'Welcome to OMG Luxury Gifting.',
+        title: 'Verification Code Sent ✨',
+        description: 'A 6-digit OTP code has been sent to your email address.',
       });
+      return res;
     } catch (error: any) {
       toast({
         title: 'Sign up failed',

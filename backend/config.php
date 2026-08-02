@@ -193,6 +193,55 @@ function ensureSurpriseTablesExist($db)
     }
 }
 
+function ensureAuthTablesExist($db)
+{
+    try {
+        // 1. Users Table
+        $db->exec("CREATE TABLE IF NOT EXISTS `users` (
+            `id` CHAR(36) PRIMARY KEY,
+            `email` VARCHAR(191) UNIQUE NOT NULL,
+            `password_hash` VARCHAR(255) NOT NULL,
+            `is_verified` TINYINT(1) DEFAULT 0,
+            `otp_code` VARCHAR(6),
+            `otp_expiry` DATETIME,
+            `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
+
+        // 2. Admin Users Table
+        $db->exec("CREATE TABLE IF NOT EXISTS `admin_users` (
+            `id` INT AUTO_INCREMENT PRIMARY KEY,
+            `username` VARCHAR(100) UNIQUE NOT NULL,
+            `password` VARCHAR(255) NOT NULL,
+            `email` VARCHAR(191) UNIQUE,
+            `is_main_admin` TINYINT(1) DEFAULT 0,
+            `otp_code` VARCHAR(6),
+            `otp_expiry` DATETIME,
+            `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
+
+        // Safely add missing columns if table already exists
+        $cols = $db->query("SHOW COLUMNS FROM `admin_users`")->fetchAll(PDO::FETCH_COLUMN);
+        if (!in_array('email', $cols)) {
+            $db->exec("ALTER TABLE `admin_users` ADD COLUMN `email` VARCHAR(191) UNIQUE AFTER `password`");
+        }
+        if (!in_array('otp_code', $cols)) {
+            $db->exec("ALTER TABLE `admin_users` ADD COLUMN `otp_code` VARCHAR(6) AFTER `is_main_admin`");
+        }
+        if (!in_array('otp_expiry', $cols)) {
+            $db->exec("ALTER TABLE `admin_users` ADD COLUMN `otp_expiry` DATETIME AFTER `otp_code`");
+        }
+
+        // Seed main_admin if empty
+        $stmt = $db->query("SELECT COUNT(*) as cnt FROM `admin_users`");
+        if ($stmt->fetch(PDO::FETCH_ASSOC)['cnt'] == 0) {
+            $hash = password_hash('admin123', PASSWORD_DEFAULT);
+            $db->exec("INSERT INTO `admin_users` (`username`, `password`, `email`, `is_main_admin`) VALUES ('main_admin', '$hash', 'admin@ohmygudness.in', 1)");
+        }
+    } catch (Exception $e) {
+        error_log("Error in ensureAuthTablesExist: " . $e->getMessage());
+    }
+}
+
 // Centralized authentication function for all backend files
 function authenticate()
 {

@@ -54,7 +54,7 @@ export default function Login() {
     setLoading(true);
     try {
       await signUp(signupData.email, signupData.password, signupData.name);
-      navigate(from, { replace: true });
+      navigate('/verify-otp', { state: { email: signupData.email } });
     } catch (error) {
       console.error('Signup error:', error);
     } finally {

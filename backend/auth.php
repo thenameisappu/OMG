@@ -1,5 +1,6 @@
 <?php
 require_once 'config.php';
+require_once 'mailer.php';
 
 header("Content-Type: application/json; charset=UTF-8");
 
@@ -12,10 +13,10 @@ if ($db === null) {
     exit();
 }
 
-$data = json_decode(file_get_contents("php://input"));
+// Ensure schema is updated with necessary auth & OTP columns
+ensureAuthTablesExist($db);
 
-if ($data === null && json_last_error() !== JSON_ERROR_NONE) {
-}
+$data = json_decode(file_get_contents("php://input"));
 $action = isset($_GET['action']) ? $_GET['action'] : '';
 
 switch ($action) {
@@ -47,380 +48,447 @@ switch ($action) {
         resetPassword($db, $data);
         break;
     default:
-        echo json_encode(["message" => "Invalid action"]);
+        http_response_code(400);
+        echo json_encode(["message" => "Invalid action."]);
         break;
 }
 
-function sendOTPEmail($email, $otp)
-{
-    $subject = "Verify your OMG Account";
-    $message = "Your verification code is: " . $otp . "\n\nThis code will expire in 15 minutes.";
-    $headers = "From: info@ohmygudness.in";
-
-    // In a real production environment, you'd use a robust mailer like PHPMailer or an API
-    return mail($email, $subject, $message, $headers);
-}
-
+// ── 1. USER REGISTRATION (WITH OTP EMAIL VERIFICATION) ────────────────────
 function register($db, $data)
 {
-    if (!empty($data->email) && !empty($data->password)) {
-        // Check if user exists
-        $query = "SELECT id FROM users WHERE email = :email";
-        $stmt = $db->prepare($query);
-        $stmt->bindParam(":email", $data->email);
-        $stmt->execute();
+    $email = strtolower(trim($data->email ?? ''));
+    $password = trim($data->password ?? '');
 
-        if ($stmt->rowCount() > 0) {
+    if (empty($email) || empty($password)) {
+        http_response_code(400);
+        echo json_encode(["message" => "Email and password are required."]);
+        return;
+    }
+
+    if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        http_response_code(400);
+        echo json_encode(["message" => "Please enter a valid email address."]);
+        return;
+    }
+
+    if (strlen($password) < 6) {
+        http_response_code(400);
+        echo json_encode(["message" => "Password must be at least 6 characters long."]);
+        return;
+    }
+
+    // Check if user already exists
+    $query = "SELECT id, is_verified FROM users WHERE email = :email";
+    $stmt = $db->prepare($query);
+    $stmt->bindParam(":email", $email);
+    $stmt->execute();
+    $existing = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    if ($existing) {
+        if ((int)$existing['is_verified'] === 1) {
             http_response_code(400);
-            echo json_encode(["message" => "User already exists."]);
+            echo json_encode(["message" => "User with this email already exists. Please log in."]);
+            return;
+        } else {
+            // Update unverified user with new password & fresh OTP
+            $uuid = $existing['id'];
+            $password_hash = password_hash($password, PASSWORD_BCRYPT);
+            $otp = sprintf("%06d", mt_rand(0, 999999));
+            $expiry = date('Y-m-d H:i:s', strtotime('+10 minutes'));
+
+            $update = $db->prepare("UPDATE users SET password_hash = :hash, otp_code = :otp, otp_expiry = :expiry WHERE id = :id");
+            $update->execute([':hash' => $password_hash, ':otp' => $otp, ':expiry' => $expiry, ':id' => $uuid]);
+
+            $userName = explode('@', $email)[0];
+            $htmlBody = buildEmailVerificationTemplate($userName, $otp);
+            sendEmail($email, "Verify your OH MY GUDNESS Account", $htmlBody);
+
+            http_response_code(200);
+            echo json_encode([
+                "success" => true,
+                "message" => "A new 6-digit verification code has been sent to your email.",
+                "requires_verification" => true,
+                "email" => $email
+            ]);
             return;
         }
+    }
 
-        $query = "INSERT INTO users (id, email, password_hash, is_verified, otp_code, otp_expiry) VALUES (:id, :email, :password_hash, 1, :otp_code, :otp_expiry)";
-        $stmt = $db->prepare($query);
+    // Create new unverified user
+    $uuid = sprintf(
+        '%04x%04x-%04x-%04x-%04x-%04x%04x%04x',
+        mt_rand(0, 0xffff), mt_rand(0, 0xffff), mt_rand(0, 0xffff),
+        mt_rand(0, 0x0fff) | 0x4000, mt_rand(0, 0x3fff) | 0x8000,
+        mt_rand(0, 0xffff), mt_rand(0, 0xffff), mt_rand(0, 0xffff)
+    );
 
-        // Generate UUID
-        $uuid = sprintf(
-            '%04x%04x-%04x-%04x-%04x-%04x%04x%04x',
-            mt_rand(0, 0xffff),
-            mt_rand(0, 0xffff),
-            mt_rand(0, 0xffff),
-            mt_rand(0, 0x0fff) | 0x4000,
-            mt_rand(0, 0x3fff) | 0x8000,
-            mt_rand(0, 0xffff),
-            mt_rand(0, 0xffff),
-            mt_rand(0, 0xffff)
-        );
+    $password_hash = password_hash($password, PASSWORD_BCRYPT);
+    $otp = sprintf("%06d", mt_rand(0, 999999));
+    $expiry = date('Y-m-d H:i:s', strtotime('+10 minutes'));
 
-        $password_hash = password_hash($data->password, PASSWORD_BCRYPT);
-        $otp = sprintf("%06d", mt_rand(0, 999999));
-        $expiry = date('Y-m-d H:i:s', strtotime('+15 minutes'));
+    $stmt = $db->prepare("INSERT INTO users (id, email, password_hash, is_verified, otp_code, otp_expiry) VALUES (:id, :email, :password_hash, 0, :otp_code, :otp_expiry)");
+    $stmt->bindParam(":id", $uuid);
+    $stmt->bindParam(":email", $email);
+    $stmt->bindParam(":password_hash", $password_hash);
+    $stmt->bindParam(":otp_code", $otp);
+    $stmt->bindParam(":otp_expiry", $expiry);
 
-        $stmt->bindParam(":id", $uuid);
-        $stmt->bindParam(":email", $data->email);
-        $stmt->bindParam(":password_hash", $password_hash);
-        $stmt->bindParam(":otp_code", $otp);
-        $stmt->bindParam(":otp_expiry", $expiry);
+    if ($stmt->execute()) {
+        // Create user profile
+        $profileStmt = $db->prepare("INSERT INTO user_profiles (id) VALUES (:id)");
+        $profileStmt->bindParam(":id", $uuid);
+        $profileStmt->execute();
 
-        if ($stmt->execute()) {
-            // Create empty profile
-            $profileQuery = "INSERT INTO user_profiles (id) VALUES (:id)";
-            $profileStmt = $db->prepare($profileQuery);
-            $profileStmt->bindParam(":id", $uuid);
-            $profileStmt->execute();
+        // Send OTP Email
+        $userName = explode('@', $email)[0];
+        $htmlBody = buildEmailVerificationTemplate($userName, $otp);
+        $mailSent = sendEmail($email, "Verify your OH MY GUDNESS Account", $htmlBody);
 
-            // Set session automatically
-            $_SESSION['user_id'] = $uuid;
-
-            http_response_code(201);
-            echo json_encode([
-                "message" => "Account created successfully.",
-                "requires_verification" => false,
-                "user" => [
-                    "id" => $uuid,
-                    "email" => $data->email
-                ]
-            ]);
-        } else {
-            http_response_code(503);
-            echo json_encode(["message" => "Unable to create user."]);
-        }
+        http_response_code(201);
+        echo json_encode([
+            "success" => true,
+            "message" => "Account created! A 6-digit verification code has been sent to your email.",
+            "requires_verification" => true,
+            "email" => $email
+        ]);
     } else {
-        http_response_code(400);
-        echo json_encode(["message" => "Incomplete data."]);
+        http_response_code(500);
+        echo json_encode(["message" => "Unable to create user account. Please try again."]);
     }
 }
 
+// ── 2. USER LOGIN ──────────────────────────────────────────────────────────
 function login($db, $data)
 {
-    if (!empty($data->email) && !empty($data->password)) {
-        $query = "SELECT id, email, password_hash, is_verified FROM users WHERE email = :email";
-        $stmt = $db->prepare($query);
-        $stmt->bindParam(":email", $data->email);
-        $stmt->execute();
+    $email = strtolower(trim($data->email ?? ''));
+    $password = trim($data->password ?? '');
 
-        if ($stmt->rowCount() > 0) {
-            $row = $stmt->fetch(PDO::FETCH_ASSOC);
-            if (password_verify($data->password, $row['password_hash'])) {
-                if ($row['is_verified'] == 0) {
-                    $verifyStmt = $db->prepare("UPDATE users SET is_verified = 1 WHERE id = :id");
-                    $verifyStmt->bindParam(":id", $row['id']);
-                    $verifyStmt->execute();
-                }
+    if (empty($email) || empty($password)) {
+        http_response_code(400);
+        echo json_encode(["message" => "Email and password are required."]);
+        return;
+    }
 
-                // Set session
-                $_SESSION['user_id'] = $row['id'];
+    $query = "SELECT id, email, password_hash, is_verified FROM users WHERE email = :email";
+    $stmt = $db->prepare($query);
+    $stmt->bindParam(":email", $email);
+    $stmt->execute();
 
-                http_response_code(200);
+    if ($stmt->rowCount() > 0) {
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        if (password_verify($password, $row['password_hash'])) {
+            if ((int)$row['is_verified'] === 0) {
+                // Generate fresh OTP for unverified user
+                $otp = sprintf("%06d", mt_rand(0, 999999));
+                $expiry = date('Y-m-d H:i:s', strtotime('+10 minutes'));
+                $up = $db->prepare("UPDATE users SET otp_code = :otp, otp_expiry = :expiry WHERE id = :id");
+                $up->execute([':otp' => $otp, ':expiry' => $expiry, ':id' => $row['id']]);
+
+                $userName = explode('@', $email)[0];
+                $htmlBody = buildEmailVerificationTemplate($userName, $otp);
+                sendEmail($email, "Verify your OH MY GUDNESS Account", $htmlBody);
+
+                http_response_code(403);
                 echo json_encode([
-                    "message" => "Login successful.",
-                    "user" => [
-                        "id" => $row['id'],
-                        "email" => $row['email']
-                    ]
+                    "message" => "Account not verified. A verification code has been sent to your email.",
+                    "requires_verification" => true,
+                    "email" => $email
                 ]);
-            } else {
-                http_response_code(401);
-                echo json_encode(["message" => "Invalid credentials."]);
-            }
-        } else {
-            http_response_code(401);
-            echo json_encode(["message" => "Invalid credentials."]);
-        }
-    } else {
-        http_response_code(400);
-        echo json_encode(["message" => "Incomplete data."]);
-    }
-}
-
-function verifyOtp($db, $data)
-{
-    if (!empty($data->email) && !empty($data->otp)) {
-        $query = "SELECT id, otp_code, otp_expiry FROM users WHERE email = :email";
-        $stmt = $db->prepare($query);
-        $stmt->bindParam(":email", $data->email);
-        $stmt->execute();
-
-        if ($stmt->rowCount() > 0) {
-            $row = $stmt->fetch(PDO::FETCH_ASSOC);
-            $now = date('Y-m-d H:i:s');
-
-            if ($row['otp_code'] === $data->otp && $row['otp_expiry'] >= $now) {
-                $updateQuery = "UPDATE users SET is_verified = 1, otp_code = NULL, otp_expiry = NULL WHERE id = :id";
-                $updateStmt = $db->prepare($updateQuery);
-                $updateStmt->bindParam(":id", $row['id']);
-
-                if ($updateStmt->execute()) {
-                    // Automatically log them in
-                    $_SESSION['user_id'] = $row['id'];
-                    echo json_encode([
-                        "message" => "Email verified successfully.",
-                        "user" => ["id" => $row['id'], "email" => $data->email]
-                    ]);
-                } else {
-                    http_response_code(500);
-                    echo json_encode(["message" => "Failed to update verification status."]);
-                }
-            } else {
-                http_response_code(400);
-                echo json_encode(["message" => "Invalid or expired OTP."]);
-            }
-        } else {
-            http_response_code(404);
-            echo json_encode(["message" => "User not found."]);
-        }
-    } else {
-        http_response_code(400);
-        echo json_encode(["message" => "Incomplete data."]);
-    }
-}
-
-function resendOtp($db, $data)
-{
-    if (!empty($data->email)) {
-        $otp = sprintf("%06d", mt_rand(0, 999999));
-        $expiry = date('Y-m-d H:i:s', strtotime('+15 minutes'));
-
-        $query = "UPDATE users SET otp_code = :otp_code, otp_expiry = :otp_expiry WHERE email = :email";
-        $stmt = $db->prepare($query);
-        $stmt->bindParam(":otp_code", $otp);
-        $stmt->bindParam(":otp_expiry", $expiry);
-        $stmt->bindParam(":email", $data->email);
-
-        if ($stmt->execute() && $stmt->rowCount() > 0) {
-            sendOTPEmail($data->email, $otp);
-            echo json_encode(["message" => "OTP resent successfully."]);
-        } else {
-            http_response_code(404);
-            echo json_encode(["message" => "User not found."]);
-        }
-    } else {
-        http_response_code(400);
-        echo json_encode(["message" => "Incomplete data."]);
-    }
-}
-
-function sendResetOTPEmail($email, $otp)
-{
-    $subject = "Reset your OMG Account Password";
-    $message = "Your password reset verification code is: " . $otp . "\n\nThis code will expire in 15 minutes.";
-    $headers = "From: info@ohmygudness.in";
-
-    return mail($email, $subject, $message, $headers);
-}
-
-function forgotPassword($db, $data)
-{
-    if (!empty($data->email)) {
-        // Cooldown check (60 seconds)
-        if (isset($_SESSION['last_otp_sent']) && (time() - $_SESSION['last_otp_sent']) < 60) {
-            http_response_code(429);
-            echo json_encode(["message" => "Please wait 60 seconds before requesting another code."]);
-            return;
-        }
-
-        // Verify user exists and is verified
-        $query = "SELECT id, is_verified FROM users WHERE email = :email";
-        $stmt = $db->prepare($query);
-        $stmt->bindParam(":email", $data->email);
-        $stmt->execute();
-
-        if ($stmt->rowCount() > 0) {
-            $row = $stmt->fetch(PDO::FETCH_ASSOC);
-            if ($row['is_verified'] == 0) {
-                http_response_code(400);
-                echo json_encode(["message" => "Account is not verified. Please register first or verify your email."]);
                 return;
             }
 
-            $otp = sprintf("%06d", mt_rand(0, 999999));
-            $expiry = date('Y-m-d H:i:s', strtotime('+15 minutes'));
+            // Regenerate Session & Set Login
+            session_regenerate_id(true);
+            $_SESSION['user_id'] = $row['id'];
+            $_SESSION['user_last_activity'] = time();
 
-            $updateQuery = "UPDATE users SET otp_code = :otp_code, otp_expiry = :otp_expiry WHERE email = :email";
+            http_response_code(200);
+            echo json_encode([
+                "message" => "Login successful.",
+                "user" => [
+                    "id" => $row['id'],
+                    "email" => $row['email']
+                ]
+            ]);
+        } else {
+            http_response_code(401);
+            echo json_encode(["message" => "Invalid email or password."]);
+        }
+    } else {
+        http_response_code(401);
+        echo json_encode(["message" => "Invalid email or password."]);
+    }
+}
+
+// ── 3. VERIFY REGISTRATION OTP ──────────────────────────────────────────────
+function verifyOtp($db, $data)
+{
+    $email = strtolower(trim($data->email ?? ''));
+    $otp = trim($data->otp ?? '');
+
+    if (empty($email) || empty($otp)) {
+        http_response_code(400);
+        echo json_encode(["message" => "Email and OTP code are required."]);
+        return;
+    }
+
+    $query = "SELECT id, otp_code, otp_expiry FROM users WHERE email = :email";
+    $stmt = $db->prepare($query);
+    $stmt->bindParam(":email", $email);
+    $stmt->execute();
+
+    if ($stmt->rowCount() > 0) {
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        $now = date('Y-m-d H:i:s');
+
+        if ($row['otp_code'] === $otp && $row['otp_expiry'] >= $now) {
+            $updateQuery = "UPDATE users SET is_verified = 1, otp_code = NULL, otp_expiry = NULL WHERE id = :id";
             $updateStmt = $db->prepare($updateQuery);
-            $updateStmt->bindParam(":otp_code", $otp);
-            $updateStmt->bindParam(":otp_expiry", $expiry);
-            $updateStmt->bindParam(":email", $data->email);
+            $updateStmt->bindParam(":id", $row['id']);
 
             if ($updateStmt->execute()) {
-                sendResetOTPEmail($data->email, $otp);
-                $_SESSION['last_otp_sent'] = time();
-                $_SESSION['reset_email'] = $data->email;
-                $_SESSION['reset_verified'] = false;
-                $_SESSION['reset_otp_attempts'] = 0;
+                session_regenerate_id(true);
+                $_SESSION['user_id'] = $row['id'];
+                $_SESSION['user_last_activity'] = time();
 
-                echo json_encode(["message" => "OTP sent successfully."]);
+                // Send Welcome Email
+                $userName = explode('@', $email)[0];
+                $welcomeHtml = buildWelcomeEmailTemplate($userName);
+                sendEmail($email, "Welcome to OH MY GUDNESS!", $welcomeHtml);
+
+                echo json_encode([
+                    "message" => "Email verified successfully! Welcome to OH MY GUDNESS.",
+                    "user" => ["id" => $row['id'], "email" => $email]
+                ]);
             } else {
                 http_response_code(500);
-                echo json_encode(["message" => "Failed to generate reset code."]);
+                echo json_encode(["message" => "Failed to update verification status."]);
             }
         } else {
-            http_response_code(404);
-            echo json_encode(["message" => "User not found."]);
+            http_response_code(400);
+            echo json_encode(["message" => "Invalid or expired OTP code. Please try again."]);
         }
     } else {
-        http_response_code(400);
-        echo json_encode(["message" => "Incomplete data."]);
+        http_response_code(404);
+        echo json_encode(["message" => "User account not found."]);
     }
 }
 
+// ── 4. RESEND OTP (WITH 60-SECOND COOLDOWN) ────────────────────────────────
+function resendOtp($db, $data)
+{
+    $email = strtolower(trim($data->email ?? ''));
+
+    if (empty($email)) {
+        http_response_code(400);
+        echo json_encode(["message" => "Email is required."]);
+        return;
+    }
+
+    $cooldownKey = 'last_resend_' . md5($email);
+    if (isset($_SESSION[$cooldownKey]) && (time() - $_SESSION[$cooldownKey]) < 60) {
+        $remaining = 60 - (time() - $_SESSION[$cooldownKey]);
+        http_response_code(429);
+        echo json_encode(["message" => "Please wait {$remaining} seconds before requesting another code."]);
+        return;
+    }
+
+    $otp = sprintf("%06d", mt_rand(0, 999999));
+    $expiry = date('Y-m-d H:i:s', strtotime('+10 minutes'));
+
+    $query = "UPDATE users SET otp_code = :otp_code, otp_expiry = :otp_expiry WHERE email = :email";
+    $stmt = $db->prepare($query);
+    $stmt->bindParam(":otp_code", $otp);
+    $stmt->bindParam(":otp_expiry", $expiry);
+    $stmt->bindParam(":email", $email);
+
+    if ($stmt->execute() && $stmt->rowCount() > 0) {
+        $_SESSION[$cooldownKey] = time();
+        $userName = explode('@', $email)[0];
+        $htmlBody = buildEmailVerificationTemplate($userName, $otp);
+        sendEmail($email, "Verify your OH MY GUDNESS Account", $htmlBody);
+        echo json_encode(["message" => "A new 6-digit OTP code has been sent to your email."]);
+    } else {
+        http_response_code(404);
+        echo json_encode(["message" => "User account not found."]);
+    }
+}
+
+// ── 5. USER FORGOT PASSWORD REQUEST ─────────────────────────────────────────
+function forgotPassword($db, $data)
+{
+    $email = strtolower(trim($data->email ?? ''));
+
+    if (empty($email) || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        http_response_code(400);
+        echo json_encode(["message" => "Please provide a valid registered email address."]);
+        return;
+    }
+
+    // Cooldown check (60 seconds)
+    $cooldownKey = 'last_reset_otp_' . md5($email);
+    if (isset($_SESSION[$cooldownKey]) && (time() - $_SESSION[$cooldownKey]) < 60) {
+        $remaining = 60 - (time() - $_SESSION[$cooldownKey]);
+        http_response_code(429);
+        echo json_encode(["message" => "Please wait {$remaining} seconds before requesting another code."]);
+        return;
+    }
+
+    // Verify active user exists
+    $query = "SELECT id, is_verified FROM users WHERE email = :email";
+    $stmt = $db->prepare($query);
+    $stmt->bindParam(":email", $email);
+    $stmt->execute();
+
+    if ($stmt->rowCount() > 0) {
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        $otp = sprintf("%06d", mt_rand(0, 999999));
+        $expiry = date('Y-m-d H:i:s', strtotime('+10 minutes'));
+
+        $updateQuery = "UPDATE users SET otp_code = :otp_code, otp_expiry = :otp_expiry WHERE email = :email";
+        $updateStmt = $db->prepare($updateQuery);
+        $updateStmt->bindParam(":otp_code", $otp);
+        $updateStmt->bindParam(":otp_expiry", $expiry);
+        $updateStmt->bindParam(":email", $email);
+
+        if ($updateStmt->execute()) {
+            $_SESSION[$cooldownKey] = time();
+            $_SESSION['reset_email'] = $email;
+            $_SESSION['reset_verified'] = false;
+            $_SESSION['reset_otp_attempts'] = 0;
+
+            $userName = explode('@', $email)[0];
+            $htmlBody = buildForgotPasswordTemplate($userName, $otp);
+            sendEmail($email, "Reset your OH MY GUDNESS Password", $htmlBody);
+
+            echo json_encode(["message" => "A 6-digit password reset code has been sent to your email."]);
+        } else {
+            http_response_code(500);
+            echo json_encode(["message" => "Failed to generate password reset code."]);
+        }
+    } else {
+        http_response_code(404);
+        echo json_encode(["message" => "No account found matching this email address."]);
+    }
+}
+
+// ── 6. VERIFY RESET OTP ────────────────────────────────────────────────────
 function verifyResetOtp($db, $data)
 {
-    if (!empty($data->email) && !empty($data->otp)) {
-        if (!isset($_SESSION['reset_email']) || $_SESSION['reset_email'] !== $data->email) {
-            http_response_code(400);
-            echo json_encode(["message" => "Session mismatch. Please request a new code."]);
-            return;
-        }
+    $email = strtolower(trim($data->email ?? ''));
+    $otp = trim($data->otp ?? '');
 
-        // Brute-force protection: check attempts
-        if (isset($_SESSION['reset_otp_attempts']) && $_SESSION['reset_otp_attempts'] >= 5) {
-            // Invalidate OTP in DB
-            $query = "UPDATE users SET otp_code = NULL, otp_expiry = NULL WHERE email = :email";
-            $stmt = $db->prepare($query);
-            $stmt->bindParam(":email", $data->email);
-            $stmt->execute();
+    if (empty($email) || empty($otp)) {
+        http_response_code(400);
+        echo json_encode(["message" => "Email and OTP code are required."]);
+        return;
+    }
 
-            unset($_SESSION['reset_email']);
-            unset($_SESSION['reset_verified']);
-            unset($_SESSION['reset_otp_attempts']);
-
-            http_response_code(429);
-            echo json_encode(["message" => "Too many failed attempts. Please request a new verification code."]);
-            return;
-        }
-
-        $query = "SELECT otp_code, otp_expiry FROM users WHERE email = :email";
+    // Brute-force protection: check attempts
+    if (isset($_SESSION['reset_otp_attempts']) && $_SESSION['reset_otp_attempts'] >= 5) {
+        $query = "UPDATE users SET otp_code = NULL, otp_expiry = NULL WHERE email = :email";
         $stmt = $db->prepare($query);
-        $stmt->bindParam(":email", $data->email);
+        $stmt->bindParam(":email", $email);
         $stmt->execute();
 
-        if ($stmt->rowCount() > 0) {
-            $row = $stmt->fetch(PDO::FETCH_ASSOC);
-            $now = date('Y-m-d H:i:s');
+        unset($_SESSION['reset_email']);
+        unset($_SESSION['reset_verified']);
+        unset($_SESSION['reset_otp_attempts']);
 
-            if ($row['otp_code'] === $data->otp && $row['otp_expiry'] >= $now) {
-                $_SESSION['reset_verified'] = true;
-                echo json_encode(["message" => "OTP verified successfully."]);
-            } else {
-                if (!isset($_SESSION['reset_otp_attempts'])) {
-                    $_SESSION['reset_otp_attempts'] = 0;
-                }
-                $_SESSION['reset_otp_attempts']++;
+        http_response_code(429);
+        echo json_encode(["message" => "Too many failed attempts. Please request a new reset code."]);
+        return;
+    }
 
-                http_response_code(400);
-                echo json_encode(["message" => "Invalid or expired OTP."]);
-            }
+    $query = "SELECT otp_code, otp_expiry FROM users WHERE email = :email";
+    $stmt = $db->prepare($query);
+    $stmt->bindParam(":email", $email);
+    $stmt->execute();
+
+    if ($stmt->rowCount() > 0) {
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        $now = date('Y-m-d H:i:s');
+
+        if ($row['otp_code'] === $otp && $row['otp_expiry'] >= $now) {
+            $_SESSION['reset_verified'] = true;
+            $_SESSION['reset_email'] = $email;
+            echo json_encode(["message" => "OTP verified successfully. Please enter your new password."]);
         } else {
-            http_response_code(404);
-            echo json_encode(["message" => "User not found."]);
+            if (!isset($_SESSION['reset_otp_attempts'])) {
+                $_SESSION['reset_otp_attempts'] = 0;
+            }
+            $_SESSION['reset_otp_attempts']++;
+
+            http_response_code(400);
+            echo json_encode(["message" => "Invalid or expired OTP code."]);
         }
     } else {
-        http_response_code(400);
-        echo json_encode(["message" => "Incomplete data."]);
+        http_response_code(404);
+        echo json_encode(["message" => "User account not found."]);
     }
 }
 
+// ── 7. RESET PASSWORD ───────────────────────────────────────────────────────
 function resetPassword($db, $data)
 {
-    if (!empty($data->email) && !empty($data->otp) && !empty($data->password)) {
-        if (!isset($_SESSION['reset_verified']) || $_SESSION['reset_verified'] !== true || !isset($_SESSION['reset_email']) || $_SESSION['reset_email'] !== $data->email) {
-            http_response_code(403);
-            echo json_encode(["message" => "Action forbidden. Please verify your OTP first."]);
-            return;
-        }
+    $email = strtolower(trim($data->email ?? ''));
+    $otp = trim($data->otp ?? '');
+    $password = trim($data->password ?? '');
 
-        if (strlen($data->password) < 6) {
-            http_response_code(400);
-            echo json_encode(["message" => "Password must be at least 6 characters."]);
-            return;
-        }
+    if (empty($email) || empty($otp) || empty($password)) {
+        http_response_code(400);
+        echo json_encode(["message" => "Email, OTP code, and new password are required."]);
+        return;
+    }
 
-        // Final verification that OTP in DB matches to prevent replay/abuse
-        $query = "SELECT id, otp_code, otp_expiry FROM users WHERE email = :email";
-        $stmt = $db->prepare($query);
-        $stmt->bindParam(":email", $data->email);
-        $stmt->execute();
+    if (strlen($password) < 6) {
+        http_response_code(400);
+        echo json_encode(["message" => "Password must be at least 6 characters long."]);
+        return;
+    }
 
-        if ($stmt->rowCount() > 0) {
-            $row = $stmt->fetch(PDO::FETCH_ASSOC);
-            $now = date('Y-m-d H:i:s');
+    // Verify OTP in DB for security
+    $query = "SELECT id, otp_code, otp_expiry FROM users WHERE email = :email";
+    $stmt = $db->prepare($query);
+    $stmt->bindParam(":email", $email);
+    $stmt->execute();
 
-            if ($row['otp_code'] === $data->otp && $row['otp_expiry'] >= $now) {
-                $password_hash = password_hash($data->password, PASSWORD_BCRYPT);
+    if ($stmt->rowCount() > 0) {
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        $now = date('Y-m-d H:i:s');
 
-                $updateQuery = "UPDATE users SET password_hash = :password_hash, otp_code = NULL, otp_expiry = NULL WHERE id = :id";
-                $updateStmt = $db->prepare($updateQuery);
-                $updateStmt->bindParam(":password_hash", $password_hash);
-                $updateStmt->bindParam(":id", $row['id']);
+        if ($row['otp_code'] === $otp && $row['otp_expiry'] >= $now) {
+            $password_hash = password_hash($password, PASSWORD_BCRYPT);
 
-                if ($updateStmt->execute()) {
-                    // Clear reset session variables
-                    unset($_SESSION['reset_email']);
-                    unset($_SESSION['reset_verified']);
-                    unset($_SESSION['reset_otp_attempts']);
+            $updateQuery = "UPDATE users SET password_hash = :password_hash, is_verified = 1, otp_code = NULL, otp_expiry = NULL WHERE id = :id";
+            $updateStmt = $db->prepare($updateQuery);
+            $updateStmt->bindParam(":password_hash", $password_hash);
+            $updateStmt->bindParam(":id", $row['id']);
 
-                    echo json_encode(["message" => "Password reset successfully."]);
-                } else {
-                    http_response_code(500);
-                    echo json_encode(["message" => "Failed to reset password."]);
-                }
+            if ($updateStmt->execute()) {
+                unset($_SESSION['reset_email']);
+                unset($_SESSION['reset_verified']);
+                unset($_SESSION['reset_otp_attempts']);
+
+                echo json_encode(["message" => "Password reset successfully! You can now log in with your new password."]);
             } else {
-                http_response_code(400);
-                echo json_encode(["message" => "Invalid or expired OTP."]);
+                http_response_code(500);
+                echo json_encode(["message" => "Failed to update password. Please try again."]);
             }
         } else {
-            http_response_code(404);
-            echo json_encode(["message" => "User not found."]);
+            http_response_code(400);
+            echo json_encode(["message" => "Invalid or expired OTP code."]);
         }
     } else {
-        http_response_code(400);
-        echo json_encode(["message" => "Incomplete data."]);
+        http_response_code(404);
+        echo json_encode(["message" => "User account not found."]);
     }
 }
 
 function logout()
 {
+    $_SESSION = array();
     session_unset();
     session_destroy();
     echo json_encode(["message" => "Logged out successfully"]);
@@ -430,8 +498,6 @@ function getUser($db)
 {
     if (isset($_SESSION['user_id'])) {
         $userId = $_SESSION['user_id'];
-
-        // Fetch user
         $query = "SELECT id, email FROM users WHERE id = :id AND is_verified = 1";
         $stmt = $db->prepare($query);
         $stmt->bindParam(":id", $userId);
@@ -443,9 +509,6 @@ function getUser($db)
             return;
         }
     }
-
-    // Check for "remember me" cookie or similar if implemented, otherwise 401
-    // For now, strict session check
 
     http_response_code(401);
     echo json_encode(["message" => "Unauthorized"]);

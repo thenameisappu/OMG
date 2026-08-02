@@ -15,6 +15,8 @@ export default function VerifyOtp() {
     const [resending, setResending] = useState(false);
     const [otp, setOtp] = useState('');
 
+    const [cooldown, setCooldown] = useState(60);
+
     const email = location.state?.email;
 
     useEffect(() => {
@@ -22,6 +24,18 @@ export default function VerifyOtp() {
             navigate('/login');
         }
     }, [email, navigate]);
+
+    useEffect(() => {
+        let timer: NodeJS.Timeout;
+        if (cooldown > 0) {
+            timer = setInterval(() => {
+                setCooldown((prev) => prev - 1);
+            }, 1000);
+        }
+        return () => {
+            if (timer) clearInterval(timer);
+        };
+    }, [cooldown]);
 
     const handleVerify = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -39,9 +53,11 @@ export default function VerifyOtp() {
     };
 
     const handleResend = async () => {
+        if (cooldown > 0) return;
         setResending(true);
         try {
             await resendOtp(email);
+            setCooldown(60);
         } catch (error) {
             console.error('Resend error:', error);
         } finally {
@@ -94,11 +110,14 @@ export default function VerifyOtp() {
                     <div className="mt-6 flex flex-col items-center space-y-4">
                         <button
                             onClick={handleResend}
-                            disabled={resending || loading}
+                            disabled={resending || loading || cooldown > 0}
                             className="text-sm font-medium text-primary hover:underline disabled:opacity-50"
                         >
-                            {resending ? 'Sending...' : "Didn't receive a code? Resend"}
+                            {resending ? 'Sending...' : cooldown > 0 ? `Resend OTP code in ${cooldown}s` : "Didn't receive a code? Resend OTP"}
                         </button>
+                        <p className="text-[11px] text-muted-foreground text-center">
+                            ⏱️ OTP is valid for 10 minutes.
+                        </p>
 
                         <Link
                             to="/login"
