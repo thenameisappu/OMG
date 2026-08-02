@@ -1,16 +1,18 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/contexts/AuthContext';
-import { Loader2, Sparkles, Lock, Mail, User, ShieldCheck } from 'lucide-react';
+import { Loader2, Sparkles, Lock, Mail, User, ShieldCheck, KeyRound, ArrowLeft, CheckCircle2 } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
 
 export default function Login() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { signIn, signUp } = useAuth();
+  const { toast } = useToast();
+  const { signIn, signUp, verifyOtp, resendOtp } = useAuth();
   const [loading, setLoading] = useState(false);
 
   const from = (location.state as any)?.from?.pathname || '/';
@@ -27,6 +29,24 @@ export default function Login() {
     confirmPassword: '',
   });
 
+  // OTP Verification In-Place Step State
+  const [otpStep, setOtpStep] = useState(false);
+  const [otpCode, setOtpCode] = useState('');
+  const [cooldown, setCooldown] = useState(0);
+  const [resending, setResending] = useState(false);
+
+  useEffect(() => {
+    let timer: NodeJS.Timeout;
+    if (cooldown > 0) {
+      timer = setInterval(() => {
+        setCooldown((prev) => prev - 1);
+      }, 1000);
+    }
+    return () => {
+      if (timer) clearInterval(timer);
+    };
+  }, [cooldown]);
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -36,7 +56,9 @@ export default function Login() {
     } catch (error: any) {
       console.error('Login error:', error);
       if (error.response?.status === 403 && error.response?.data?.requires_verification) {
-        navigate('/verify-otp', { state: { email: loginData.email } });
+        setSignupData((prev) => ({ ...prev, email: loginData.email }));
+        setOtpStep(true);
+        setCooldown(60);
       }
     } finally {
       setLoading(false);
@@ -47,18 +69,70 @@ export default function Login() {
     e.preventDefault();
 
     if (signupData.password !== signupData.confirmPassword) {
-      alert('Passwords do not match');
+      toast({
+        title: 'Password Mismatch',
+        description: 'Passwords do not match. Please check and try again.',
+        variant: 'destructive',
+      });
       return;
     }
 
     setLoading(true);
     try {
       await signUp(signupData.email, signupData.password, signupData.name);
-      navigate('/verify-otp', { state: { email: signupData.email } });
-    } catch (error) {
+      setOtpStep(true);
+      setCooldown(60);
+      toast({
+        title: 'Verification Code Sent ✨',
+        description: `A 6-digit OTP code has been sent to ${signupData.email}.`,
+      });
+    } catch (error: any) {
       console.error('Signup error:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleVerifyOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (otpCode.length !== 6) {
+      toast({
+        title: 'Invalid Code',
+        description: 'Please enter all 6 numeric digits of your OTP.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setLoading(true);
+    try {
+      await verifyOtp(signupData.email, otpCode);
+      toast({
+        title: 'Account Activated! 🎉',
+        description: 'Your email has been verified successfully. Welcome to OH MY GUDNESS.',
+      });
+      navigate(from, { replace: true });
+    } catch (error: any) {
+      console.error('OTP verification error:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResendOtp = async () => {
+    if (cooldown > 0) return;
+    setResending(true);
+    try {
+      await resendOtp(signupData.email);
+      setCooldown(60);
+      toast({
+        title: 'New Code Sent ✨',
+        description: 'A fresh 6-digit OTP code has been sent to your email.',
+      });
+    } catch (error: any) {
+      console.error('Resend error:', error);
+    } finally {
+      setResending(false);
     }
   };
 
@@ -174,86 +248,150 @@ export default function Login() {
               </TabsContent>
 
               <TabsContent value="signup">
-                <form onSubmit={handleSignup} className="space-y-4">
-                  <div className="space-y-1">
-                    <Label htmlFor="signup-name" className="text-xs font-bold uppercase tracking-wider text-primary">Full Name</Label>
-                    <div className="relative">
-                      <User className="absolute left-3.5 top-3.5 h-4 w-4 text-muted-foreground" />
+                {otpStep ? (
+                  <form onSubmit={handleVerifyOtp} className="space-y-5 animate-in fade-in duration-300">
+                    <div className="bg-amber-500/10 border border-amber-500/30 p-4 rounded-2xl space-y-1 text-center">
+                      <div className="flex items-center justify-center gap-1.5 text-amber-600 font-bold text-xs uppercase tracking-wider">
+                        <KeyRound className="h-4 w-4" /> Step 2: Verify Email OTP
+                      </div>
+                      <p className="text-xs text-muted-foreground leading-relaxed">
+                        We sent a 6-digit code to <strong className="text-foreground">{signupData.email}</strong>
+                      </p>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <Label htmlFor="otp-input" className="text-xs font-bold uppercase tracking-wider text-primary text-center block">
+                        Enter 6-Digit One-Time Password
+                      </Label>
                       <Input
-                        id="signup-name"
+                        id="otp-input"
                         type="text"
-                        placeholder="Enter full name"
-                        className="h-11 pl-10 text-sm rounded-xl border-border"
-                        value={signupData.name}
-                        onChange={(e) => setSignupData({ ...signupData, name: e.target.value })}
+                        maxLength={6}
+                        placeholder="123456"
+                        value={otpCode}
+                        onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
                         required
+                        autoFocus
+                        className="h-14 text-center text-2xl font-mono tracking-[0.5em] rounded-xl border-border focus:border-secondary shadow-inner"
                         disabled={loading}
                       />
+                      <p className="text-[11px] text-muted-foreground text-center pt-1">
+                        ⏱️ Code valid for 10 minutes. Check your inbox/spam folder.
+                      </p>
                     </div>
-                  </div>
 
-                  <div className="space-y-1">
-                    <Label htmlFor="signup-email" className="text-xs font-bold uppercase tracking-wider text-primary">Email Address</Label>
-                    <div className="relative">
-                      <Mail className="absolute left-3.5 top-3.5 h-4 w-4 text-muted-foreground" />
-                      <Input
-                        id="signup-email"
-                        type="email"
-                        placeholder="Enter email address"
-                        className="h-11 pl-10 text-sm rounded-xl border-border"
-                        value={signupData.email}
-                        onChange={(e) => setSignupData({ ...signupData, email: e.target.value })}
-                        required
-                        disabled={loading}
-                      />
+                    <Button type="submit" variant="secondary" className="w-full h-14 rounded-full font-bold text-base shadow-lg gold-glow hover-lift" disabled={loading || otpCode.length !== 6}>
+                      {loading ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Activating Account...
+                        </>
+                      ) : (
+                        'Verify OTP & Activate Account'
+                      )}
+                    </Button>
+
+                    <div className="flex items-center justify-between text-xs pt-2">
+                      <button
+                        type="button"
+                        onClick={() => setOtpStep(false)}
+                        className="inline-flex items-center text-muted-foreground hover:text-foreground font-medium"
+                      >
+                        <ArrowLeft className="mr-1 h-3.5 w-3.5" /> Back / Edit Email
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={handleResendOtp}
+                        disabled={resending || loading || cooldown > 0}
+                        className="text-secondary font-bold hover:underline disabled:opacity-50"
+                      >
+                        {resending ? 'Sending...' : cooldown > 0 ? `Resend in ${cooldown}s` : 'Resend OTP'}
+                      </button>
                     </div>
-                  </div>
-
-                  <div className="space-y-1">
-                    <Label htmlFor="signup-password" className="text-xs font-bold uppercase tracking-wider text-primary">Create Password</Label>
-                    <div className="relative">
-                      <Lock className="absolute left-3.5 top-3.5 h-4 w-4 text-muted-foreground" />
-                      <Input
-                        id="signup-password"
-                        type="password"
-                        placeholder="••••••••"
-                        className="h-11 pl-10 text-sm rounded-xl border-border"
-                        value={signupData.password}
-                        onChange={(e) => setSignupData({ ...signupData, password: e.target.value })}
-                        required
-                        disabled={loading}
-                      />
+                  </form>
+                ) : (
+                  <form onSubmit={handleSignup} className="space-y-4">
+                    <div className="space-y-1">
+                      <Label htmlFor="signup-name" className="text-xs font-bold uppercase tracking-wider text-primary">Full Name</Label>
+                      <div className="relative">
+                        <User className="absolute left-3.5 top-3.5 h-4 w-4 text-muted-foreground" />
+                        <Input
+                          id="signup-name"
+                          type="text"
+                          placeholder="Enter full name"
+                          className="h-11 pl-10 text-sm rounded-xl border-border"
+                          value={signupData.name}
+                          onChange={(e) => setSignupData({ ...signupData, name: e.target.value })}
+                          required
+                          disabled={loading}
+                        />
+                      </div>
                     </div>
-                  </div>
 
-                  <div className="space-y-1">
-                    <Label htmlFor="signup-confirm-password" className="text-xs font-bold uppercase tracking-wider text-primary">Confirm Password</Label>
-                    <div className="relative">
-                      <Lock className="absolute left-3.5 top-3.5 h-4 w-4 text-muted-foreground" />
-                      <Input
-                        id="signup-confirm-password"
-                        type="password"
-                        placeholder="••••••••"
-                        className="h-11 pl-10 text-sm rounded-xl border-border"
-                        value={signupData.confirmPassword}
-                        onChange={(e) => setSignupData({ ...signupData, confirmPassword: e.target.value })}
-                        required
-                        disabled={loading}
-                      />
+                    <div className="space-y-1">
+                      <Label htmlFor="signup-email" className="text-xs font-bold uppercase tracking-wider text-primary">Email Address</Label>
+                      <div className="relative">
+                        <Mail className="absolute left-3.5 top-3.5 h-4 w-4 text-muted-foreground" />
+                        <Input
+                          id="signup-email"
+                          type="email"
+                          placeholder="Enter email address"
+                          className="h-11 pl-10 text-sm rounded-xl border-border"
+                          value={signupData.email}
+                          onChange={(e) => setSignupData({ ...signupData, email: e.target.value })}
+                          required
+                          disabled={loading}
+                        />
+                      </div>
                     </div>
-                  </div>
 
-                  <Button type="submit" variant="secondary" className="w-full h-14 rounded-full font-bold text-base shadow-lg gold-glow mt-2 hover-lift" disabled={loading}>
-                    {loading ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Creating Account...
-                      </>
-                    ) : (
-                      'Register'
-                    )}
-                  </Button>
-                </form>
+                    <div className="space-y-1">
+                      <Label htmlFor="signup-password" className="text-xs font-bold uppercase tracking-wider text-primary">Create Password</Label>
+                      <div className="relative">
+                        <Lock className="absolute left-3.5 top-3.5 h-4 w-4 text-muted-foreground" />
+                        <Input
+                          id="signup-password"
+                          type="password"
+                          placeholder="••••••••"
+                          className="h-11 pl-10 text-sm rounded-xl border-border"
+                          value={signupData.password}
+                          onChange={(e) => setSignupData({ ...signupData, password: e.target.value })}
+                          required
+                          disabled={loading}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-1">
+                      <Label htmlFor="signup-confirm-password" className="text-xs font-bold uppercase tracking-wider text-primary">Confirm Password</Label>
+                      <div className="relative">
+                        <Lock className="absolute left-3.5 top-3.5 h-4 w-4 text-muted-foreground" />
+                        <Input
+                          id="signup-confirm-password"
+                          type="password"
+                          placeholder="••••••••"
+                          className="h-11 pl-10 text-sm rounded-xl border-border"
+                          value={signupData.confirmPassword}
+                          onChange={(e) => setSignupData({ ...signupData, confirmPassword: e.target.value })}
+                          required
+                          disabled={loading}
+                        />
+                      </div>
+                    </div>
+
+                    <Button type="submit" variant="secondary" className="w-full h-14 rounded-full font-bold text-base shadow-lg gold-glow mt-2 hover-lift" disabled={loading}>
+                      {loading ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Sending Verification OTP...
+                        </>
+                      ) : (
+                        'Register'
+                      )}
+                    </Button>
+                  </form>
+                )}
               </TabsContent>
             </Tabs>
           </div>
