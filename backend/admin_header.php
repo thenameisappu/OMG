@@ -63,9 +63,12 @@ if (isset($db) && $db !== null && $isLoggedIn) {
             $isMainAdmin = (bool)($headerUser['is_main_admin'] ?? ($headerUser['username'] === 'main_admin'));
         }
 
-        $allAdminsStmt = $db->query("SELECT id, username, name, email, is_main_admin, created_at FROM admin_users ORDER BY username ASC");
-        if ($allAdminsStmt) {
-            $allAdminsList = $allAdminsStmt->fetchAll(PDO::FETCH_ASSOC);
+        // Fetch list of all admin accounts ONLY if logged-in user is Main Admin (Backend Security Protection)
+        if ($isMainAdmin) {
+            $allAdminsStmt = $db->query("SELECT id, username, name, email, is_main_admin, created_at FROM admin_users ORDER BY username ASC");
+            if ($allAdminsStmt) {
+                $allAdminsList = $allAdminsStmt->fetchAll(PDO::FETCH_ASSOC);
+            }
         }
     } catch (Exception $e) {}
 }
@@ -203,9 +206,11 @@ if (!$isLoggedIn && $currentPage !== 'admin.php') {
             </div>
         </header>
 
-        <!-- GLOBAL ADMIN PROFILE & ACCOUNTS MODAL (TRIGGERED BY LOGGED IN AS BUTTON) -->
+        <!-- GLOBAL ADMIN DETAILS POPUP (ROLE-RESTRICTED) -->
         <div id="adminHeaderProfileModal" class="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md hidden items-center justify-center p-4">
-            <div class="bg-white border border-slate-200 max-w-3xl w-full rounded-3xl p-6 shadow-2xl space-y-6 max-h-[90vh] overflow-y-auto">
+            <div class="bg-white border border-slate-200 <?php echo $isMainAdmin ? 'max-w-3xl' : 'max-w-md'; ?> w-full rounded-3xl p-6 shadow-2xl space-y-6 max-h-[90vh] overflow-y-auto">
+                
+                <!-- Modal Header -->
                 <div class="flex items-center justify-between border-b border-slate-100 pb-4">
                     <div class="flex items-center gap-3">
                         <div class="w-10 h-10 rounded-2xl bg-amber-100 text-amber-800 border border-amber-300 flex items-center justify-center font-serif font-bold text-lg">
@@ -213,10 +218,9 @@ if (!$isLoggedIn && $currentPage !== 'admin.php') {
                         </div>
                         <div>
                             <h3 class="text-lg font-serif font-bold text-slate-900">
-                                Logged in as: <?php echo htmlspecialchars($adminDisplayName); ?>
+                                <?php echo htmlspecialchars($adminDisplayName); ?>
                             </h3>
                             <p class="text-xs text-slate-500">
-                                Admin ID: <strong class="text-slate-800"><?php echo htmlspecialchars($adminUsername); ?></strong> &bull; 
                                 Role: <span class="font-bold text-amber-700"><?php echo $isMainAdmin ? 'Root Main Admin' : 'Administrator'; ?></span>
                             </p>
                         </div>
@@ -224,20 +228,18 @@ if (!$isLoggedIn && $currentPage !== 'admin.php') {
                     <button type="button" onclick="closeAdminHeaderProfileModal()" class="text-slate-400 hover:text-slate-600 font-bold text-2xl leading-none">&times;</button>
                 </div>
 
-                <!-- SECTION 1: MY ADMIN PROFILE & SECURITY SETTINGS (MAIN ADMIN ONLY) -->
-                <div class="space-y-4">
-                    <div class="flex items-center justify-between border-b border-slate-100 pb-2">
-                        <h4 class="text-sm font-bold uppercase tracking-wider text-slate-800 flex items-center gap-2">
-                            👤 My Admin Profile & Security Settings
-                        </h4>
-                        <?php if ($isMainAdmin): ?>
-                            <span class="text-[11px] font-bold text-amber-700 bg-amber-50 px-2.5 py-0.5 rounded-full border border-amber-200">Main Admin Granted</span>
-                        <?php else: ?>
-                            <span class="text-[11px] font-bold text-rose-600 bg-rose-50 px-2.5 py-0.5 rounded-full border border-rose-200">Restricted to Main Admin</span>
-                        <?php endif; ?>
-                    </div>
+                <?php if ($isMainAdmin): ?>
+                    <!-- MAIN ADMIN COMPLETE MANAGEMENT POPUP -->
+                    
+                    <!-- SECTION 1: MY ADMIN PROFILE & SECURITY SETTINGS -->
+                    <div class="space-y-4">
+                        <div class="flex items-center justify-between border-b border-slate-100 pb-2">
+                            <h4 class="text-sm font-bold uppercase tracking-wider text-slate-800">
+                                🔒 My Admin Profile & Security Settings
+                            </h4>
+                            <span class="text-[11px] font-bold text-amber-700 bg-amber-50 px-2.5 py-0.5 rounded-full border border-amber-200">Main Admin</span>
+                        </div>
 
-                    <?php if ($isMainAdmin): ?>
                         <form method="POST" action="admin.php?tab=manage" class="space-y-4">
                             <input type="hidden" name="action" value="update_my_profile">
                             
@@ -291,54 +293,79 @@ if (!$isLoggedIn && $currentPage !== 'admin.php') {
                                 </button>
                             </div>
                         </form>
-                    <?php else: ?>
-                        <div class="p-4 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-600">
-                            ℹ️ <strong>Access Restricted:</strong> Profile & Password Security Settings are restricted to the Main Admin. Non-main admins cannot edit account settings.
-                        </div>
-                    <?php endif; ?>
-                </div>
-
-                <!-- SECTION 2: ALL ADMINISTRATOR ACCOUNTS DIRECTORY -->
-                <div class="space-y-3 pt-4 border-t border-slate-100">
-                    <h4 class="text-sm font-bold uppercase tracking-wider text-slate-800 flex items-center justify-between">
-                        <span>📋 All Administrator Accounts (<?php echo count($allAdminsList); ?>)</span>
-                    </h4>
-                    
-                    <div class="border border-slate-200 rounded-2xl overflow-hidden">
-                        <table class="w-full text-left text-xs">
-                            <thead class="bg-slate-50 text-slate-600 uppercase text-[10px] font-bold tracking-wider border-b border-slate-200">
-                                <tr>
-                                    <th class="py-2.5 px-3">Display Name</th>
-                                    <th class="py-2.5 px-3">Username (Admin ID)</th>
-                                    <th class="py-2.5 px-3">Email Address</th>
-                                    <th class="py-2.5 px-3">Role</th>
-                                </tr>
-                            </thead>
-                            <tbody class="divide-y divide-slate-100">
-                                <?php foreach ($allAdminsList as $adm): ?>
-                                    <tr class="<?php echo $adm['username'] === $adminUsername ? 'bg-amber-50/50 font-semibold' : 'hover:bg-slate-50'; ?>">
-                                        <td class="py-3 px-3 text-slate-900 font-bold">
-                                            <?php echo htmlspecialchars($adm['name'] ?: $adm['username']); ?>
-                                        </td>
-                                        <td class="py-3 px-3 text-slate-600 font-mono">
-                                            <?php echo htmlspecialchars($adm['username']); ?>
-                                        </td>
-                                        <td class="py-3 px-3 text-slate-600">
-                                            <?php echo htmlspecialchars($adm['email'] ?: 'Not set'); ?>
-                                        </td>
-                                        <td class="py-3 px-3">
-                                            <?php if ($adm['username'] === 'main_admin' || !empty($adm['is_main_admin'])): ?>
-                                                <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300">Root Admin</span>
-                                            <?php else: ?>
-                                                <span class="px-2 py-0.5 rounded text-[10px] font-medium bg-slate-100 text-slate-700">Administrator</span>
-                                            <?php endif; ?>
-                                        </td>
-                                    </tr>
-                                <?php endforeach; ?>
-                            </tbody>
-                        </table>
                     </div>
-                </div>
+
+                    <!-- SECTION 2: ALL ADMINISTRATOR ACCOUNTS DIRECTORY -->
+                    <div class="space-y-3 pt-4 border-t border-slate-100">
+                        <h4 class="text-sm font-bold uppercase tracking-wider text-slate-800">
+                            📋 All Administrator Accounts (<?php echo count($allAdminsList); ?>)
+                        </h4>
+                        
+                        <div class="border border-slate-200 rounded-2xl overflow-hidden">
+                            <table class="w-full text-left text-xs">
+                                <thead class="bg-slate-50 text-slate-600 uppercase text-[10px] font-bold tracking-wider border-b border-slate-200">
+                                    <tr>
+                                        <th class="py-2.5 px-3">Display Name</th>
+                                        <th class="py-2.5 px-3">Username (Admin ID)</th>
+                                        <th class="py-2.5 px-3">Email Address</th>
+                                        <th class="py-2.5 px-3">Role</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-slate-100">
+                                    <?php foreach ($allAdminsList as $adm): ?>
+                                        <tr class="<?php echo $adm['username'] === $adminUsername ? 'bg-amber-50/50 font-semibold' : 'hover:bg-slate-50'; ?>">
+                                            <td class="py-3 px-3 text-slate-900 font-bold">
+                                                <?php echo htmlspecialchars($adm['name'] ?: $adm['username']); ?>
+                                            </td>
+                                            <td class="py-3 px-3 text-slate-600 font-mono">
+                                                <?php echo htmlspecialchars($adm['username']); ?>
+                                            </td>
+                                            <td class="py-3 px-3 text-slate-600">
+                                                <?php echo htmlspecialchars($adm['email'] ?: 'Not set'); ?>
+                                            </td>
+                                            <td class="py-3 px-3">
+                                                <?php if ($adm['username'] === 'main_admin' || !empty($adm['is_main_admin'])): ?>
+                                                    <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300">Root Admin</span>
+                                                <?php else: ?>
+                                                    <span class="px-2 py-0.5 rounded text-[10px] font-medium bg-slate-100 text-slate-700">Administrator</span>
+                                                <?php endif; ?>
+                                            </td>
+                                        </tr>
+                                    <?php endforeach; ?>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                <?php else: ?>
+                    <!-- NON-MAIN ADMIN POPUP VIEW: OWN DETAILS ONLY -->
+                    <div class="space-y-4">
+                        <h4 class="text-xs font-bold uppercase tracking-wider text-slate-500 border-b border-slate-100 pb-2">
+                            My Account Details
+                        </h4>
+                        
+                        <div class="space-y-3 bg-slate-50 p-4 rounded-2xl border border-slate-200/80">
+                            <div class="flex justify-between items-center text-sm py-1 border-b border-slate-200/60">
+                                <span class="text-slate-500 font-medium">Display Name</span>
+                                <strong class="text-slate-900"><?php echo htmlspecialchars($adminDisplayName); ?></strong>
+                            </div>
+
+                            <div class="flex justify-between items-center text-sm py-1 border-b border-slate-200/60">
+                                <span class="text-slate-500 font-medium">Username (Admin ID)</span>
+                                <code class="text-slate-800 font-mono bg-white px-2 py-0.5 rounded border border-slate-200"><?php echo htmlspecialchars($adminUsername); ?></code>
+                            </div>
+
+                            <div class="flex justify-between items-center text-sm py-1 border-b border-slate-200/60">
+                                <span class="text-slate-500 font-medium">Email Address</span>
+                                <span class="text-slate-800"><?php echo htmlspecialchars($adminEmail ?: 'Not set'); ?></span>
+                            </div>
+
+                            <div class="flex justify-between items-center text-sm py-1">
+                                <span class="text-slate-500 font-medium">Role</span>
+                                <span class="px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-200 text-slate-700">Administrator</span>
+                            </div>
+                        </div>
+                    </div>
+                <?php endif; ?>
             </div>
         </div>
 
