@@ -179,8 +179,7 @@ if (!$isLoggedIn && $currentPage !== 'admin.php') {
                         <a href="admin.php?tab=customisations"
                             class="<?php echo $currentTab === 'customisations' ? 'bg-slate-800 text-amber-400 font-semibold border border-amber-400/20' : 'text-slate-300 hover:bg-slate-800/60 hover:text-white'; ?> px-3 py-2 rounded-lg text-sm transition-all flex items-center gap-1.5">Customisations</a>
                         <a href="admin.php?tab=surprises"
-                            class="<?php echo $currentTab === 'surprises' ? 'bg-slate-800 text-amber-400 font-semibold border border-amber-400/20' : 'text-slate-300 hover:bg-slate-800/60 hover:text-white'; ?> px-3 py-2 rounded-lg text-sm transition-all flex items-center gap-1.5">Surprises
-                            & Pincodes</a>
+                            class="<?php echo $currentTab === 'surprises' ? 'bg-slate-800 text-amber-400 font-semibold border border-amber-400/20' : 'text-slate-300 hover:bg-slate-800/60 hover:text-white'; ?> px-3 py-2 rounded-lg text-sm transition-all flex items-center gap-1.5">Surprises</a>
                         <a href="admin.php?tab=products"
                             class="<?php echo $currentTab === 'products' ? 'bg-slate-800 text-amber-400 font-semibold border border-amber-400/20' : 'text-slate-300 hover:bg-slate-800/60 hover:text-white'; ?> px-3 py-2 rounded-lg text-sm transition-all flex items-center gap-1.5">Products</a>
                         <?php if ($isMainAdmin): ?>

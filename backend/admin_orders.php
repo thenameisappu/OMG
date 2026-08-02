@@ -91,12 +91,22 @@ $orders = $stmt->fetchAll(PDO::FETCH_ASSOC);
 $totalOrders = count($orders);
 $totalRevenue = 0;
 $pendingCount = 0;
+$inProgressCount = 0; // In-between statuses: Order Accepted, Processing, Shipped, Out for Delivery
 $deliveredCount = 0;
+$cancelledCount = 0;
 
 foreach ($orders as $o) {
     $totalRevenue += (float)$o['total_amount'];
-    if (strtolower($o['status']) === 'pending') $pendingCount++;
-    if (strtolower($o['status']) === 'delivered') $deliveredCount++;
+    $st = strtolower(trim($o['status']));
+    if ($st === 'pending') {
+        $pendingCount++;
+    } elseif ($st === 'delivered') {
+        $deliveredCount++;
+    } elseif ($st === 'cancelled') {
+        $cancelledCount++;
+    } else {
+        $inProgressCount++;
+    }
 }
 
 function getOrderItems($db, $orderId) {
@@ -135,7 +145,7 @@ require_once 'admin_header.php';
     </div>
 
     <!-- Quick Stats Grid -->
-    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
         <div class="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs">
             <span class="text-xs font-bold uppercase tracking-wider text-slate-400">Total Orders</span>
             <p class="text-2xl font-bold text-slate-900 mt-1"><?php echo number_format($totalOrders); ?></p>
@@ -147,6 +157,10 @@ require_once 'admin_header.php';
         <div class="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs">
             <span class="text-xs font-bold uppercase tracking-wider text-slate-400">Pending Orders</span>
             <p class="text-2xl font-bold text-amber-500 mt-1"><?php echo number_format($pendingCount); ?></p>
+        </div>
+        <div class="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs">
+            <span class="text-xs font-bold uppercase tracking-wider text-slate-400">Processing / In-Progress</span>
+            <p class="text-2xl font-bold text-sky-600 mt-1"><?php echo number_format($inProgressCount); ?></p>
         </div>
         <div class="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs">
             <span class="text-xs font-bold uppercase tracking-wider text-slate-400">Delivered</span>
