@@ -10,7 +10,7 @@ $database = new Database();
 $db = $database->getConnection();
 
 if (!isset($_SESSION['admin_logged_in']) || $_SESSION['admin_logged_in'] !== true) {
-    header("Location: admin_orders.php");
+    header("Location: admin.php");
     exit();
 }
 

@@ -10,14 +10,7 @@ if (session_status() === PHP_SESSION_NONE) {
 $database = new Database();
 $db = $database->getConnection();
 
-// 24-Hour Session Timeout Check
-$sessionTimeout = getenv('SESSION_TIMEOUT_SECONDS') ? (int)getenv('SESSION_TIMEOUT_SECONDS') : 86400; // 24h
-if (isset($_SESSION['admin_last_activity']) && (time() - $_SESSION['admin_last_activity'] > $sessionTimeout)) {
-    session_unset();
-    session_destroy();
-    header("Location: admin_orders.php?expired=1");
-    exit();
-}
+// Check for latest order, inquiry, or customisation query (used by real-time refresh checking on admin pages)
 
 // Check for latest order, inquiry, or customisation query (used by real-time refresh checking on admin pages)
 if (isset($_GET['action']) && $_GET['action'] === 'get_latest_order') {
@@ -85,91 +78,8 @@ if (isset($_GET['action']) && $_GET['action'] === 'get_latest_order') {
 $message = "";
 $error = "";
 
-if (isset($_GET['expired'])) {
-    $error = "Session expired due to 24 hours of inactivity. Please log in again.";
-}
-
-// 1. Handle Logout
-if (isset($_GET['logout'])) {
-    session_destroy();
-    header("Location: admin_orders.php");
-    exit();
-}
-
-// 2. Handle Login
-if (isset($_POST['action']) && $_POST['action'] === 'login') {
-    $username = $_POST['username'] ?? '';
-    $password = $_POST['password'] ?? '';
-
-    $query = "SELECT * FROM admin_users WHERE username = :username";
-    $stmt = $db->prepare($query);
-    $stmt->bindParam(':username', $username);
-    $stmt->execute();
-
-    if ($stmt->rowCount() > 0) {
-        $admin = $stmt->fetch(PDO::FETCH_ASSOC);
-        if (password_verify($password, $admin['password'])) {
-            $_SESSION['admin_logged_in'] = true;
-            $_SESSION['admin_username'] = $admin['username'];
-            $_SESSION['admin_last_activity'] = time();
-            $_SESSION['is_main_admin'] = (bool)($admin['is_main_admin'] ?? false);
-            header("Location: admin_orders.php");
-            exit();
-        } else {
-            $error = "Invalid Password";
-        }
-    } else {
-        $error = "Invalid Username";
-    }
-}
-
-// Show Login Form if NOT logged in
-if (!isset($_SESSION['admin_logged_in']) || $_SESSION['admin_logged_in'] !== true) {
-    $pageTitle = "Admin Access";
-    require_once 'admin_header.php';
-?>
-    <div class="min-h-[80vh] flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
-        <div class="max-w-md w-full space-y-8 bg-white p-8 rounded-2xl shadow-xl border border-slate-100">
-            <div class="text-center">
-                <div class="mx-auto w-16 h-16 rounded-2xl gold-gradient flex items-center justify-center font-bold font-serif text-slate-950 text-2xl shadow-lg mb-4">
-                    OMG
-                </div>
-                <h2 class="text-3xl font-serif font-bold text-slate-900">Admin Portal</h2>
-                <p class="mt-2 text-sm text-slate-500">Sign in to manage orders, products & inquiries</p>
-                <span class="inline-block mt-3 px-3 py-1 bg-amber-50 text-amber-700 text-xs font-semibold rounded-full border border-amber-200">
-                    ⏱️ 24-Hour Active Session Protection
-                </span>
-            </div>
-
-            <?php if ($error): ?>
-                <div class="bg-rose-50 border border-rose-200 text-rose-700 px-4 py-3 rounded-xl text-sm font-medium flex items-center gap-2">
-                    <span>⚠️</span> <span><?php echo htmlspecialchars($error); ?></span>
-                </div>
-            <?php endif; ?>
-
-            <form class="mt-8 space-y-6" method="POST">
-                <input type="hidden" name="action" value="login">
-                <div class="space-y-4">
-                    <div>
-                        <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">Username</label>
-                        <input type="text" name="username" required autofocus class="w-full px-4 py-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 text-sm transition-all outline-none" placeholder="Enter username">
-                    </div>
-                    <div>
-                        <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">Password</label>
-                        <input type="password" name="password" required class="w-full px-4 py-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 text-sm transition-all outline-none" placeholder="••••••••">
-                    </div>
-                </div>
-
-                <button type="submit" class="w-full py-3.5 px-4 rounded-xl text-white font-bold gold-gradient shadow-md hover:shadow-lg transition-all text-sm tracking-wide">
-                    Sign In to Portal
-                </button>
-            </form>
-        </div>
-    </div>
-<?php
-    require_once 'admin_footer.php';
-    exit();
-}
+$message = "";
+$error = "";
 
 // Fetch All Orders
 $query = "SELECT * FROM orders ORDER BY created_at DESC";

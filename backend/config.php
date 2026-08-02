@@ -45,15 +45,20 @@ if (!file_exists($uploadsDir)) {
     @mkdir($uploadsDir, 0755, true);
 }
 
-// 24-hour session inactivity auto-logout check (configurable via SESSION_TIMEOUT_SECONDS in .env)
-$sessionTimeout = getenv('SESSION_TIMEOUT_SECONDS') ? (int)getenv('SESSION_TIMEOUT_SECONDS') : 86400; // 86400 seconds = 24 hours
-if (isset($_SESSION['last_activity']) && (time() - $_SESSION['last_activity'] > $sessionTimeout)) {
-    session_unset();
-    session_destroy();
-    session_start();
-    $_SESSION['session_expired'] = true;
+// 3-hour session inactivity auto-logout check (10800 seconds = 3 hours, configurable via SESSION_TIMEOUT_SECONDS in .env)
+$sessionTimeout = getenv('SESSION_TIMEOUT_SECONDS') ? (int)getenv('SESSION_TIMEOUT_SECONDS') : (isset($_ENV['SESSION_TIMEOUT_SECONDS']) ? (int)$_ENV['SESSION_TIMEOUT_SECONDS'] : 10800);
+
+if (isset($_SESSION['user_id'])) {
+    if (isset($_SESSION['user_last_activity']) && (time() - $_SESSION['user_last_activity'] > $sessionTimeout)) {
+        $_SESSION = array();
+        session_unset();
+        session_destroy();
+        session_start();
+        $_SESSION['session_expired_msg'] = "Your session has expired due to 3 hours of inactivity. Please log in again.";
+    } else {
+        $_SESSION['user_last_activity'] = time();
+    }
 }
-$_SESSION['last_activity'] = time();
 
 // Handle CORS dynamically
 $allowedOriginsStr = getenv('ALLOWED_ORIGINS') !== false ? getenv('ALLOWED_ORIGINS') : (isset($_ENV['ALLOWED_ORIGINS']) ? $_ENV['ALLOWED_ORIGINS'] : '');

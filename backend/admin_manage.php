@@ -15,25 +15,8 @@ if (!isset($_SESSION['admin_logged_in']) || ($_SESSION['admin_username'] ?? '') 
     exit();
 }
 
-// 24-Hour Session Lifetime Check
-$sessionTimeout = getenv('SESSION_TIMEOUT_SECONDS') ? (int) getenv('SESSION_TIMEOUT_SECONDS') : 86400;
-if (isset($_SESSION['admin_last_activity']) && (time() - $_SESSION['admin_last_activity'] > $sessionTimeout)) {
-    session_unset();
-    session_destroy();
-    header("Location: admin_orders.php?expired=1");
-    exit();
-}
-$_SESSION['admin_last_activity'] = time();
-
 $message = "";
 $error = "";
-
-// 1. Handle Logout
-if (isset($_GET['logout'])) {
-    session_destroy();
-    header("Location: admin_orders.php");
-    exit();
-}
 
 // 2. Handle Add New Admin
 if (isset($_POST['action']) && $_POST['action'] === 'create_admin') {

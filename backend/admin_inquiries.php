@@ -14,22 +14,7 @@ if (!isset($_SESSION['admin_logged_in']) || $_SESSION['admin_logged_in'] !== tru
     exit();
 }
 
-// 24-Hour Session Lifetime Check
-$sessionTimeout = getenv('SESSION_TIMEOUT_SECONDS') ? (int)getenv('SESSION_TIMEOUT_SECONDS') : 86400;
-if (isset($_SESSION['admin_last_activity']) && (time() - $_SESSION['admin_last_activity'] > $sessionTimeout)) {
-    session_unset();
-    session_destroy();
-    header("Location: admin_orders.php?expired=1");
-    exit();
-}
-$_SESSION['admin_last_activity'] = time();
-
-// Handle Logout
-if (isset($_GET['logout'])) {
-    session_destroy();
-    header("Location: admin_orders.php");
-    exit();
-}
+// Fetch All Inquiries
 
 // Fetch All Inquiries
 $query = "SELECT * FROM inquiries ORDER BY created_at DESC";
