@@ -106,13 +106,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signUp = async (email: string, password: string, name: string) => {
     try {
-      const res = await authService.register(email, password);
-      try {
-        await profileService.update({ name });
-      } catch (e) {}
-      
+      const res = await authService.register(email, password, name);
+
       toast({
-        title: 'Verification Code Sent ✨',
+        title: 'Verification Code Sent.',
         description: 'A 6-digit OTP code has been sent to your email address.',
       });
       return res;

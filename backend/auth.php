@@ -58,6 +58,7 @@ function register($db, $data)
 {
     $email = strtolower(trim($data->email ?? ''));
     $password = trim($data->password ?? '');
+    $name = trim($data->name ?? '');
 
     if (empty($email) || empty($password)) {
         http_response_code(400);
@@ -99,7 +100,12 @@ function register($db, $data)
             $update = $db->prepare("UPDATE users SET password_hash = :hash, otp_code = :otp, otp_expiry = :expiry WHERE id = :id");
             $update->execute([':hash' => $password_hash, ':otp' => $otp, ':expiry' => $expiry, ':id' => $uuid]);
 
-            $userName = explode('@', $email)[0];
+            if (!empty($name)) {
+                $profUp = $db->prepare("INSERT INTO user_profiles (id, name) VALUES (:id, :name) ON DUPLICATE KEY UPDATE name = :name2");
+                $profUp->execute([':id' => $uuid, ':name' => $name, ':name2' => $name]);
+            }
+
+            $userName = !empty($name) ? $name : explode('@', $email)[0];
             $htmlBody = buildEmailVerificationTemplate($userName, $otp);
             sendEmail($email, "Verify your OH MY GUDNESS Account", $htmlBody);
 
@@ -134,13 +140,14 @@ function register($db, $data)
     $stmt->bindParam(":otp_expiry", $expiry);
 
     if ($stmt->execute()) {
-        // Create user profile
-        $profileStmt = $db->prepare("INSERT INTO user_profiles (id) VALUES (:id)");
+        // Create user profile with name if provided
+        $profileStmt = $db->prepare("INSERT INTO user_profiles (id, name) VALUES (:id, :name)");
         $profileStmt->bindParam(":id", $uuid);
+        $profileStmt->bindParam(":name", $name);
         $profileStmt->execute();
 
         // Send OTP Email
-        $userName = explode('@', $email)[0];
+        $userName = !empty($name) ? $name : explode('@', $email)[0];
         $htmlBody = buildEmailVerificationTemplate($userName, $otp);
         $mailSent = sendEmail($email, "Verify your OH MY GUDNESS Account", $htmlBody);
 
