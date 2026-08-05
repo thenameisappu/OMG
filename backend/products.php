@@ -65,24 +65,21 @@ function makeUniqueSlug($db, $name, $excludeId = null)
 }
 
 // UUID generator
-function generateUuid()
-{
-    return sprintf('%04x%04x-%04x-%04x-%04x-%04x%04x%04x',
-        mt_rand(0, 0xffff), mt_rand(0, 0xffff), mt_rand(0, 0xffff),
-        mt_rand(0, 0x0fff) | 0x4000, mt_rand(0, 0x3fff) | 0x8000,
-        mt_rand(0, 0xffff), mt_rand(0, 0xffff), mt_rand(0, 0xffff)
-    );
+if (!function_exists('generateUuid')) {
+    function generateUuid()
+    {
+        return sprintf('%04x%04x-%04x-%04x-%04x-%04x%04x%04x',
+            mt_rand(0, 0xffff), mt_rand(0, 0xffff), mt_rand(0, 0xffff),
+            mt_rand(0, 0x0fff) | 0x4000, mt_rand(0, 0x3fff) | 0x8000,
+            mt_rand(0, 0xffff), mt_rand(0, 0xffff), mt_rand(0, 0xffff)
+        );
+    }
 }
 
 if (!function_exists('deleteLocalImage')) {
     /**
      * deleteLocalImage()
-     *
      * Removes an image from BOTH storage locations.
-     * Accepts a full URL, relative path, or bare filename.
-     *
-     * @param  string $imagePath URL, path, or filename
-     * @return void
      */
     function deleteLocalImage(string $imagePath): void
     {
@@ -94,7 +91,7 @@ if (!function_exists('deleteLocalImage')) {
         // Remove from PERMANENT storage
         $primary = OMG_PRIMARY_DIR . $filename;
         if (is_file($primary)) {
-            if (!@unlink($primary)) {
+            if (!unlink($primary)) {
                 error_log('[OMG Delete] Failed to remove from permanent store: ' . $primary);
             }
         }
@@ -575,25 +572,24 @@ function updateStock($db)
     }
 }
 
-if (!function_exists('uploadImages')) {
-    /**
-     * uploadImages()
-     *
-     * Handles multi-file uploads submitted to action=upload_images.
-     * Dual-storage strategy:
-     *   1. Validate file type (JPG/JPEG/PNG/WEBP) and size (≤5 MB).
-     *   2. Generate unique filename with uniqid() + original extension.
-     *   3. Save to PERMANENT store  via move_uploaded_file().
-     *   4. Copy to WEB-ACCESSIBLE cache via copy().
-     *   5. Return URL pointing at /backend/uploads/<filename>.
-     *   6. Save only the filename/URL in MySQL — never the full disk path.
-     *
-     * @return void
-     */
-    function uploadImages(): void
-    {
-        $primaryDir   = OMG_PRIMARY_DIR;
-        $secondaryDir = OMG_SECONDARY_DIR;
+/**
+ * uploadImages()
+ *
+ * Handles multi-file uploads submitted to action=upload_images.
+ * Dual-storage strategy:
+ *   1. Validate file type (JPG/JPEG/PNG/WEBP) and size (≤5 MB).
+ *   2. Generate unique filename with uniqid() + original extension.
+ *   3. Save to PERMANENT store  via move_uploaded_file().
+ *   4. Copy to WEB-ACCESSIBLE cache via copy().
+ *   5. Return URL pointing at /backend/uploads/<filename>.
+ *   6. Save only the filename/URL in MySQL — never the full disk path.
+ *
+ * @return void
+ */
+function uploadImages(): void
+{
+    $primaryDir   = OMG_PRIMARY_DIR;
+    $secondaryDir = OMG_SECONDARY_DIR;
 
     // ── Ensure permanent store is ready ──────────────────────────────────
     if (!is_dir($primaryDir) && !mkdir($primaryDir, 0755, true)) {
@@ -689,7 +685,5 @@ if (!function_exists('uploadImages')) {
         echo json_encode(['success' => true, 'urls' => $urls, 'errors' => $errors]);
     }
 }
-}
-
 
 

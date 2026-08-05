@@ -56,18 +56,18 @@ $PHP_UPLOAD_ERRORS = [
     UPLOAD_ERR_EXTENSION  => 'A PHP extension blocked the upload.',
 ];
 
+/**
+ * cropToSquare1000()
+ *
+ * Crops and resizes the uploaded image to a 1000×1000 px square (center-crop).
+ * Output is always JPEG at 90 % quality.
+ * Falls back to move_uploaded_file() when the GD extension is unavailable.
+ *
+ * @param  string $tmpName  PHP temporary file path
+ * @param  string $destPath Absolute destination path
+ * @return bool
+ */
 if (!function_exists('cropToSquare1000')) {
-    /**
-     * cropToSquare1000()
-     *
-     * Crops and resizes the uploaded image to a 1000×1000 px square (center-crop).
-     * Output is always JPEG at 90 % quality.
-     * Falls back to move_uploaded_file() when the GD extension is unavailable.
-     *
-     * @param  string $tmpName  PHP temporary file path
-     * @param  string $destPath Absolute destination path
-     * @return bool
-     */
     function cropToSquare1000(string $tmpName, string $destPath): bool
     {
         // GD unavailable — secure move without processing

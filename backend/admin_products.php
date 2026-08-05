@@ -25,68 +25,69 @@ unset($_SESSION['warning_message']);
 unset($_SESSION['error_message']);
 
 // --- SLUG & UUID HELPERS ---
-function generateSlug($name)
-{
-    $text = preg_replace('~[^\pL\d]+~u', '-', $name);
-    $text = iconv('utf-8', 'us-ascii//TRANSLIT', $text);
-    $text = preg_replace('~[^-\w]+~', '', $text);
-    $text = trim($text, '-');
-    $text = preg_replace('~-+~', '-', $text);
-    $text = strtolower($text);
-    return empty($text) ? 'n-a' : $text;
-}
-
-function makeUniqueSlug($db, $name, $excludeId = null)
-{
-    $baseSlug = generateSlug($name);
-    $slug = $baseSlug;
-    $i = 1;
-    while (true) {
-        $query = "SELECT id FROM products WHERE slug = :slug";
-        if ($excludeId) {
-            $query .= " AND id != :exclude_id";
+if (!function_exists('generateSlug')) {
+    function generateSlug($name)
+    {
+        $text = preg_replace('~[^\pL\d]+~u', '-', $name);
+        if (function_exists('iconv')) {
+            $text = iconv('utf-8', 'us-ascii//TRANSLIT', $text);
         }
-        $stmt = $db->prepare($query);
-        $stmt->bindParam(':slug', $slug);
-        if ($excludeId) {
-            $stmt->bindParam(':exclude_id', $excludeId);
-        }
-        $stmt->execute();
-        if ($stmt->rowCount() == 0) {
-            break;
-        }
-        $slug = $baseSlug . '-' . $i;
-        $i++;
+        $text = preg_replace('~[^-\w]+~', '', $text);
+        $text = trim($text, '-');
+        $text = preg_replace('~-+~', '-', $text);
+        $text = strtolower($text);
+        return empty($text) ? 'n-a' : $text;
     }
-    return $slug;
 }
 
-function generateUuid()
-{
-    return sprintf(
-        '%04x%04x-%04x-%04x-%04x-%04x%04x%04x',
-        mt_rand(0, 0xffff),
-        mt_rand(0, 0xffff),
-        mt_rand(0, 0xffff),
-        mt_rand(0, 0x0fff) | 0x4000,
-        mt_rand(0, 0x3fff) | 0x8000,
-        mt_rand(0, 0xffff),
-        mt_rand(0, 0xffff),
-        mt_rand(0, 0xffff)
-    );
+if (!function_exists('makeUniqueSlug')) {
+    function makeUniqueSlug($db, $name, $excludeId = null)
+    {
+        $baseSlug = generateSlug($name);
+        $slug = $baseSlug;
+        $i = 1;
+        while (true) {
+            $query = "SELECT id FROM products WHERE slug = :slug";
+            if ($excludeId) {
+                $query .= " AND id != :exclude_id";
+            }
+            $stmt = $db->prepare($query);
+            $stmt->bindParam(':slug', $slug);
+            if ($excludeId) {
+                $stmt->bindParam(':exclude_id', $excludeId);
+            }
+            $stmt->execute();
+            if ($stmt->rowCount() == 0) {
+                break;
+            }
+            $slug = $baseSlug . '-' . $i;
+            $i++;
+        }
+        return $slug;
+    }
 }
 
-
+if (!function_exists('generateUuid')) {
+    function generateUuid()
+    {
+        return sprintf(
+            '%04x%04x-%04x-%04x-%04x-%04x%04x%04x',
+            mt_rand(0, 0xffff),
+            mt_rand(0, 0xffff),
+            mt_rand(0, 0xffff),
+            mt_rand(0, 0x0fff) | 0x4000,
+            mt_rand(0, 0x3fff) | 0x8000,
+            mt_rand(0, 0xffff),
+            mt_rand(0, 0xffff),
+            mt_rand(0, 0xffff)
+        );
+    }
+}
 
 if (!function_exists('deleteLocalImage')) {
     /**
      * deleteLocalImage()
-     *
      * Removes an image from BOTH storage locations.
-     * Accepts a full URL, relative path, or bare filename.
-     *
-     * @param  string $imagePath  URL, path, or filename of the image
-     * @return void
      */
     function deleteLocalImage(string $imagePath): void
     {
@@ -95,15 +96,13 @@ if (!function_exists('deleteLocalImage')) {
         $filename = basename($imagePath);
         if (empty($filename) || $filename === '.' || $filename === '..') return;
 
-        // Remove from PERMANENT storage
         $primary = OMG_PRIMARY_DIR . $filename;
         if (is_file($primary)) {
-            if (!@unlink($primary)) {
+            if (!unlink($primary)) {
                 error_log('[OMG Delete] Failed to remove from permanent store: ' . $primary);
             }
         }
 
-        // Remove from WEB-ACCESSIBLE cache (non-fatal — restored by sync on next deploy)
         $secondary = OMG_SECONDARY_DIR . $filename;
         if (is_file($secondary)) {
             @unlink($secondary);
@@ -111,13 +110,10 @@ if (!function_exists('deleteLocalImage')) {
     }
 }
 
-// --- FILE UPLOAD HELPERS ---
-
 if (!function_exists('cropToSquare1000')) {
     /**
-     * Crop & resize any uploaded image to a perfect 1000x1000px (1:1) square.
-     * Uses center-crop strategy: takes the largest centered square from the source
-     * then scales it to 1000x1000. Output is always JPEG at 90% quality.
+     * cropToSquare1000()
+     * Crop & resize any uploaded image to a 1000x1000px square.
      */
     function cropToSquare1000(string $tmpName, string $destPath): bool
     {
@@ -126,8 +122,7 @@ if (!function_exists('cropToSquare1000')) {
         }
 
         $info = getimagesize($tmpName);
-        if (!$info)
-            return false;
+        if (!$info) return false;
 
         [$srcW, $srcH, $imgType] = [$info[0], $info[1], $info[2]];
 
@@ -147,8 +142,7 @@ if (!function_exists('cropToSquare1000')) {
             default:
                 return false;
         }
-        if (!$src)
-            return false;
+        if (!$src) return false;
 
         $squareSize = min($srcW, $srcH);
         $cropX = (int) (($srcW - $squareSize) / 2);
@@ -164,7 +158,6 @@ if (!function_exists('cropToSquare1000')) {
         }
 
         imagecopyresampled($dst, $src, 0, 0, $cropX, $cropY, 1000, 1000, $squareSize, $squareSize);
-
         $result = imagejpeg($dst, $destPath, 90);
 
         imagedestroy($src);
@@ -175,19 +168,12 @@ if (!function_exists('cropToSquare1000')) {
 }
 
 if (!function_exists('slugify')) {
-    /**
-     * slugify()
-     * Converts string to lowercase, replaces spaces with hyphens, and removes special characters.
-     */
     function slugify(string $text): string
     {
         $text = strtolower($text);
         $text = preg_replace('~[^\pL\d]+~u', '-', $text);
         if (function_exists('iconv')) {
-            $transliterated = @iconv('utf-8', 'us-ascii//TRANSLIT', $text);
-            if ($transliterated !== false) {
-                $text = $transliterated;
-            }
+            $text = iconv('utf-8', 'us-ascii//TRANSLIT', $text);
         }
         $text = preg_replace('~[^-\w]+~', '', $text);
         $text = trim($text, '-');
@@ -197,11 +183,6 @@ if (!function_exists('slugify')) {
 }
 
 if (!function_exists('generateProductImageFilename')) {
-    /**
-     * generateProductImageFilename()
-     * Generates clean filename based on product name and suffix tag (e.g. red-rose-bouquet-main.jpg).
-     * Appends numerical suffix if filename collision exists in permanent storage.
-     */
     function generateProductImageFilename(string $productName, string $suffixTag, string $extension = 'jpg', ?string $exactOverwriteFilename = null): string
     {
         if (!empty($exactOverwriteFilename)) {
@@ -228,13 +209,6 @@ if (!function_exists('generateProductImageFilename')) {
 }
 
 if (!function_exists('handleFileUpload')) {
-    /**
-     * handleFileUpload()
-     *
-     * Processes a single image upload from an HTML form field.
-     * Names file based on product name & suffix tag (main / hover / gallery-N).
-     * Saves to PERMANENT store (domains/omgproductsimages/) and copies to WEB cache (backend/uploads/).
-     */
     function handleFileUpload(string $fileKey, string $productName = '', string $suffixTag = 'main', string $existingUrl = '', bool $keepSameFilename = false): string
     {
         if (!isset($_FILES[$fileKey]) || $_FILES[$fileKey]['error'] !== UPLOAD_ERR_OK) {
@@ -246,19 +220,16 @@ if (!function_exists('handleFileUpload')) {
         $tmpName  = $file['tmp_name'];
         $origName = $file['name'];
 
-        // Size limit (max 5 MB)
         if ($size > 5 * 1024 * 1024) {
             throw new Exception('File is too large. Maximum allowed size is 5 MB.');
         }
 
-        // MIME-type validation
         $mimeType     = (new finfo(FILEINFO_MIME_TYPE))->file($tmpName);
         $allowedMimes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
         if (!in_array($mimeType, $allowedMimes, true)) {
             throw new Exception('Invalid file type. Only JPG, JPEG, PNG, and WEBP are allowed.');
         }
 
-        // Extension validation
         $ext         = strtolower(pathinfo($origName, PATHINFO_EXTENSION));
         $allowedExts = ['jpg', 'jpeg', 'png', 'webp'];
         if (!in_array($ext, $allowedExts, true)) {
@@ -278,41 +249,31 @@ if (!function_exists('handleFileUpload')) {
             @mkdir($secondaryDir, 0755, true);
         }
 
-        // Target filename based on product name and suffix tag
         $overwriteFilename = ($keepSameFilename && !empty($existingUrl)) ? basename($existingUrl) : null;
         $targetFilename    = generateProductImageFilename(!empty($productName) ? $productName : 'product', $suffixTag, 'jpg', $overwriteFilename);
 
         $primaryTarget   = $primaryDir   . $targetFilename;
         $secondaryTarget = $secondaryDir . $targetFilename;
 
-        // Step 1: Crop & save to PERMANENT store (uses move_uploaded_file internally)
         if (!cropToSquare1000($tmpName, $primaryTarget)) {
             error_log('[OMG Upload] cropToSquare1000() failed for: ' . $origName);
             throw new Exception('Failed to process and save the uploaded image.');
         }
 
-        // Step 2: Copy processed JPEG to WEB-ACCESSIBLE cache (backend/uploads/)
         if (is_writable($secondaryDir) && !copy($primaryTarget, $secondaryTarget)) {
             error_log('[OMG Upload] copy() to backend/uploads/ failed for: ' . $targetFilename);
         }
 
-        // If filename changed and an old file existed, remove old file from both stores
         if (!empty($existingUrl) && !$keepSameFilename && basename($existingUrl) !== $targetFilename) {
             deleteLocalImage($existingUrl);
         }
 
-        // Step 3: Return URL served from backend/uploads/
         $protocol = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on') ? 'https' : 'http';
         return $protocol . '://' . $_SERVER['HTTP_HOST'] . OMG_IMG_URL_PATH . $targetFilename;
     }
 }
 
 if (!function_exists('handleMultipleFileUploads')) {
-    /**
-     * handleMultipleFileUploads()
-     *
-     * Processes multiple image uploads for product gallery.
-     */
     function handleMultipleFileUploads(string $fileKey, string $productName = '', array $existingImages = []): array
     {
         if (!isset($_FILES[$fileKey]) || empty($_FILES[$fileKey]['name'][0])) {
@@ -383,7 +344,6 @@ if (!function_exists('handleMultipleFileUploads')) {
         return array_merge($existingImages, $newImages);
     }
 }
-
 
 
 

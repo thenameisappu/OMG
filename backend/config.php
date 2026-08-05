@@ -37,99 +37,113 @@
 
 date_default_timezone_set('Asia/Kolkata');
 
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
+session_start();
 
 // ═══════════════════════════════════════════════════════════════════════════
 // DUAL IMAGE STORAGE SETUP
 // ═══════════════════════════════════════════════════════════════════════════
+//
+//  PERMANENT STORAGE  →  domains/omgproductsimages/
+//    Sits 3 directory levels above backend/ on Hostinger:
+//    backend/ → public_html/ → domain-folder/ → domains/omgproductsimages/
+//    Never wiped by GitHub redeployments — acts as the authoritative backup.
+//
+//  WEB-ACCESSIBLE COPY  →  public_html/backend/uploads/
+//    Served directly at  https://<host>/backend/uploads/<filename>
+//    Automatically restored from permanent storage after every fresh deploy.
+//
+// ═══════════════════════════════════════════════════════════════════════════
 
-if (!defined('OMG_PRIMARY_DIR')) {
-    define('OMG_PRIMARY_DIR', dirname(dirname(dirname(__DIR__))) . '/omgproductsimages/');
-}
-if (!defined('OMG_SECONDARY_DIR')) {
-    define('OMG_SECONDARY_DIR', __DIR__ . '/uploads/');
-}
-if (!defined('OMG_IMG_URL_PATH')) {
-    define('OMG_IMG_URL_PATH', '/backend/uploads/');
-}
+// Resolve absolute disk paths
+define('OMG_PRIMARY_DIR',   dirname(dirname(dirname(__DIR__))) . '/omgproductsimages/');
+define('OMG_SECONDARY_DIR', __DIR__ . '/uploads/');
+define('OMG_IMG_URL_PATH',  '/backend/uploads/');   // web path prefix for image URLs
 
 // Ensure both directories exist
 if (!is_dir(OMG_PRIMARY_DIR))   { @mkdir(OMG_PRIMARY_DIR,   0755, true); }
 if (!is_dir(OMG_SECONDARY_DIR)) { @mkdir(OMG_SECONDARY_DIR, 0755, true); }
 
-if (!function_exists('syncImagesToBackendUploads')) {
-    /**
-     * syncImagesToBackendUploads()
-     * Restores backend/uploads/ from the permanent store (domains/omgproductsimages/)
-     * when the uploads folder is found empty after a GitHub redeploy.
-     */
-    function syncImagesToBackendUploads(): void
-    {
-        try {
-            $primaryDir   = OMG_PRIMARY_DIR;
-            $secondaryDir = OMG_SECONDARY_DIR;
+/**
+ * syncImagesToBackendUploads()
+ *
+ * Restores backend/uploads/ from the permanent store (domains/omgproductsimages/)
+ * when the uploads folder is found empty — which happens after a GitHub redeploy
+ * wipes public_html.
+ *
+ * Logic:
+ *  1. Verify permanent storage exists.
+ *  2. Create backend/uploads/ if missing.
+ *  3. Read both directories with scandir().
+ *  4. If uploads/ already has image files → no-op (fast return).
+ *  5. Otherwise copy every image from permanent store that is not yet in uploads/.
+ *  6. Never delete anything from the permanent store.
+ *
+ * @return void
+ */
+function syncImagesToBackendUploads(): void
+{
+    $primaryDir   = OMG_PRIMARY_DIR;
+    $secondaryDir = OMG_SECONDARY_DIR;
 
-            if (!is_dir($primaryDir)) return;
+    // ── 1. Permanent store must exist ────────────────────────────────────
+    if (!is_dir($primaryDir)) return;
 
-            if (!is_dir($secondaryDir)) {
-                if (!@mkdir($secondaryDir, 0755, true)) {
-                    error_log('[OMG Sync] Cannot create backend/uploads/. Check server permissions.');
-                    return;
-                }
-            }
-
-            $allowedExts = ['jpg', 'jpeg', 'png', 'webp'];
-
-            $secondaryEntries = @scandir($secondaryDir);
-            if (!is_array($secondaryEntries)) return;
-
-            $secondaryImages = [];
-            foreach ($secondaryEntries as $entry) {
-                $ext = strtolower(pathinfo($entry, PATHINFO_EXTENSION));
-                if (in_array($ext, $allowedExts, true)) {
-                    $secondaryImages[$entry] = true;
-                }
-            }
-
-            if (!empty($secondaryImages)) return;
-
-            $primaryEntries = @scandir($primaryDir);
-            if (!is_array($primaryEntries)) return;
-
-            $copied = 0;
-            $failed = 0;
-
-            foreach ($primaryEntries as $filename) {
-                if ($filename === '.' || $filename === '..') continue;
-
-                $ext = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
-                if (!in_array($ext, $allowedExts, true)) continue;
-                if (isset($secondaryImages[$filename])) continue;
-
-                $src = $primaryDir   . $filename;
-                $dst = $secondaryDir . $filename;
-
-                if (!is_file($src)) continue;
-
-                if (@copy($src, $dst)) {
-                    $copied++;
-                } else {
-                    $failed++;
-                }
-            }
-
-            if ($copied > 0 || $failed > 0) {
-                error_log('[OMG Sync] Sync complete — copied: ' . $copied . ', failed: ' . $failed);
-            }
-        } catch (Throwable $e) {
-            error_log('[OMG Sync Exception] ' . $e->getMessage());
+    // ── 2. Create uploads/ if absent ─────────────────────────────────────
+    if (!is_dir($secondaryDir)) {
+        if (!mkdir($secondaryDir, 0755, true)) {
+            error_log('[OMG Sync] Cannot create backend/uploads/. Check server permissions.');
+            return;
         }
+    }
+
+    $allowedExts = ['jpg', 'jpeg', 'png', 'webp'];
+
+    // ── 3. Scan secondary with scandir() ─────────────────────────────────
+    $secondaryEntries = scandir($secondaryDir);
+    $secondaryImages  = [];
+    foreach ($secondaryEntries as $entry) {
+        $ext = strtolower(pathinfo($entry, PATHINFO_EXTENSION));
+        if (in_array($ext, $allowedExts, true)) {
+            $secondaryImages[$entry] = true;   // keyed for O(1) existence check
+        }
+    }
+
+    // ── 4. No-op if uploads/ already has image files ──────────────────────
+    if (!empty($secondaryImages)) return;
+
+    // ── 5. Scan permanent store and copy every missing image ──────────────
+    $primaryEntries = scandir($primaryDir);
+    $copied = 0;
+    $failed = 0;
+
+    foreach ($primaryEntries as $filename) {
+        if ($filename === '.' || $filename === '..') continue;
+
+        $ext = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
+        if (!in_array($ext, $allowedExts, true)) continue;
+
+        // ── 6. Skip if already exists in secondary ────────────────────────
+        if (isset($secondaryImages[$filename])) continue;
+
+        $src = $primaryDir   . $filename;
+        $dst = $secondaryDir . $filename;
+
+        if (!is_file($src)) continue;
+
+        if (copy($src, $dst)) {
+            $copied++;
+        } else {
+            $failed++;
+            error_log('[OMG Sync] Failed to copy "' . $filename . '" to backend/uploads/');
+        }
+    }
+
+    if ($copied > 0 || $failed > 0) {
+        error_log('[OMG Sync] Sync complete — copied: ' . $copied . ', failed: ' . $failed);
     }
 }
 
-// Run on every PHP startup
+// Run on every PHP startup — no-op when uploads/ already has images (< 1 ms)
 syncImagesToBackendUploads();
 
 
