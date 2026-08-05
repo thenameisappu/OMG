@@ -1,15 +1,5 @@
 <?php
-/**
- * upload.php — Single-file image upload endpoint
- *
- * Dual-storage strategy:
- *   1. Save to PERMANENT store  → domains/omgproductsimages/   (via cropToSquare1000 / move_uploaded_file)
- *   2. Copy  to WEB-ACCESSIBLE  → public_html/backend/uploads/ (via copy())
- *   3. Return URL pointing at   → /backend/uploads/<filename>
- *   4. Save only the FILENAME in MySQL (not the full URL).
- *
- * Compatible with PHP 8.x.
- */
+
 
 require_once 'config.php';     // defines OMG_PRIMARY_DIR, OMG_SECONDARY_DIR, OMG_IMG_URL_PATH
 
@@ -26,7 +16,7 @@ if (!isset($_SESSION['user_id']) && !isset($_SESSION['admin_logged_in'])) {
 // Both dirs are created by config.php; we just verify writability here.
 foreach ([
     'Permanent storage (domains/omgproductsimages)' => OMG_PRIMARY_DIR,
-    'Web-accessible cache (backend/uploads)'        => OMG_SECONDARY_DIR,
+    'Web-accessible cache (backend/uploads)' => OMG_SECONDARY_DIR,
 ] as $label => $dir) {
     if (!is_dir($dir) && !mkdir($dir, 0755, true)) {
         http_response_code(500);
@@ -42,18 +32,18 @@ foreach ([
 
 // ── Allowed types ─────────────────────────────────────────────────────────────
 $ALLOWED_MIMES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
-$ALLOWED_EXTS  = ['jpg', 'jpeg', 'png', 'webp'];
-$MAX_BYTES     = 5 * 1024 * 1024;   // 5 MB
+$ALLOWED_EXTS = ['jpg', 'jpeg', 'png', 'webp'];
+$MAX_BYTES = 5 * 1024 * 1024;   // 5 MB
 
 // ── PHP upload error messages ─────────────────────────────────────────────────
 $PHP_UPLOAD_ERRORS = [
-    UPLOAD_ERR_INI_SIZE   => 'File exceeds server upload_max_filesize limit.',
-    UPLOAD_ERR_FORM_SIZE  => 'File exceeds form MAX_FILE_SIZE limit.',
-    UPLOAD_ERR_PARTIAL    => 'File was only partially uploaded.',
-    UPLOAD_ERR_NO_FILE    => 'No file was uploaded.',
+    UPLOAD_ERR_INI_SIZE => 'File exceeds server upload_max_filesize limit.',
+    UPLOAD_ERR_FORM_SIZE => 'File exceeds form MAX_FILE_SIZE limit.',
+    UPLOAD_ERR_PARTIAL => 'File was only partially uploaded.',
+    UPLOAD_ERR_NO_FILE => 'No file was uploaded.',
     UPLOAD_ERR_NO_TMP_DIR => 'Missing server temporary folder.',
     UPLOAD_ERR_CANT_WRITE => 'Failed to write file to disk.',
-    UPLOAD_ERR_EXTENSION  => 'A PHP extension blocked the upload.',
+    UPLOAD_ERR_EXTENSION => 'A PHP extension blocked the upload.',
 ];
 
 /**
@@ -76,22 +66,24 @@ if (!function_exists('cropToSquare1000')) {
         }
 
         $info = getimagesize($tmpName);
-        if (!$info) return false;
+        if (!$info)
+            return false;
 
         [$srcW, $srcH, $imgType] = [$info[0], $info[1], $info[2]];
 
         $src = match ($imgType) {
             IMAGETYPE_JPEG => imagecreatefromjpeg($tmpName),
-            IMAGETYPE_PNG  => imagecreatefrompng($tmpName),
+            IMAGETYPE_PNG => imagecreatefrompng($tmpName),
             IMAGETYPE_WEBP => imagecreatefromwebp($tmpName),
-            default        => false,
+            default => false,
         };
-        if (!$src) return false;
+        if (!$src)
+            return false;
 
         // Center-crop to largest possible square
         $squareSize = min($srcW, $srcH);
-        $cropX = (int)(($srcW - $squareSize) / 2);
-        $cropY = (int)(($srcH - $squareSize) / 2);
+        $cropX = (int) (($srcW - $squareSize) / 2);
+        $cropY = (int) (($srcH - $squareSize) / 2);
 
         $dst = imagecreatetruecolor(1000, 1000);
 
@@ -155,7 +147,7 @@ if (!in_array($ext, $ALLOWED_EXTS, true)) {
 
 // 5 ── Generate unique filename ────────────────────────────────────────────────
 $productName = trim($_POST['product_name'] ?? ($_POST['name'] ?? ''));
-$suffixTag   = trim($_POST['suffix_tag']   ?? 'main');
+$suffixTag = trim($_POST['suffix_tag'] ?? 'main');
 
 if (!empty($productName)) {
     // Slugify product name
@@ -167,7 +159,9 @@ if (!empty($productName)) {
     $slug = preg_replace('~[^-\w]+~', '', $slug);
     $slug = trim($slug, '-');
     $slug = preg_replace('~-+~', '-', $slug);
-    if (empty($slug)) { $slug = 'product'; }
+    if (empty($slug)) {
+        $slug = 'product';
+    }
 
     $baseName = $slug . '-' . $suffixTag;
     $uniqueName = $baseName . '.jpg';
@@ -183,7 +177,7 @@ if (!empty($productName)) {
     $uniqueName = uniqid('img_', true) . '.jpg';
 }
 
-$primaryTarget   = OMG_PRIMARY_DIR   . $uniqueName;   // permanent
+$primaryTarget = OMG_PRIMARY_DIR . $uniqueName;   // permanent
 $secondaryTarget = OMG_SECONDARY_DIR . $uniqueName;   // web cache
 
 // 6 ── Save to PERMANENT storage via move_uploaded_file (inside cropToSquare1000) ──
@@ -202,13 +196,13 @@ if (!copy($primaryTarget, $secondaryTarget)) {
 
 // 8 ── Build URL (always served from backend/uploads/) ────────────────────────
 $protocol = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on') ? 'https' : 'http';
-$host     = $_SERVER['HTTP_HOST'];
+$host = $_SERVER['HTTP_HOST'];
 $imageUrl = $protocol . '://' . $host . OMG_IMG_URL_PATH . $uniqueName;
 
 // Return URL + filename (store ONLY the filename in MySQL)
-$response['success']  = true;
-$response['message']  = 'Image uploaded and processed successfully (1000×1000 px).';
-$response['url']      = $imageUrl;
+$response['success'] = true;
+$response['message'] = 'Image uploaded and processed successfully (1000×1000 px).';
+$response['url'] = $imageUrl;
 $response['filename'] = $uniqueName;     // ← save this in MySQL
 
 echo json_encode($response);
