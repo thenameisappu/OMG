@@ -76,16 +76,36 @@ function generateUuid()
     );
 }
 
-function deleteLocalImage($imagePath)
+
+
+/**
+ * deleteLocalImage()
+ *
+ * Removes an image from BOTH storage locations.
+ * Accepts a full URL, relative path, or bare filename.
+ *
+ * @param  string $imagePath  URL, path, or filename of the image
+ * @return void
+ */
+function deleteLocalImage(string $imagePath): void
 {
-    if (empty($imagePath))
-        return;
-    // Accept a full URL, a relative path, or just a filename
-    $filename  = basename($imagePath);
-    // 3 levels up from backend/: backend → public_html → domain-folder → domains/
-    $localPath = dirname(dirname(dirname(__DIR__))) . '/omgproductsimages/' . $filename;
-    if (file_exists($localPath)) {
-        @unlink($localPath);
+    if (empty($imagePath)) return;
+
+    $filename = basename($imagePath);
+    if (empty($filename) || $filename === '.' || $filename === '..') return;
+
+    // Remove from PERMANENT storage
+    $primary = OMG_PRIMARY_DIR . $filename;
+    if (is_file($primary)) {
+        if (!unlink($primary)) {
+            error_log('[OMG Delete] Failed to remove from permanent store: ' . $primary);
+        }
+    }
+
+    // Remove from WEB-ACCESSIBLE cache (non-fatal — restored by sync on next deploy)
+    $secondary = OMG_SECONDARY_DIR . $filename;
+    if (is_file($secondary)) {
+        @unlink($secondary);
     }
 }
 
@@ -150,149 +170,179 @@ function cropToSquare1000(string $tmpName, string $destPath): bool
     return $result;
 }
 
-function handleFileUpload($fileKey, $existingUrl = '')
+/**
+ * handleFileUpload()
+ *
+ * Processes a single image upload from an HTML form field.
+ * Dual-storage:
+ *   1. Crop & save to PERMANENT store  via cropToSquare1000 / move_uploaded_file.
+ *   2. Copy processed JPEG to WEB-ACCESSIBLE cache via copy().
+ *   3. Return URL served from /backend/uploads/.
+ *
+ * @param  string $fileKey     $_FILES key for the upload
+ * @param  string $existingUrl Previous image URL to replace (deleted from both stores)
+ * @return string              New image URL (from backend/uploads/)
+ * @throws Exception           On validation failure or write error
+ */
+function handleFileUpload(string $fileKey, string $existingUrl = ''): string
 {
     if (!isset($_FILES[$fileKey]) || $_FILES[$fileKey]['error'] !== UPLOAD_ERR_OK) {
         return $existingUrl;
     }
-    $file    = $_FILES[$fileKey];
-    $size    = $file['size'];
-    $tmpName = $file['tmp_name'];
+
+    $file     = $_FILES[$fileKey];
+    $size     = $file['size'];
+    $tmpName  = $file['tmp_name'];
     $origName = $file['name'];
 
-    // ── Size limit (5 MB) ─────────────────────────────────────────
+    // Size limit (max 5 MB)
     if ($size > 5 * 1024 * 1024) {
         throw new Exception('File is too large. Maximum allowed size is 5 MB.');
     }
 
-    // ── MIME-type validation ──────────────────────────────────────
-    $finfo    = new finfo(FILEINFO_MIME_TYPE);
-    $mimeType = $finfo->file($tmpName);
+    // MIME-type validation
+    $mimeType     = (new finfo(FILEINFO_MIME_TYPE))->file($tmpName);
     $allowedMimes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
-
     if (!in_array($mimeType, $allowedMimes, true)) {
         throw new Exception('Invalid file type. Only JPG, JPEG, PNG, and WEBP are allowed.');
     }
 
-    // ── Extension validation ───────────────────────────────────────
+    // Extension validation
     $ext         = strtolower(pathinfo($origName, PATHINFO_EXTENSION));
     $allowedExts = ['jpg', 'jpeg', 'png', 'webp'];
-
     if (!in_array($ext, $allowedExts, true)) {
         throw new Exception("Invalid file extension ('.$ext'). Only .jpg, .jpeg, .png, and .webp are permitted.");
     }
 
-    // ── Upload directory ──────────────────────────────────────────
-    // Hostinger domains root, 3 levels above backend/
-    $uploadDir = dirname(dirname(dirname(__DIR__))) . '/omgproductsimages/';
-    $imagesBaseUrl = rtrim(
-        getenv('IMAGES_BASE_URL') ?: (
-            $_ENV['IMAGES_BASE_URL'] ?? (
-                (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : 'http')
-                . '://' . $_SERVER['HTTP_HOST']
-            )
-        ),
-        '/'
-    );
+    $primaryDir   = OMG_PRIMARY_DIR;
+    $secondaryDir = OMG_SECONDARY_DIR;
 
-    if (!file_exists($uploadDir)) {
-        if (!mkdir($uploadDir, 0755, true)) {
-            throw new Exception('Upload directory could not be created. Check server permissions.');
-        }
+    // Ensure permanent store is ready
+    if (!is_dir($primaryDir) && !mkdir($primaryDir, 0755, true)) {
+        throw new Exception('Permanent image directory could not be created. Check server permissions.');
     }
-    if (!is_writable($uploadDir)) {
-        throw new Exception('Upload directory is not writable. Check server permissions.');
+    if (!is_writable($primaryDir)) {
+        throw new Exception('Permanent image directory is not writable. Check server permissions.');
+    }
+    // Ensure web cache exists (non-fatal)
+    if (!is_dir($secondaryDir)) {
+        @mkdir($secondaryDir, 0755, true);
     }
 
-    // ── Unique filename + secure move via GD crop (falls back to move_uploaded_file) ──
-    $uniqueName = uniqid('prod_', true) . '.jpg'; // cropToSquare1000 always outputs JPEG
-    $targetFile = $uploadDir . $uniqueName;
+    // Unique filename — cropToSquare1000 always outputs JPEG
+    $uniqueName      = uniqid('prod_', true) . '.jpg';
+    $primaryTarget   = $primaryDir   . $uniqueName;
+    $secondaryTarget = $secondaryDir . $uniqueName;
 
-    if (cropToSquare1000($tmpName, $targetFile)) {
-        if (!empty($existingUrl)) {
-            deleteLocalImage($existingUrl);
-        }
-        return $imagesBaseUrl . '/omgproductsimages/' . $uniqueName;
-    } else {
+    // Step 1: Crop & save to PERMANENT store (uses move_uploaded_file internally)
+    if (!cropToSquare1000($tmpName, $primaryTarget)) {
+        error_log('[OMG Upload] cropToSquare1000() failed for: ' . $origName);
         throw new Exception('Failed to process and save the uploaded image.');
     }
+
+    // Step 2: Copy processed JPEG to WEB-ACCESSIBLE cache (backend/uploads/)
+    if (is_writable($secondaryDir) && !copy($primaryTarget, $secondaryTarget)) {
+        error_log('[OMG Upload] copy() to backend/uploads/ failed for: ' . $uniqueName);
+        // Non-fatal — sync() will restore on next startup
+    }
+
+    // Remove old image from both stores
+    if (!empty($existingUrl)) {
+        deleteLocalImage($existingUrl);
+    }
+
+    // Step 3: Return URL served from backend/uploads/
+    $protocol = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on') ? 'https' : 'http';
+    return $protocol . '://' . $_SERVER['HTTP_HOST'] . OMG_IMG_URL_PATH . $uniqueName;
 }
 
-function handleMultipleFileUploads($fileKey, $existingImages = [])
+/**
+ * handleMultipleFileUploads()
+ *
+ * Processes multiple image uploads from an HTML multi-file field.
+ * Same dual-storage strategy as handleFileUpload().
+ *
+ * @param  string $fileKey        $_FILES key for the upload
+ * @param  array  $existingImages Existing image URLs to merge with new ones
+ * @return array                  Merged array of image URLs
+ * @throws Exception              On validation or write failure
+ */
+function handleMultipleFileUploads(string $fileKey, array $existingImages = []): array
 {
     if (!isset($_FILES[$fileKey]) || empty($_FILES[$fileKey]['name'][0])) {
         return $existingImages;
     }
 
-    $files     = $_FILES[$fileKey];
-    $newImages = [];
-    $fileCount = count($files['name']);
-
-    // Allowed MIME types and extensions (no GIF per requirements)
+    $files        = $_FILES[$fileKey];
+    $newImages    = [];
+    $fileCount    = count($files['name']);
     $allowedMimes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
     $allowedExts  = ['jpg', 'jpeg', 'png', 'webp'];
 
-    // Upload directory: Hostinger domains root, 3 levels above backend/
-    $uploadDir = dirname(dirname(dirname(__DIR__))) . '/omgproductsimages/';
-    $imagesBaseUrl = rtrim(
-        getenv('IMAGES_BASE_URL') ?: (
-            $_ENV['IMAGES_BASE_URL'] ?? (
-                (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : 'http')
-                . '://' . $_SERVER['HTTP_HOST']
-            )
-        ),
-        '/'
-    );
+    $primaryDir   = OMG_PRIMARY_DIR;
+    $secondaryDir = OMG_SECONDARY_DIR;
 
-    if (!file_exists($uploadDir)) {
-        if (!mkdir($uploadDir, 0755, true)) {
-            throw new Exception('Upload directory could not be created. Check server permissions.');
-        }
+    // Ensure permanent store is ready
+    if (!is_dir($primaryDir) && !mkdir($primaryDir, 0755, true)) {
+        throw new Exception('Permanent image directory could not be created. Check server permissions.');
     }
-    if (!is_writable($uploadDir)) {
-        throw new Exception('Upload directory is not writable. Check server permissions.');
+    if (!is_writable($primaryDir)) {
+        throw new Exception('Permanent image directory is not writable. Check server permissions.');
+    }
+    // Ensure web cache exists (non-fatal)
+    if (!is_dir($secondaryDir)) {
+        @mkdir($secondaryDir, 0755, true);
     }
 
     for ($i = 0; $i < $fileCount; $i++) {
-        if ($files['error'][$i] !== UPLOAD_ERR_OK)
-            continue;
+        if ($files['error'][$i] !== UPLOAD_ERR_OK) continue;
 
         $tmpName  = $files['tmp_name'][$i];
         $origName = $files['name'][$i];
         $size     = $files['size'][$i];
 
-        // ── Size limit (5 MB) ───────────────────────────────────────────
+        // Size limit (max 5 MB)
         if ($size > 5 * 1024 * 1024) {
             throw new Exception("'$origName' exceeds the 5 MB size limit.");
         }
 
-        // ── MIME-type validation ─────────────────────────────────────────
-        $finfo    = new finfo(FILEINFO_MIME_TYPE);
-        $mimeType = $finfo->file($tmpName);
-
+        // MIME-type validation
+        $mimeType = (new finfo(FILEINFO_MIME_TYPE))->file($tmpName);
         if (!in_array($mimeType, $allowedMimes, true)) {
             throw new Exception("'$origName' has an invalid file type. Only JPG, JPEG, PNG, and WEBP are allowed.");
         }
 
-        // ── Extension validation ─────────────────────────────────────────
+        // Extension validation
         $ext = strtolower(pathinfo($origName, PATHINFO_EXTENSION));
         if (!in_array($ext, $allowedExts, true)) {
             throw new Exception("'$origName' has an invalid extension ('.$ext'). Only .jpg, .jpeg, .png, and .webp are permitted.");
         }
 
-        // ── Unique filename + secure move ─────────────────────────────────
-        // cropToSquare1000 always outputs JPEG, so filename ends in .jpg
-        $uniqueName = uniqid('prod_', true) . '.jpg';
-        $targetFile = $uploadDir . $uniqueName;
 
-        if (cropToSquare1000($tmpName, $targetFile)) {
-            $protocol    = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on') ? 'https' : 'http';
-            $host        = $_SERVER['HTTP_HOST'];
-            $newImages[] = $imagesBaseUrl . '/omgproductsimages/' . $uniqueName;
+        // Unique filename — cropToSquare1000 always outputs JPEG
+        $uniqueName      = uniqid('prod_', true) . '.jpg';
+        $primaryTarget   = $primaryDir   . $uniqueName;
+        $secondaryTarget = $secondaryDir . $uniqueName;
+
+        // Step 1: Crop & save to PERMANENT store
+        if (!cropToSquare1000($tmpName, $primaryTarget)) {
+            error_log('[OMG Upload] cropToSquare1000() failed for: ' . $origName);
+            continue;
         }
+
+        // Step 2: Copy to WEB-ACCESSIBLE cache (backend/uploads/)
+        if (is_writable($secondaryDir) && !copy($primaryTarget, $secondaryTarget)) {
+            error_log('[OMG Upload] copy() to backend/uploads/ failed for: ' . $uniqueName);
+        }
+
+        // Step 3: Return URL served from backend/uploads/
+        $protocol    = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on') ? 'https' : 'http';
+        $newImages[] = $protocol . '://' . $_SERVER['HTTP_HOST'] . OMG_IMG_URL_PATH . $uniqueName;
     }
+
     return array_merge($existingImages, $newImages);
 }
+
 
 // --- HANDLE POST ACTIONS (main_admin only) ---
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
