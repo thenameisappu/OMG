@@ -351,7 +351,7 @@ if (!function_exists('handleMultipleFileUploads')) {
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     if (!$is_main_admin) {
         $_SESSION['error_message'] = "Unauthorized. Only main_admin can modify products.";
-        header("Location: admin_products.php");
+        header("Location: admin.php?tab=products");
         exit();
     }
 
@@ -681,6 +681,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             ]);
 
             $_SESSION['success_message'] = "Stock inventory updated for '$pName' (Qty: $stock_quantity, Status: $stock_status).";
+        }
     } catch (Exception $e) {
         if (isset($_POST['is_ajax']) || (isset($_SERVER['HTTP_X_REQUESTED_WITH']) && $_SERVER['HTTP_X_REQUESTED_WITH'] === 'XMLHttpRequest')) {
             header("Content-Type: application/json");
@@ -690,7 +691,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         $_SESSION['error_message'] = $e->getMessage();
     }
 
-    header("Location: admin_products.php");
+    header("Location: admin.php?tab=products");
     exit();
 }
 
@@ -778,7 +779,8 @@ require_once 'admin_header.php';
     <!-- Toolbar & Search Filters -->
     <div
         class="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs flex flex-col sm:flex-row justify-between items-center gap-4">
-        <form method="GET" class="flex flex-wrap items-center gap-3 w-full sm:w-auto">
+        <form method="GET" action="admin.php" class="flex flex-wrap items-center gap-3 w-full sm:w-auto">
+            <input type="hidden" name="tab" value="products">
             <input type="text" name="search" placeholder="Search by name, SKU..."
                 value="<?php echo htmlspecialchars($search); ?>"
                 class="px-4 py-2 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-amber-500 outline-none w-full sm:w-64">
@@ -793,7 +795,7 @@ require_once 'admin_header.php';
             <button type="submit"
                 class="py-2 px-4 bg-slate-900 text-white font-semibold rounded-xl text-sm hover:bg-slate-800 transition-colors">Filter</button>
             <?php if (!empty($search) || !empty($categoryFilter)): ?>
-                <a href="admin_products.php"
+                <a href="admin.php?tab=products"
                     class="py-2 px-3 text-slate-500 hover:text-slate-800 text-sm font-medium">Reset</a>
             <?php endif; ?>
         </form>
