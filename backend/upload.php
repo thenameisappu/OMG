@@ -152,8 +152,35 @@ if (!in_array($ext, $ALLOWED_EXTS, true)) {
 }
 
 // 5 ── Generate unique filename ────────────────────────────────────────────────
-// cropToSquare1000 always writes JPEG → always store with .jpg extension
-$uniqueName      = uniqid('img_', true) . '.jpg';
+$productName = trim($_POST['product_name'] ?? ($_POST['name'] ?? ''));
+$suffixTag   = trim($_POST['suffix_tag']   ?? 'main');
+
+if (!empty($productName)) {
+    // Slugify product name
+    $slug = strtolower($productName);
+    $slug = preg_replace('~[^\pL\d]+~u', '-', $slug);
+    if (function_exists('iconv')) {
+        $slug = iconv('utf-8', 'us-ascii//TRANSLIT', $slug);
+    }
+    $slug = preg_replace('~[^-\w]+~', '', $slug);
+    $slug = trim($slug, '-');
+    $slug = preg_replace('~-+~', '-', $slug);
+    if (empty($slug)) { $slug = 'product'; }
+
+    $baseName = $slug . '-' . $suffixTag;
+    $uniqueName = $baseName . '.jpg';
+
+    // Duplicate check & numerical suffixing
+    $counter = 1;
+    while (file_exists(OMG_PRIMARY_DIR . $uniqueName)) {
+        $uniqueName = $baseName . '-' . $counter . '.jpg';
+        $counter++;
+    }
+} else {
+    // Fallback to unique ID
+    $uniqueName = uniqid('img_', true) . '.jpg';
+}
+
 $primaryTarget   = OMG_PRIMARY_DIR   . $uniqueName;   // permanent
 $secondaryTarget = OMG_SECONDARY_DIR . $uniqueName;   // web cache
 

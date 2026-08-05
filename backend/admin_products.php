@@ -171,20 +171,59 @@ function cropToSquare1000(string $tmpName, string $destPath): bool
 }
 
 /**
+ * slugify()
+ * Converts string to lowercase, replaces spaces with hyphens, and removes special characters.
+ */
+function slugify(string $text): string
+{
+    $text = strtolower($text);
+    $text = preg_replace('~[^\pL\d]+~u', '-', $text);
+    if (function_exists('iconv')) {
+        $text = iconv('utf-8', 'us-ascii//TRANSLIT', $text);
+    }
+    $text = preg_replace('~[^-\w]+~', '', $text);
+    $text = trim($text, '-');
+    $text = preg_replace('~-+~', '-', $text);
+    return empty($text) ? 'product' : $text;
+}
+
+/**
+ * generateProductImageFilename()
+ * Generates clean filename based on product name and suffix tag (e.g. red-rose-bouquet-main.jpg).
+ * Appends numerical suffix if filename collision exists in permanent storage.
+ */
+function generateProductImageFilename(string $productName, string $suffixTag, string $extension = 'jpg', ?string $exactOverwriteFilename = null): string
+{
+    if (!empty($exactOverwriteFilename)) {
+        return basename($exactOverwriteFilename);
+    }
+
+    $slug = slugify($productName);
+    $baseName = $slug . '-' . $suffixTag;
+    $extension = strtolower(ltrim($extension, '.'));
+    if (empty($extension)) {
+        $extension = 'jpg';
+    }
+    $filename = $baseName . '.' . $extension;
+
+    $primaryDir = OMG_PRIMARY_DIR;
+    $counter = 1;
+    while (file_exists($primaryDir . $filename)) {
+        $filename = $baseName . '-' . $counter . '.' . $extension;
+        $counter++;
+    }
+
+    return $filename;
+}
+
+/**
  * handleFileUpload()
  *
  * Processes a single image upload from an HTML form field.
- * Dual-storage:
- *   1. Crop & save to PERMANENT store  via cropToSquare1000 / move_uploaded_file.
- *   2. Copy processed JPEG to WEB-ACCESSIBLE cache via copy().
- *   3. Return URL served from /backend/uploads/.
- *
- * @param  string $fileKey     $_FILES key for the upload
- * @param  string $existingUrl Previous image URL to replace (deleted from both stores)
- * @return string              New image URL (from backend/uploads/)
- * @throws Exception           On validation failure or write error
+ * Names file based on product name & suffix tag (main / hover / gallery-N).
+ * Saves to PERMANENT store (domains/omgproductsimages/) and copies to WEB cache (backend/uploads/).
  */
-function handleFileUpload(string $fileKey, string $existingUrl = ''): string
+function handleFileUpload(string $fileKey, string $productName = '', string $suffixTag = 'main', string $existingUrl = '', bool $keepSameFilename = false): string
 {
     if (!isset($_FILES[$fileKey]) || $_FILES[$fileKey]['error'] !== UPLOAD_ERR_OK) {
         return $existingUrl;
@@ -217,22 +256,22 @@ function handleFileUpload(string $fileKey, string $existingUrl = ''): string
     $primaryDir   = OMG_PRIMARY_DIR;
     $secondaryDir = OMG_SECONDARY_DIR;
 
-    // Ensure permanent store is ready
     if (!is_dir($primaryDir) && !mkdir($primaryDir, 0755, true)) {
         throw new Exception('Permanent image directory could not be created. Check server permissions.');
     }
     if (!is_writable($primaryDir)) {
         throw new Exception('Permanent image directory is not writable. Check server permissions.');
     }
-    // Ensure web cache exists (non-fatal)
     if (!is_dir($secondaryDir)) {
         @mkdir($secondaryDir, 0755, true);
     }
 
-    // Unique filename — cropToSquare1000 always outputs JPEG
-    $uniqueName      = uniqid('prod_', true) . '.jpg';
-    $primaryTarget   = $primaryDir   . $uniqueName;
-    $secondaryTarget = $secondaryDir . $uniqueName;
+    // Target filename based on product name and suffix tag
+    $overwriteFilename = ($keepSameFilename && !empty($existingUrl)) ? basename($existingUrl) : null;
+    $targetFilename    = generateProductImageFilename(!empty($productName) ? $productName : 'product', $suffixTag, 'jpg', $overwriteFilename);
+
+    $primaryTarget   = $primaryDir   . $targetFilename;
+    $secondaryTarget = $secondaryDir . $targetFilename;
 
     // Step 1: Crop & save to PERMANENT store (uses move_uploaded_file internally)
     if (!cropToSquare1000($tmpName, $primaryTarget)) {
@@ -242,32 +281,25 @@ function handleFileUpload(string $fileKey, string $existingUrl = ''): string
 
     // Step 2: Copy processed JPEG to WEB-ACCESSIBLE cache (backend/uploads/)
     if (is_writable($secondaryDir) && !copy($primaryTarget, $secondaryTarget)) {
-        error_log('[OMG Upload] copy() to backend/uploads/ failed for: ' . $uniqueName);
-        // Non-fatal — sync() will restore on next startup
+        error_log('[OMG Upload] copy() to backend/uploads/ failed for: ' . $targetFilename);
     }
 
-    // Remove old image from both stores
-    if (!empty($existingUrl)) {
+    // If filename changed and an old file existed, remove old file from both stores
+    if (!empty($existingUrl) && !$keepSameFilename && basename($existingUrl) !== $targetFilename) {
         deleteLocalImage($existingUrl);
     }
 
     // Step 3: Return URL served from backend/uploads/
     $protocol = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on') ? 'https' : 'http';
-    return $protocol . '://' . $_SERVER['HTTP_HOST'] . OMG_IMG_URL_PATH . $uniqueName;
+    return $protocol . '://' . $_SERVER['HTTP_HOST'] . OMG_IMG_URL_PATH . $targetFilename;
 }
 
 /**
  * handleMultipleFileUploads()
  *
- * Processes multiple image uploads from an HTML multi-file field.
- * Same dual-storage strategy as handleFileUpload().
- *
- * @param  string $fileKey        $_FILES key for the upload
- * @param  array  $existingImages Existing image URLs to merge with new ones
- * @return array                  Merged array of image URLs
- * @throws Exception              On validation or write failure
+ * Processes multiple image uploads for product gallery.
  */
-function handleMultipleFileUploads(string $fileKey, array $existingImages = []): array
+function handleMultipleFileUploads(string $fileKey, string $productName = '', array $existingImages = []): array
 {
     if (!isset($_FILES[$fileKey]) || empty($_FILES[$fileKey]['name'][0])) {
         return $existingImages;
@@ -282,17 +314,17 @@ function handleMultipleFileUploads(string $fileKey, array $existingImages = []):
     $primaryDir   = OMG_PRIMARY_DIR;
     $secondaryDir = OMG_SECONDARY_DIR;
 
-    // Ensure permanent store is ready
     if (!is_dir($primaryDir) && !mkdir($primaryDir, 0755, true)) {
         throw new Exception('Permanent image directory could not be created. Check server permissions.');
     }
     if (!is_writable($primaryDir)) {
         throw new Exception('Permanent image directory is not writable. Check server permissions.');
     }
-    // Ensure web cache exists (non-fatal)
     if (!is_dir($secondaryDir)) {
         @mkdir($secondaryDir, 0755, true);
     }
+
+    $startingIndex = count($existingImages) + 1;
 
     for ($i = 0; $i < $fileCount; $i++) {
         if ($files['error'][$i] !== UPLOAD_ERR_OK) continue;
@@ -301,47 +333,42 @@ function handleMultipleFileUploads(string $fileKey, array $existingImages = []):
         $origName = $files['name'][$i];
         $size     = $files['size'][$i];
 
-        // Size limit (max 5 MB)
         if ($size > 5 * 1024 * 1024) {
             throw new Exception("'$origName' exceeds the 5 MB size limit.");
         }
 
-        // MIME-type validation
         $mimeType = (new finfo(FILEINFO_MIME_TYPE))->file($tmpName);
         if (!in_array($mimeType, $allowedMimes, true)) {
-            throw new Exception("'$origName' has an invalid file type. Only JPG, JPEG, PNG, and WEBP are allowed.");
+            throw new Exception("'$origName' has an invalid file type.");
         }
 
-        // Extension validation
         $ext = strtolower(pathinfo($origName, PATHINFO_EXTENSION));
         if (!in_array($ext, $allowedExts, true)) {
-            throw new Exception("'$origName' has an invalid extension ('.$ext'). Only .jpg, .jpeg, .png, and .webp are permitted.");
+            throw new Exception("'$origName' has an invalid extension.");
         }
 
+        $suffixTag      = 'gallery-' . ($startingIndex + $i);
+        $targetFilename = generateProductImageFilename(!empty($productName) ? $productName : 'product', $suffixTag, 'jpg');
 
-        // Unique filename — cropToSquare1000 always outputs JPEG
-        $uniqueName      = uniqid('prod_', true) . '.jpg';
-        $primaryTarget   = $primaryDir   . $uniqueName;
-        $secondaryTarget = $secondaryDir . $uniqueName;
+        $primaryTarget   = $primaryDir   . $targetFilename;
+        $secondaryTarget = $secondaryDir . $targetFilename;
 
-        // Step 1: Crop & save to PERMANENT store
         if (!cropToSquare1000($tmpName, $primaryTarget)) {
             error_log('[OMG Upload] cropToSquare1000() failed for: ' . $origName);
             continue;
         }
 
-        // Step 2: Copy to WEB-ACCESSIBLE cache (backend/uploads/)
         if (is_writable($secondaryDir) && !copy($primaryTarget, $secondaryTarget)) {
-            error_log('[OMG Upload] copy() to backend/uploads/ failed for: ' . $uniqueName);
+            error_log('[OMG Upload] copy() to backend/uploads/ failed for: ' . $targetFilename);
         }
 
-        // Step 3: Return URL served from backend/uploads/
         $protocol    = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on') ? 'https' : 'http';
-        $newImages[] = $protocol . '://' . $_SERVER['HTTP_HOST'] . OMG_IMG_URL_PATH . $uniqueName;
+        $newImages[] = $protocol . '://' . $_SERVER['HTTP_HOST'] . OMG_IMG_URL_PATH . $targetFilename;
     }
 
     return array_merge($existingImages, $newImages);
 }
+
 
 
 // --- HANDLE POST ACTIONS (main_admin only) ---
@@ -392,9 +419,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             $features = json_encode(array_values($featuresArr));
 
             // Image Uploads
-            $image = handleFileUpload('product_image');
-            $hover_image = handleFileUpload('product_hover_image');
-            $add_images = handleMultipleFileUploads('additional_images', []);
+            $image = handleFileUpload('product_image', $name, 'main');
+            $hover_image = handleFileUpload('product_hover_image', $name, 'hover');
+            $add_images = handleMultipleFileUploads('additional_images', $name, []);
             $images = json_encode($add_images);
 
             $id = generateUuid();
@@ -466,8 +493,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             $features = json_encode(array_values($featuresArr));
 
             // File uploads
-            $image = handleFileUpload('product_image', $curr['image']);
-            $hover_image = handleFileUpload('product_hover_image', $curr['hover_image']);
+            $image = handleFileUpload('product_image', $name, 'main', $curr['image']);
+            $hover_image = handleFileUpload('product_hover_image', $name, 'hover', $curr['hover_image']);
 
             // Delete selected additional images if specified
             $oldImages = !empty($curr['images']) ? json_decode($curr['images'], true) : [];
@@ -484,7 +511,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             }
 
             // Upload any new additional images
-            $updatedImages = handleMultipleFileUploads('additional_images', $retainedImages);
+            $updatedImages = handleMultipleFileUploads('additional_images', $name, $retainedImages);
             $images = json_encode($updatedImages);
 
             $slug = makeUniqueSlug($db, $name, $id);
@@ -517,6 +544,102 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             ]);
 
             $_SESSION['success_message'] = "Product '$name' updated successfully!";
+
+        } elseif ($action === 'delete_single_image') {
+            $id = trim($_POST['product_id'] ?? '');
+            $imageType = trim($_POST['image_type'] ?? ''); // 'main', 'hover', 'gallery'
+            $imageUrl = trim($_POST['image_url'] ?? '');
+
+            if (empty($id) || empty($imageType) || empty($imageUrl)) {
+                throw new Exception("Product ID, image type, and image URL are required.");
+            }
+
+            $stmt = $db->prepare("SELECT image, hover_image, images FROM products WHERE id = :id");
+            $stmt->execute([':id' => $id]);
+            $prod = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            if (!$prod) {
+                throw new Exception("Product not found.");
+            }
+
+            deleteLocalImage($imageUrl);
+
+            if ($imageType === 'main') {
+                $up = $db->prepare("UPDATE products SET image = '' WHERE id = :id");
+                $up->execute([':id' => $id]);
+            } elseif ($imageType === 'hover') {
+                $up = $db->prepare("UPDATE products SET hover_image = '' WHERE id = :id");
+                $up->execute([':id' => $id]);
+            } elseif ($imageType === 'gallery') {
+                $existing = !empty($prod['images']) ? json_decode($prod['images'], true) : [];
+                if (is_array($existing)) {
+                    $filtered = array_values(array_filter($existing, function($url) use ($imageUrl) {
+                        return basename($url) !== basename($imageUrl);
+                    }));
+                    $up = $db->prepare("UPDATE products SET images = :images WHERE id = :id");
+                    $up->execute([':images' => json_encode($filtered), ':id' => $id]);
+                }
+            }
+
+            if (isset($_POST['is_ajax']) || (isset($_SERVER['HTTP_X_REQUESTED_WITH']) && $_SERVER['HTTP_X_REQUESTED_WITH'] === 'XMLHttpRequest')) {
+                header("Content-Type: application/json");
+                echo json_encode(['success' => true, 'message' => 'Image deleted successfully.']);
+                exit();
+            }
+
+            $_SESSION['success_message'] = "Image deleted successfully.";
+
+        } elseif ($action === 'replace_single_image') {
+            $id = trim($_POST['product_id'] ?? '');
+            $imageType = trim($_POST['image_type'] ?? '');
+            $existingUrl = trim($_POST['existing_url'] ?? '');
+
+            if (empty($id) || empty($imageType)) {
+                throw new Exception("Product ID and image type are required.");
+            }
+
+            $stmt = $db->prepare("SELECT name, image, hover_image, images FROM products WHERE id = :id");
+            $stmt->execute([':id' => $id]);
+            $prod = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            if (!$prod) {
+                throw new Exception("Product not found.");
+            }
+
+            $suffixTag = $imageType === 'main' ? 'main' : ($imageType === 'hover' ? 'hover' : 'gallery-1');
+            $newUrl = handleFileUpload('replacement_file', $prod['name'], $suffixTag, $existingUrl, true);
+
+            if ($imageType === 'main') {
+                $up = $db->prepare("UPDATE products SET image = :image WHERE id = :id");
+                $up->execute([':image' => $newUrl, ':id' => $id]);
+            } elseif ($imageType === 'hover') {
+                $up = $db->prepare("UPDATE products SET hover_image = :hover WHERE id = :id");
+                $up->execute([':hover' => $newUrl, ':id' => $id]);
+            } elseif ($imageType === 'gallery') {
+                $existing = !empty($prod['images']) ? json_decode($prod['images'], true) : [];
+                if (is_array($existing)) {
+                    $updatedGallery = array_map(function($url) use ($existingUrl, $newUrl) {
+                        if (basename($url) === basename($existingUrl)) {
+                            return $newUrl;
+                        }
+                        return $url;
+                    }, $existing);
+                    if (!in_array($newUrl, $updatedGallery)) {
+                        $updatedGallery[] = $newUrl;
+                    }
+                    $up = $db->prepare("UPDATE products SET images = :images WHERE id = :id");
+                    $up->execute([':images' => json_encode(array_values($updatedGallery)), ':id' => $id]);
+                }
+            }
+
+            if (isset($_POST['is_ajax']) || (isset($_SERVER['HTTP_X_REQUESTED_WITH']) && $_SERVER['HTTP_X_REQUESTED_WITH'] === 'XMLHttpRequest')) {
+                header("Content-Type: application/json");
+                echo json_encode(['success' => true, 'message' => 'Image replaced successfully.', 'new_url' => $newUrl]);
+                exit();
+            }
+
+            $_SESSION['success_message'] = "Image replaced successfully.";
+
 
         } elseif ($action === 'delete') {
             $id = trim($_POST['id'] ?? '');
@@ -582,8 +705,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             ]);
 
             $_SESSION['success_message'] = "Stock inventory updated for '$pName' (Qty: $stock_quantity, Status: $stock_status).";
-        }
     } catch (Exception $e) {
+        if (isset($_POST['is_ajax']) || (isset($_SERVER['HTTP_X_REQUESTED_WITH']) && $_SERVER['HTTP_X_REQUESTED_WITH'] === 'XMLHttpRequest')) {
+            header("Content-Type: application/json");
+            echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+            exit();
+        }
         $_SESSION['error_message'] = $e->getMessage();
     }
 
@@ -1025,39 +1152,46 @@ require_once 'admin_header.php';
                         class="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:ring-2 focus:ring-amber-500 text-sm outline-none font-mono text-xs"></textarea>
                 </div>
 
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div class="space-y-1">
-                        <label class="block text-xs font-bold uppercase tracking-wider text-slate-700">Replace Main
-                            Image</label>
-                        <input type="file" name="product_image" accept="image/*"
-                            onchange="previewImage(this, 'editImagePreview')"
-                            class="text-xs text-slate-500 file:mr-3 file:py-2 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-slate-100 file:text-slate-800">
-                        <div id="editImagePreview" class="mt-2"></div>
+                <!-- PRODUCT IMAGES MANAGEMENT SECTION -->
+                <div class="border border-slate-200 rounded-2xl p-4 bg-slate-50/50 space-y-4">
+                    <div class="flex items-center justify-between">
+                        <h4 class="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-2">
+                            <span>🖼️</span> Product Images Management
+                        </h4>
+                        <span class="text-[10px] text-slate-500 font-semibold">Saved in permanent & web folders</span>
                     </div>
-                    <div class="space-y-1">
-                        <label class="block text-xs font-bold uppercase tracking-wider text-slate-700">Replace Hover
-                            Image</label>
-                        <input type="file" name="product_hover_image" accept="image/*"
-                            onchange="previewImage(this, 'editHoverPreview')"
-                            class="text-xs text-slate-500 file:mr-3 file:py-2 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-slate-100 file:text-slate-800">
-                        <div id="editHoverPreview" class="mt-2"></div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <!-- Main Image Box -->
+                        <div class="bg-white p-3 rounded-xl border border-slate-200 space-y-2">
+                            <span class="block text-[11px] font-bold uppercase tracking-wider text-slate-500">Main Product Image</span>
+                            <div id="mainImageContainer"></div>
+                        </div>
+
+                        <!-- Hover Image Box -->
+                        <div class="bg-white p-3 rounded-xl border border-slate-200 space-y-2">
+                            <span class="block text-[11px] font-bold uppercase tracking-wider text-slate-500">Hover Image</span>
+                            <div id="hoverImageContainer"></div>
+                        </div>
                     </div>
-                </div>
 
-                <div class="space-y-1">
-                    <label class="block text-xs font-bold uppercase tracking-wider text-slate-700">Upload More Gallery
-                        Images</label>
-                    <input type="file" name="additional_images[]" accept="image/*" multiple
-                        onchange="previewMultipleImages(this, 'editMultiUploadPreview')"
-                        class="text-xs text-slate-500 file:mr-3 file:py-2 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-slate-100 file:text-slate-800">
-                    <div id="editMultiUploadPreview" class="mt-2 flex flex-wrap gap-2"></div>
-                </div>
+                    <!-- Gallery Images Section -->
+                    <div class="bg-white p-3 rounded-xl border border-slate-200 space-y-3">
+                        <div class="flex items-center justify-between">
+                            <span class="text-[11px] font-bold uppercase tracking-wider text-slate-500">Gallery Images</span>
+                            <span id="galleryCountBadge" class="text-[10px] font-bold text-slate-400">0 images</span>
+                        </div>
+                        <div id="galleryImagesContainer" class="grid grid-cols-1 sm:grid-cols-2 gap-3"></div>
 
-                <div class="space-y-1">
-                    <label class="block text-xs font-bold uppercase tracking-wider text-slate-700">Existing Gallery Images
-                        (Check to Delete)</label>
-                    <div id="existingAdditionalImages"
-                        class="flex flex-wrap gap-3 p-3 bg-slate-50 rounded-xl border border-slate-200"></div>
+                        <!-- Upload Additional Gallery Images -->
+                        <div class="pt-3 border-t border-slate-100 space-y-1">
+                            <label class="block text-[11px] font-bold text-slate-700">Upload More Gallery Images</label>
+                            <input type="file" name="additional_images[]" accept="image/*" multiple
+                                onchange="previewMultipleImages(this, 'editMultiUploadPreview')"
+                                class="text-xs text-slate-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-amber-50 file:text-amber-800 hover:file:bg-amber-100">
+                            <div id="editMultiUploadPreview" class="mt-2 flex flex-wrap gap-2"></div>
+                        </div>
+                    </div>
                 </div>
 
                 <div class="flex flex-wrap gap-6 pt-2">
@@ -1151,6 +1285,9 @@ require_once 'admin_header.php';
         </div>
     </div>
 
+    <!-- Hidden input for single image replacement -->
+    <input type="file" id="global_image_replace_input" accept="image/*" class="hidden" onchange="handleImageReplacementSelected(event)">
+
     <script>
         // Existing Products Data for Duplicate Checking
         const existingProductsList = <?php echo json_encode(array_map(function ($p) {
@@ -1160,6 +1297,7 @@ require_once 'admin_header.php';
         // Single image preview helper
         function previewImage(input, previewContainerId) {
             const container = document.getElementById(previewContainerId);
+            if (!container) return;
             container.innerHTML = '';
             if (input.files && input.files[0]) {
                 const reader = new FileReader();
@@ -1176,6 +1314,7 @@ require_once 'admin_header.php';
         // Multiple image preview helper
         function previewMultipleImages(input, previewContainerId) {
             const container = document.getElementById(previewContainerId);
+            if (!container) return;
             container.innerHTML = '';
             if (input.files) {
                 Array.from(input.files).forEach(file => {
@@ -1191,11 +1330,83 @@ require_once 'admin_header.php';
             }
         }
 
+        // ── Single Image Replace & Delete JS Handlers ──
+        let currentReplaceData = null;
+
+        function triggerReplaceImage(productId, imageType, existingUrl) {
+            currentReplaceData = { productId, imageType, existingUrl };
+            const input = document.getElementById('global_image_replace_input');
+            input.value = '';
+            input.click();
+        }
+
+        async function handleImageReplacementSelected(event) {
+            const file = event.target.files[0];
+            if (!file || !currentReplaceData) return;
+
+            const { productId, imageType, existingUrl } = currentReplaceData;
+            const filename = existingUrl ? existingUrl.split('/').pop() : 'image';
+
+            const formData = new FormData();
+            formData.append('action', 'replace_single_image');
+            formData.append('product_id', productId);
+            formData.append('image_type', imageType);
+            formData.append('existing_url', existingUrl);
+            formData.append('replacement_file', file);
+            formData.append('is_ajax', '1');
+
+            try {
+                const response = await fetch('admin_products.php', {
+                    method: 'POST',
+                    body: formData,
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                });
+                const result = await response.json();
+                if (result.success) {
+                    alert(`Success: ${filename} has been replaced.`);
+                    location.reload();
+                } else {
+                    alert('Error: ' + (result.message || 'Failed to replace image.'));
+                }
+            } catch (e) {
+                alert('Failed to replace image: ' + e.message);
+            }
+        }
+
+        function confirmDeleteSingleImage(productId, imageType, imageUrl) {
+            const filename = imageUrl.split('/').pop();
+            if (!confirm(`Are you sure you want to delete "${filename}"?\nThis action removes the image permanently from both storage folders.`)) {
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('action', 'delete_single_image');
+            formData.append('product_id', productId);
+            formData.append('image_type', imageType);
+            formData.append('image_url', imageUrl);
+            formData.append('is_ajax', '1');
+
+            fetch('admin_products.php', {
+                method: 'POST',
+                body: formData,
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            }).then(r => r.json()).then(result => {
+                if (result.success) {
+                    alert(`Success: ${filename} deleted.`);
+                    location.reload();
+                } else {
+                    alert('Error: ' + (result.message || 'Failed to delete image.'));
+                }
+            }).catch(e => {
+                alert('Failed to delete image: ' + e.message);
+            });
+        }
+
         // Duplicate Check Handler on Add Form Submit
         function handleAddSubmit(event) {
             const confirmInput = document.getElementById('add_confirm_duplicate');
             if (confirmInput.value === '1') {
-                return true; // Explicitly confirmed duplicate
+                return true;
             }
 
             const nameInput = document.getElementById('add_name').value.trim().toLowerCase();
@@ -1283,37 +1494,120 @@ require_once 'admin_header.php';
             document.getElementById('edit_is_bestseller').checked = (parseInt(product.is_bestseller) === 1);
             document.getElementById('edit_is_active').checked = (parseInt(product.is_active) === 1);
 
-            // Previews reset
-            document.getElementById('editImagePreview').innerHTML = product.image ? `<img src="${product.image}" class="w-16 h-16 object-cover rounded-xl border border-slate-200 shadow-2xs mt-1">` : '';
-            document.getElementById('editHoverPreview').innerHTML = product.hover_image ? `<img src="${product.hover_image}" class="w-16 h-16 object-cover rounded-xl border border-slate-200 shadow-2xs mt-1">` : '';
-            document.getElementById('editMultiUploadPreview').innerHTML = '';
+            // ── Render Main Image Box ──
+            const mainContainer = document.getElementById('mainImageContainer');
+            if (product.image) {
+                const mainFilename = product.image.split('/').pop();
+                mainContainer.innerHTML = `
+                    <div class="flex items-center gap-3 p-2 bg-slate-50 rounded-xl border border-slate-200">
+                        <img src="${product.image}" class="w-16 h-16 object-cover rounded-lg border border-slate-200 shadow-2xs shrink-0">
+                        <div class="flex-1 min-w-0">
+                            <p class="text-xs font-mono font-bold text-slate-700 truncate" title="${mainFilename}">${mainFilename}</p>
+                            <div class="flex items-center gap-2 mt-2">
+                                <button type="button" onclick="triggerReplaceImage('${product.id}', 'main', '${product.image}')" 
+                                    class="px-2.5 py-1 text-[11px] font-bold bg-amber-100 hover:bg-amber-200 text-amber-900 rounded-lg transition-colors flex items-center gap-1">
+                                    🔄 Replace
+                                </button>
+                                <button type="button" onclick="confirmDeleteSingleImage('${product.id}', 'main', '${product.image}')" 
+                                    class="px-2.5 py-1 text-[11px] font-bold bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-lg transition-colors flex items-center gap-1">
+                                    🗑️ Delete
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            } else {
+                mainContainer.innerHTML = `
+                    <div class="p-3 text-center border border-dashed border-slate-200 rounded-xl bg-slate-50/50 space-y-2">
+                        <span class="text-xs text-slate-400 italic block">No main image set</span>
+                        <input type="file" name="product_image" accept="image/*" onchange="previewImage(this, 'editMainPreview')" class="hidden" id="edit_main_file_input">
+                        <button type="button" onclick="document.getElementById('edit_main_file_input').click()" 
+                            class="px-3 py-1 text-xs font-semibold bg-amber-50 hover:bg-amber-100 text-amber-800 rounded-lg border border-amber-200">
+                            📁 Upload Main Image
+                        </button>
+                        <div id="editMainPreview" class="flex justify-center mt-1"></div>
+                    </div>
+                `;
+            }
 
-            // Existing additional images list
-            const existingContainer = document.getElementById('existingAdditionalImages');
-            existingContainer.innerHTML = '';
+            // ── Render Hover Image Box ──
+            const hoverContainer = document.getElementById('hoverImageContainer');
+            if (product.hover_image) {
+                const hoverFilename = product.hover_image.split('/').pop();
+                hoverContainer.innerHTML = `
+                    <div class="flex items-center gap-3 p-2 bg-slate-50 rounded-xl border border-slate-200">
+                        <img src="${product.hover_image}" class="w-16 h-16 object-cover rounded-lg border border-slate-200 shadow-2xs shrink-0">
+                        <div class="flex-1 min-w-0">
+                            <p class="text-xs font-mono font-bold text-slate-700 truncate" title="${hoverFilename}">${hoverFilename}</p>
+                            <div class="flex items-center gap-2 mt-2">
+                                <button type="button" onclick="triggerReplaceImage('${product.id}', 'hover', '${product.hover_image}')" 
+                                    class="px-2.5 py-1 text-[11px] font-bold bg-amber-100 hover:bg-amber-200 text-amber-900 rounded-lg transition-colors flex items-center gap-1">
+                                    🔄 Replace
+                                </button>
+                                <button type="button" onclick="confirmDeleteSingleImage('${product.id}', 'hover', '${product.hover_image}')" 
+                                    class="px-2.5 py-1 text-[11px] font-bold bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-lg transition-colors flex items-center gap-1">
+                                    🗑️ Delete
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            } else {
+                hoverContainer.innerHTML = `
+                    <div class="p-3 text-center border border-dashed border-slate-200 rounded-xl bg-slate-50/50 space-y-2">
+                        <span class="text-xs text-slate-400 italic block">No hover image set</span>
+                        <input type="file" name="product_hover_image" accept="image/*" onchange="previewImage(this, 'editHoverPreview')" class="hidden" id="edit_hover_file_input">
+                        <button type="button" onclick="document.getElementById('edit_hover_file_input').click()" 
+                            class="px-3 py-1 text-xs font-semibold bg-amber-50 hover:bg-amber-100 text-amber-800 rounded-lg border border-amber-200">
+                            📁 Upload Hover Image
+                        </button>
+                        <div id="editHoverPreview" class="flex justify-center mt-1"></div>
+                    </div>
+                `;
+            }
+
+            // ── Render Gallery Images Grid ──
+            const galleryContainer = document.getElementById('galleryImagesContainer');
+            const badge = document.getElementById('galleryCountBadge');
+            document.getElementById('editMultiUploadPreview').innerHTML = '';
+            galleryContainer.innerHTML = '';
+
+            let galleryList = [];
             if (product.images) {
                 try {
-                    let parsedImages = JSON.parse(product.images);
-                    if (Array.isArray(parsedImages) && parsedImages.length > 0) {
-                        parsedImages.forEach(imgUrl => {
-                            const div = document.createElement('div');
-                            div.className = 'flex flex-col items-center gap-1 bg-white p-2 rounded-lg border border-slate-200';
-                            div.innerHTML = `
-                            <img src="${imgUrl}" class="w-14 h-14 object-cover rounded-lg">
-                            <label class="text-[10px] text-rose-600 font-bold flex items-center gap-1 cursor-pointer">
-                                <input type="checkbox" name="deleted_additional_images[]" value="${imgUrl}" class="w-3 h-3 text-rose-600 rounded"> Delete
-                            </label>
-                        `;
-                            existingContainer.appendChild(div);
-                        });
-                    } else {
-                        existingContainer.innerHTML = '<span class="text-xs text-slate-400 italic">No additional images uploaded.</span>';
-                    }
+                    galleryList = JSON.parse(product.images);
                 } catch (e) {
-                    existingContainer.innerHTML = '<span class="text-xs text-slate-400 italic">No additional images uploaded.</span>';
+                    galleryList = [];
                 }
+            }
+
+            if (Array.isArray(galleryList) && galleryList.length > 0) {
+                badge.textContent = galleryList.length + ' image(s)';
+                galleryList.forEach(imgUrl => {
+                    const fname = imgUrl.split('/').pop();
+                    const card = document.createElement('div');
+                    card.className = 'flex items-center gap-3 p-2 bg-slate-50 rounded-xl border border-slate-200';
+                    card.innerHTML = `
+                        <img src="${imgUrl}" class="w-14 h-14 object-cover rounded-lg border border-slate-200 shadow-2xs shrink-0">
+                        <div class="flex-1 min-w-0">
+                            <p class="text-xs font-mono font-bold text-slate-700 truncate" title="${fname}">${fname}</p>
+                            <div class="flex items-center gap-2 mt-1.5">
+                                <button type="button" onclick="triggerReplaceImage('${product.id}', 'gallery', '${imgUrl}')" 
+                                    class="px-2 py-0.5 text-[10px] font-bold bg-amber-100 hover:bg-amber-200 text-amber-900 rounded-md">
+                                    🔄 Replace
+                                </button>
+                                <button type="button" onclick="confirmDeleteSingleImage('${product.id}', 'gallery', '${imgUrl}')" 
+                                    class="px-2 py-0.5 text-[10px] font-bold bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-md">
+                                    🗑️ Delete
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                    galleryContainer.appendChild(card);
+                });
             } else {
-                existingContainer.innerHTML = '<span class="text-xs text-slate-400 italic">No additional images uploaded.</span>';
+                badge.textContent = '0 images';
+                galleryContainer.innerHTML = '<span class="text-xs text-slate-400 italic col-span-2 text-center py-2">No gallery images uploaded.</span>';
             }
 
             openModal('editModal');
