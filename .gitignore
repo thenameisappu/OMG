@@ -33,7 +33,15 @@ history/*.json
 .env.*
 !.env.example
 
-# Backend Uploads
+
+# ── Product Image Storage ─────────────────────────────────────────────────────
+# Uploaded product images are stored at the Hostinger DOMAINS ROOT level:
+#   /home/u981836125/domains/omgproductsimages/
+#
+# This folder is completely OUTSIDE the GitHub repository and outside public_html.
+# It is NEVER committed to Git, NEVER deployed, and NEVER deleted on redeploy.
+# Images placed there persist permanently regardless of code pushes.
+#
+# The old backend/uploads/ path is no longer used.
 backend/uploads/*
 !backend/uploads/.gitkeep
-
