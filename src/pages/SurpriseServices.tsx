@@ -44,7 +44,7 @@ export default function SurpriseServices() {
   const [packages, setPackages] = useState<any[]>([]);
   const [upgrades, setUpgrades] = useState<any[]>([]);
   const [selectedPackage, setSelectedPackage] = useState<any>(null);
-  
+
   // Requirement 4: NO upgrades selected by default!
   const [selectedAddons, setSelectedAddons] = useState<number[]>([]);
   const [loadingData, setLoadingData] = useState(true);
@@ -296,7 +296,7 @@ export default function SurpriseServices() {
               <Sparkles className="h-4 w-4 text-amber-400 animate-pulse" />
               Bespoke Surprise & Event Styling
             </div>
-            
+
             <h1 className="text-5xl md:text-7xl lg:text-8xl font-bold font-serif tracking-tight text-white mb-8 leading-[1.08]">
               Mastering the Art of <br />
               <span className="gold-gradient-text italic font-serif">Unforgettable Magic</span>
@@ -317,11 +317,10 @@ export default function SurpriseServices() {
               </Button>
               <a href="tel:+918147736396">
                 <Button
-                  variant="outline"
                   size="lg"
-                  className="h-16 px-8 rounded-full border-amber-500/40 text-amber-200 hover:bg-amber-500/10 text-lg font-semibold backdrop-blur-sm"
+                  className="h-16 px-10 rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-600 text-black font-bold text-lg hover:brightness-110 transition-all shadow-lg hover:scale-105 gold-glow"
                 >
-                  <PhoneCall className="mr-2 h-5 w-5 text-amber-400" />
+                  <PhoneCall className="mr-2 h-5 w-5" />
                   Direct Consultation
                 </Button>
               </a>
@@ -466,7 +465,7 @@ export default function SurpriseServices() {
                   {selectedPackage && (
                     <div className="bg-[#0B1A13] p-8 rounded-3xl border border-amber-500/30 shadow-2xl relative overflow-hidden">
                       <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/10 rounded-full blur-2xl pointer-events-none" />
-                      
+
                       <div className="aspect-video rounded-xl overflow-hidden mb-6 border border-amber-500/20 relative">
                         <img
                           src={selectedPackage.image}
@@ -481,7 +480,7 @@ export default function SurpriseServices() {
                       </div>
 
                       <h3 className="text-2xl font-bold font-serif text-white mb-4">Estimated Summary</h3>
-                      
+
                       <div className="space-y-3 border-b border-white/10 pb-6 mb-6 text-sm text-emerald-100/80">
                         <div className="flex justify-between">
                           <span>{selectedPackage.title}</span>
@@ -717,7 +716,6 @@ export default function SurpriseServices() {
                   <div className="space-y-2">
                     <label className="text-xs font-bold text-amber-200/90 uppercase tracking-wider flex items-center justify-between">
                       <span>Bengaluru Delivery Pincode <span className="text-amber-400">*</span></span>
-                      <span className="text-[10px] text-amber-400/80 font-normal">Exactly 6 Digits</span>
                     </label>
                     <div className="relative">
                       <Input
@@ -798,7 +796,7 @@ export default function SurpriseServices() {
                   disabled={isSubmitting}
                   className="w-full h-16 rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-600 text-black font-extrabold text-lg hover:brightness-110 shadow-xl gold-glow mt-4"
                 >
-                  {isSubmitting ? 'Submitting Your Brief...' : '✨ Request Private Specialist Call'}
+                  {isSubmitting ? 'Submitting Your Brief...' : 'Request Private Specialist Call'}
                 </Button>
               </form>
             </div>
