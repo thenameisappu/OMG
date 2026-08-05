@@ -78,296 +78,312 @@ function generateUuid()
 
 
 
-/**
- * deleteLocalImage()
- *
- * Removes an image from BOTH storage locations.
- * Accepts a full URL, relative path, or bare filename.
- *
- * @param  string $imagePath  URL, path, or filename of the image
- * @return void
- */
-function deleteLocalImage(string $imagePath): void
-{
-    if (empty($imagePath)) return;
+if (!function_exists('deleteLocalImage')) {
+    /**
+     * deleteLocalImage()
+     *
+     * Removes an image from BOTH storage locations.
+     * Accepts a full URL, relative path, or bare filename.
+     *
+     * @param  string $imagePath  URL, path, or filename of the image
+     * @return void
+     */
+    function deleteLocalImage(string $imagePath): void
+    {
+        if (empty($imagePath)) return;
 
-    $filename = basename($imagePath);
-    if (empty($filename) || $filename === '.' || $filename === '..') return;
+        $filename = basename($imagePath);
+        if (empty($filename) || $filename === '.' || $filename === '..') return;
 
-    // Remove from PERMANENT storage
-    $primary = OMG_PRIMARY_DIR . $filename;
-    if (is_file($primary)) {
-        if (!unlink($primary)) {
-            error_log('[OMG Delete] Failed to remove from permanent store: ' . $primary);
+        // Remove from PERMANENT storage
+        $primary = OMG_PRIMARY_DIR . $filename;
+        if (is_file($primary)) {
+            if (!@unlink($primary)) {
+                error_log('[OMG Delete] Failed to remove from permanent store: ' . $primary);
+            }
         }
-    }
 
-    // Remove from WEB-ACCESSIBLE cache (non-fatal — restored by sync on next deploy)
-    $secondary = OMG_SECONDARY_DIR . $filename;
-    if (is_file($secondary)) {
-        @unlink($secondary);
+        // Remove from WEB-ACCESSIBLE cache (non-fatal — restored by sync on next deploy)
+        $secondary = OMG_SECONDARY_DIR . $filename;
+        if (is_file($secondary)) {
+            @unlink($secondary);
+        }
     }
 }
 
 // --- FILE UPLOAD HELPERS ---
 
-/**
- * Crop & resize any uploaded image to a perfect 1000x1000px (1:1) square.
- * Uses center-crop strategy: takes the largest centered square from the source
- * then scales it to 1000x1000. Output is always JPEG at 90% quality.
- */
-function cropToSquare1000(string $tmpName, string $destPath): bool
-{
-    if (!extension_loaded('gd')) {
-        return move_uploaded_file($tmpName, $destPath);
-    }
+if (!function_exists('cropToSquare1000')) {
+    /**
+     * Crop & resize any uploaded image to a perfect 1000x1000px (1:1) square.
+     * Uses center-crop strategy: takes the largest centered square from the source
+     * then scales it to 1000x1000. Output is always JPEG at 90% quality.
+     */
+    function cropToSquare1000(string $tmpName, string $destPath): bool
+    {
+        if (!extension_loaded('gd')) {
+            return move_uploaded_file($tmpName, $destPath);
+        }
 
-    $info = getimagesize($tmpName);
-    if (!$info)
-        return false;
-
-    [$srcW, $srcH, $imgType] = [$info[0], $info[1], $info[2]];
-
-    switch ($imgType) {
-        case IMAGETYPE_JPEG:
-            $src = imagecreatefromjpeg($tmpName);
-            break;
-        case IMAGETYPE_PNG:
-            $src = imagecreatefrompng($tmpName);
-            break;
-        case IMAGETYPE_GIF:
-            $src = imagecreatefromgif($tmpName);
-            break;
-        case IMAGETYPE_WEBP:
-            $src = imagecreatefromwebp($tmpName);
-            break;
-        default:
+        $info = getimagesize($tmpName);
+        if (!$info)
             return false;
+
+        [$srcW, $srcH, $imgType] = [$info[0], $info[1], $info[2]];
+
+        switch ($imgType) {
+            case IMAGETYPE_JPEG:
+                $src = imagecreatefromjpeg($tmpName);
+                break;
+            case IMAGETYPE_PNG:
+                $src = imagecreatefrompng($tmpName);
+                break;
+            case IMAGETYPE_GIF:
+                $src = imagecreatefromgif($tmpName);
+                break;
+            case IMAGETYPE_WEBP:
+                $src = imagecreatefromwebp($tmpName);
+                break;
+            default:
+                return false;
+        }
+        if (!$src)
+            return false;
+
+        $squareSize = min($srcW, $srcH);
+        $cropX = (int) (($srcW - $squareSize) / 2);
+        $cropY = (int) (($srcH - $squareSize) / 2);
+
+        $dst = imagecreatetruecolor(1000, 1000);
+
+        if ($imgType === IMAGETYPE_PNG || $imgType === IMAGETYPE_WEBP) {
+            imagealphablending($dst, false);
+            imagesavealpha($dst, true);
+            $transparent = imagecolorallocatealpha($dst, 0, 0, 0, 127);
+            imagefill($dst, 0, 0, $transparent);
+        }
+
+        imagecopyresampled($dst, $src, 0, 0, $cropX, $cropY, 1000, 1000, $squareSize, $squareSize);
+
+        $result = imagejpeg($dst, $destPath, 90);
+
+        imagedestroy($src);
+        imagedestroy($dst);
+
+        return $result;
     }
-    if (!$src)
-        return false;
-
-    $squareSize = min($srcW, $srcH);
-    $cropX = (int) (($srcW - $squareSize) / 2);
-    $cropY = (int) (($srcH - $squareSize) / 2);
-
-    $dst = imagecreatetruecolor(1000, 1000);
-
-    if ($imgType === IMAGETYPE_PNG || $imgType === IMAGETYPE_WEBP) {
-        imagealphablending($dst, false);
-        imagesavealpha($dst, true);
-        $transparent = imagecolorallocatealpha($dst, 0, 0, 0, 127);
-        imagefill($dst, 0, 0, $transparent);
-    }
-
-    imagecopyresampled($dst, $src, 0, 0, $cropX, $cropY, 1000, 1000, $squareSize, $squareSize);
-
-    $result = imagejpeg($dst, $destPath, 90);
-
-    imagedestroy($src);
-    imagedestroy($dst);
-
-    return $result;
 }
 
-/**
- * slugify()
- * Converts string to lowercase, replaces spaces with hyphens, and removes special characters.
- */
-function slugify(string $text): string
-{
-    $text = strtolower($text);
-    $text = preg_replace('~[^\pL\d]+~u', '-', $text);
-    if (function_exists('iconv')) {
-        $text = iconv('utf-8', 'us-ascii//TRANSLIT', $text);
+if (!function_exists('slugify')) {
+    /**
+     * slugify()
+     * Converts string to lowercase, replaces spaces with hyphens, and removes special characters.
+     */
+    function slugify(string $text): string
+    {
+        $text = strtolower($text);
+        $text = preg_replace('~[^\pL\d]+~u', '-', $text);
+        if (function_exists('iconv')) {
+            $transliterated = @iconv('utf-8', 'us-ascii//TRANSLIT', $text);
+            if ($transliterated !== false) {
+                $text = $transliterated;
+            }
+        }
+        $text = preg_replace('~[^-\w]+~', '', $text);
+        $text = trim($text, '-');
+        $text = preg_replace('~-+~', '-', $text);
+        return empty($text) ? 'product' : $text;
     }
-    $text = preg_replace('~[^-\w]+~', '', $text);
-    $text = trim($text, '-');
-    $text = preg_replace('~-+~', '-', $text);
-    return empty($text) ? 'product' : $text;
 }
 
-/**
- * generateProductImageFilename()
- * Generates clean filename based on product name and suffix tag (e.g. red-rose-bouquet-main.jpg).
- * Appends numerical suffix if filename collision exists in permanent storage.
- */
-function generateProductImageFilename(string $productName, string $suffixTag, string $extension = 'jpg', ?string $exactOverwriteFilename = null): string
-{
-    if (!empty($exactOverwriteFilename)) {
-        return basename($exactOverwriteFilename);
-    }
+if (!function_exists('generateProductImageFilename')) {
+    /**
+     * generateProductImageFilename()
+     * Generates clean filename based on product name and suffix tag (e.g. red-rose-bouquet-main.jpg).
+     * Appends numerical suffix if filename collision exists in permanent storage.
+     */
+    function generateProductImageFilename(string $productName, string $suffixTag, string $extension = 'jpg', ?string $exactOverwriteFilename = null): string
+    {
+        if (!empty($exactOverwriteFilename)) {
+            return basename($exactOverwriteFilename);
+        }
 
-    $slug = slugify($productName);
-    $baseName = $slug . '-' . $suffixTag;
-    $extension = strtolower(ltrim($extension, '.'));
-    if (empty($extension)) {
-        $extension = 'jpg';
-    }
-    $filename = $baseName . '.' . $extension;
+        $slug = slugify($productName);
+        $baseName = $slug . '-' . $suffixTag;
+        $extension = strtolower(ltrim($extension, '.'));
+        if (empty($extension)) {
+            $extension = 'jpg';
+        }
+        $filename = $baseName . '.' . $extension;
 
-    $primaryDir = OMG_PRIMARY_DIR;
-    $counter = 1;
-    while (file_exists($primaryDir . $filename)) {
-        $filename = $baseName . '-' . $counter . '.' . $extension;
-        $counter++;
-    }
+        $primaryDir = OMG_PRIMARY_DIR;
+        $counter = 1;
+        while (file_exists($primaryDir . $filename)) {
+            $filename = $baseName . '-' . $counter . '.' . $extension;
+            $counter++;
+        }
 
-    return $filename;
+        return $filename;
+    }
 }
 
-/**
- * handleFileUpload()
- *
- * Processes a single image upload from an HTML form field.
- * Names file based on product name & suffix tag (main / hover / gallery-N).
- * Saves to PERMANENT store (domains/omgproductsimages/) and copies to WEB cache (backend/uploads/).
- */
-function handleFileUpload(string $fileKey, string $productName = '', string $suffixTag = 'main', string $existingUrl = '', bool $keepSameFilename = false): string
-{
-    if (!isset($_FILES[$fileKey]) || $_FILES[$fileKey]['error'] !== UPLOAD_ERR_OK) {
-        return $existingUrl;
-    }
+if (!function_exists('handleFileUpload')) {
+    /**
+     * handleFileUpload()
+     *
+     * Processes a single image upload from an HTML form field.
+     * Names file based on product name & suffix tag (main / hover / gallery-N).
+     * Saves to PERMANENT store (domains/omgproductsimages/) and copies to WEB cache (backend/uploads/).
+     */
+    function handleFileUpload(string $fileKey, string $productName = '', string $suffixTag = 'main', string $existingUrl = '', bool $keepSameFilename = false): string
+    {
+        if (!isset($_FILES[$fileKey]) || $_FILES[$fileKey]['error'] !== UPLOAD_ERR_OK) {
+            return $existingUrl;
+        }
 
-    $file     = $_FILES[$fileKey];
-    $size     = $file['size'];
-    $tmpName  = $file['tmp_name'];
-    $origName = $file['name'];
+        $file     = $_FILES[$fileKey];
+        $size     = $file['size'];
+        $tmpName  = $file['tmp_name'];
+        $origName = $file['name'];
 
-    // Size limit (max 5 MB)
-    if ($size > 5 * 1024 * 1024) {
-        throw new Exception('File is too large. Maximum allowed size is 5 MB.');
-    }
-
-    // MIME-type validation
-    $mimeType     = (new finfo(FILEINFO_MIME_TYPE))->file($tmpName);
-    $allowedMimes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
-    if (!in_array($mimeType, $allowedMimes, true)) {
-        throw new Exception('Invalid file type. Only JPG, JPEG, PNG, and WEBP are allowed.');
-    }
-
-    // Extension validation
-    $ext         = strtolower(pathinfo($origName, PATHINFO_EXTENSION));
-    $allowedExts = ['jpg', 'jpeg', 'png', 'webp'];
-    if (!in_array($ext, $allowedExts, true)) {
-        throw new Exception("Invalid file extension ('.$ext'). Only .jpg, .jpeg, .png, and .webp are permitted.");
-    }
-
-    $primaryDir   = OMG_PRIMARY_DIR;
-    $secondaryDir = OMG_SECONDARY_DIR;
-
-    if (!is_dir($primaryDir) && !mkdir($primaryDir, 0755, true)) {
-        throw new Exception('Permanent image directory could not be created. Check server permissions.');
-    }
-    if (!is_writable($primaryDir)) {
-        throw new Exception('Permanent image directory is not writable. Check server permissions.');
-    }
-    if (!is_dir($secondaryDir)) {
-        @mkdir($secondaryDir, 0755, true);
-    }
-
-    // Target filename based on product name and suffix tag
-    $overwriteFilename = ($keepSameFilename && !empty($existingUrl)) ? basename($existingUrl) : null;
-    $targetFilename    = generateProductImageFilename(!empty($productName) ? $productName : 'product', $suffixTag, 'jpg', $overwriteFilename);
-
-    $primaryTarget   = $primaryDir   . $targetFilename;
-    $secondaryTarget = $secondaryDir . $targetFilename;
-
-    // Step 1: Crop & save to PERMANENT store (uses move_uploaded_file internally)
-    if (!cropToSquare1000($tmpName, $primaryTarget)) {
-        error_log('[OMG Upload] cropToSquare1000() failed for: ' . $origName);
-        throw new Exception('Failed to process and save the uploaded image.');
-    }
-
-    // Step 2: Copy processed JPEG to WEB-ACCESSIBLE cache (backend/uploads/)
-    if (is_writable($secondaryDir) && !copy($primaryTarget, $secondaryTarget)) {
-        error_log('[OMG Upload] copy() to backend/uploads/ failed for: ' . $targetFilename);
-    }
-
-    // If filename changed and an old file existed, remove old file from both stores
-    if (!empty($existingUrl) && !$keepSameFilename && basename($existingUrl) !== $targetFilename) {
-        deleteLocalImage($existingUrl);
-    }
-
-    // Step 3: Return URL served from backend/uploads/
-    $protocol = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on') ? 'https' : 'http';
-    return $protocol . '://' . $_SERVER['HTTP_HOST'] . OMG_IMG_URL_PATH . $targetFilename;
-}
-
-/**
- * handleMultipleFileUploads()
- *
- * Processes multiple image uploads for product gallery.
- */
-function handleMultipleFileUploads(string $fileKey, string $productName = '', array $existingImages = []): array
-{
-    if (!isset($_FILES[$fileKey]) || empty($_FILES[$fileKey]['name'][0])) {
-        return $existingImages;
-    }
-
-    $files        = $_FILES[$fileKey];
-    $newImages    = [];
-    $fileCount    = count($files['name']);
-    $allowedMimes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
-    $allowedExts  = ['jpg', 'jpeg', 'png', 'webp'];
-
-    $primaryDir   = OMG_PRIMARY_DIR;
-    $secondaryDir = OMG_SECONDARY_DIR;
-
-    if (!is_dir($primaryDir) && !mkdir($primaryDir, 0755, true)) {
-        throw new Exception('Permanent image directory could not be created. Check server permissions.');
-    }
-    if (!is_writable($primaryDir)) {
-        throw new Exception('Permanent image directory is not writable. Check server permissions.');
-    }
-    if (!is_dir($secondaryDir)) {
-        @mkdir($secondaryDir, 0755, true);
-    }
-
-    $startingIndex = count($existingImages) + 1;
-
-    for ($i = 0; $i < $fileCount; $i++) {
-        if ($files['error'][$i] !== UPLOAD_ERR_OK) continue;
-
-        $tmpName  = $files['tmp_name'][$i];
-        $origName = $files['name'][$i];
-        $size     = $files['size'][$i];
-
+        // Size limit (max 5 MB)
         if ($size > 5 * 1024 * 1024) {
-            throw new Exception("'$origName' exceeds the 5 MB size limit.");
+            throw new Exception('File is too large. Maximum allowed size is 5 MB.');
         }
 
-        $mimeType = (new finfo(FILEINFO_MIME_TYPE))->file($tmpName);
+        // MIME-type validation
+        $mimeType     = (new finfo(FILEINFO_MIME_TYPE))->file($tmpName);
+        $allowedMimes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
         if (!in_array($mimeType, $allowedMimes, true)) {
-            throw new Exception("'$origName' has an invalid file type.");
+            throw new Exception('Invalid file type. Only JPG, JPEG, PNG, and WEBP are allowed.');
         }
 
-        $ext = strtolower(pathinfo($origName, PATHINFO_EXTENSION));
+        // Extension validation
+        $ext         = strtolower(pathinfo($origName, PATHINFO_EXTENSION));
+        $allowedExts = ['jpg', 'jpeg', 'png', 'webp'];
         if (!in_array($ext, $allowedExts, true)) {
-            throw new Exception("'$origName' has an invalid extension.");
+            throw new Exception("Invalid file extension ('.$ext'). Only .jpg, .jpeg, .png, and .webp are permitted.");
         }
 
-        $suffixTag      = 'gallery-' . ($startingIndex + $i);
-        $targetFilename = generateProductImageFilename(!empty($productName) ? $productName : 'product', $suffixTag, 'jpg');
+        $primaryDir   = OMG_PRIMARY_DIR;
+        $secondaryDir = OMG_SECONDARY_DIR;
+
+        if (!is_dir($primaryDir) && !mkdir($primaryDir, 0755, true)) {
+            throw new Exception('Permanent image directory could not be created. Check server permissions.');
+        }
+        if (!is_writable($primaryDir)) {
+            throw new Exception('Permanent image directory is not writable. Check server permissions.');
+        }
+        if (!is_dir($secondaryDir)) {
+            @mkdir($secondaryDir, 0755, true);
+        }
+
+        // Target filename based on product name and suffix tag
+        $overwriteFilename = ($keepSameFilename && !empty($existingUrl)) ? basename($existingUrl) : null;
+        $targetFilename    = generateProductImageFilename(!empty($productName) ? $productName : 'product', $suffixTag, 'jpg', $overwriteFilename);
 
         $primaryTarget   = $primaryDir   . $targetFilename;
         $secondaryTarget = $secondaryDir . $targetFilename;
 
+        // Step 1: Crop & save to PERMANENT store (uses move_uploaded_file internally)
         if (!cropToSquare1000($tmpName, $primaryTarget)) {
             error_log('[OMG Upload] cropToSquare1000() failed for: ' . $origName);
-            continue;
+            throw new Exception('Failed to process and save the uploaded image.');
         }
 
+        // Step 2: Copy processed JPEG to WEB-ACCESSIBLE cache (backend/uploads/)
         if (is_writable($secondaryDir) && !copy($primaryTarget, $secondaryTarget)) {
             error_log('[OMG Upload] copy() to backend/uploads/ failed for: ' . $targetFilename);
         }
 
-        $protocol    = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on') ? 'https' : 'http';
-        $newImages[] = $protocol . '://' . $_SERVER['HTTP_HOST'] . OMG_IMG_URL_PATH . $targetFilename;
-    }
+        // If filename changed and an old file existed, remove old file from both stores
+        if (!empty($existingUrl) && !$keepSameFilename && basename($existingUrl) !== $targetFilename) {
+            deleteLocalImage($existingUrl);
+        }
 
-    return array_merge($existingImages, $newImages);
+        // Step 3: Return URL served from backend/uploads/
+        $protocol = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on') ? 'https' : 'http';
+        return $protocol . '://' . $_SERVER['HTTP_HOST'] . OMG_IMG_URL_PATH . $targetFilename;
+    }
 }
+
+if (!function_exists('handleMultipleFileUploads')) {
+    /**
+     * handleMultipleFileUploads()
+     *
+     * Processes multiple image uploads for product gallery.
+     */
+    function handleMultipleFileUploads(string $fileKey, string $productName = '', array $existingImages = []): array
+    {
+        if (!isset($_FILES[$fileKey]) || empty($_FILES[$fileKey]['name'][0])) {
+            return $existingImages;
+        }
+
+        $files        = $_FILES[$fileKey];
+        $newImages    = [];
+        $fileCount    = count($files['name']);
+        $allowedMimes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+        $allowedExts  = ['jpg', 'jpeg', 'png', 'webp'];
+
+        $primaryDir   = OMG_PRIMARY_DIR;
+        $secondaryDir = OMG_SECONDARY_DIR;
+
+        if (!is_dir($primaryDir) && !mkdir($primaryDir, 0755, true)) {
+            throw new Exception('Permanent image directory could not be created. Check server permissions.');
+        }
+        if (!is_writable($primaryDir)) {
+            throw new Exception('Permanent image directory is not writable. Check server permissions.');
+        }
+        if (!is_dir($secondaryDir)) {
+            @mkdir($secondaryDir, 0755, true);
+        }
+
+        $startingIndex = count($existingImages) + 1;
+
+        for ($i = 0; $i < $fileCount; $i++) {
+            if ($files['error'][$i] !== UPLOAD_ERR_OK) continue;
+
+            $tmpName  = $files['tmp_name'][$i];
+            $origName = $files['name'][$i];
+            $size     = $files['size'][$i];
+
+            if ($size > 5 * 1024 * 1024) {
+                throw new Exception("'$origName' exceeds the 5 MB size limit.");
+            }
+
+            $mimeType = (new finfo(FILEINFO_MIME_TYPE))->file($tmpName);
+            if (!in_array($mimeType, $allowedMimes, true)) {
+                throw new Exception("'$origName' has an invalid file type.");
+            }
+
+            $ext = strtolower(pathinfo($origName, PATHINFO_EXTENSION));
+            if (!in_array($ext, $allowedExts, true)) {
+                throw new Exception("'$origName' has an invalid extension.");
+            }
+
+            $suffixTag      = 'gallery-' . ($startingIndex + $i);
+            $targetFilename = generateProductImageFilename(!empty($productName) ? $productName : 'product', $suffixTag, 'jpg');
+
+            $primaryTarget   = $primaryDir   . $targetFilename;
+            $secondaryTarget = $secondaryDir . $targetFilename;
+
+            if (!cropToSquare1000($tmpName, $primaryTarget)) {
+                error_log('[OMG Upload] cropToSquare1000() failed for: ' . $origName);
+                continue;
+            }
+
+            if (is_writable($secondaryDir) && !copy($primaryTarget, $secondaryTarget)) {
+                error_log('[OMG Upload] copy() to backend/uploads/ failed for: ' . $targetFilename);
+            }
+
+            $protocol    = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on') ? 'https' : 'http';
+            $newImages[] = $protocol . '://' . $_SERVER['HTTP_HOST'] . OMG_IMG_URL_PATH . $targetFilename;
+        }
+
+        return array_merge($existingImages, $newImages);
+    }
+}
+
 
 
 

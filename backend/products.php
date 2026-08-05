@@ -74,34 +74,36 @@ function generateUuid()
     );
 }
 
-/**
- * deleteLocalImage()
- *
- * Removes an image from BOTH storage locations.
- * Accepts a full URL, relative path, or bare filename.
- *
- * @param  string $imagePath URL, path, or filename
- * @return void
- */
-function deleteLocalImage(string $imagePath): void
-{
-    if (empty($imagePath)) return;
+if (!function_exists('deleteLocalImage')) {
+    /**
+     * deleteLocalImage()
+     *
+     * Removes an image from BOTH storage locations.
+     * Accepts a full URL, relative path, or bare filename.
+     *
+     * @param  string $imagePath URL, path, or filename
+     * @return void
+     */
+    function deleteLocalImage(string $imagePath): void
+    {
+        if (empty($imagePath)) return;
 
-    $filename = basename($imagePath);
-    if (empty($filename) || $filename === '.' || $filename === '..') return;
+        $filename = basename($imagePath);
+        if (empty($filename) || $filename === '.' || $filename === '..') return;
 
-    // Remove from PERMANENT storage
-    $primary = OMG_PRIMARY_DIR . $filename;
-    if (is_file($primary)) {
-        if (!unlink($primary)) {
-            error_log('[OMG Delete] Failed to remove from permanent store: ' . $primary);
+        // Remove from PERMANENT storage
+        $primary = OMG_PRIMARY_DIR . $filename;
+        if (is_file($primary)) {
+            if (!@unlink($primary)) {
+                error_log('[OMG Delete] Failed to remove from permanent store: ' . $primary);
+            }
         }
-    }
 
-    // Remove from WEB-ACCESSIBLE cache (non-fatal — restored on next sync)
-    $secondary = OMG_SECONDARY_DIR . $filename;
-    if (is_file($secondary)) {
-        @unlink($secondary);
+        // Remove from WEB-ACCESSIBLE cache (non-fatal — restored on next sync)
+        $secondary = OMG_SECONDARY_DIR . $filename;
+        if (is_file($secondary)) {
+            @unlink($secondary);
+        }
     }
 }
 
@@ -573,24 +575,25 @@ function updateStock($db)
     }
 }
 
-/**
- * uploadImages()
- *
- * Handles multi-file uploads submitted to action=upload_images.
- * Dual-storage strategy:
- *   1. Validate file type (JPG/JPEG/PNG/WEBP) and size (≤5 MB).
- *   2. Generate unique filename with uniqid() + original extension.
- *   3. Save to PERMANENT store  via move_uploaded_file().
- *   4. Copy to WEB-ACCESSIBLE cache via copy().
- *   5. Return URL pointing at /backend/uploads/<filename>.
- *   6. Save only the filename/URL in MySQL — never the full disk path.
- *
- * @return void
- */
-function uploadImages(): void
-{
-    $primaryDir   = OMG_PRIMARY_DIR;
-    $secondaryDir = OMG_SECONDARY_DIR;
+if (!function_exists('uploadImages')) {
+    /**
+     * uploadImages()
+     *
+     * Handles multi-file uploads submitted to action=upload_images.
+     * Dual-storage strategy:
+     *   1. Validate file type (JPG/JPEG/PNG/WEBP) and size (≤5 MB).
+     *   2. Generate unique filename with uniqid() + original extension.
+     *   3. Save to PERMANENT store  via move_uploaded_file().
+     *   4. Copy to WEB-ACCESSIBLE cache via copy().
+     *   5. Return URL pointing at /backend/uploads/<filename>.
+     *   6. Save only the filename/URL in MySQL — never the full disk path.
+     *
+     * @return void
+     */
+    function uploadImages(): void
+    {
+        $primaryDir   = OMG_PRIMARY_DIR;
+        $secondaryDir = OMG_SECONDARY_DIR;
 
     // ── Ensure permanent store is ready ──────────────────────────────────
     if (!is_dir($primaryDir) && !mkdir($primaryDir, 0755, true)) {
@@ -686,5 +689,7 @@ function uploadImages(): void
         echo json_encode(['success' => true, 'urls' => $urls, 'errors' => $errors]);
     }
 }
+}
+
 
 
