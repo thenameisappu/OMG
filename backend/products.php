@@ -74,16 +74,16 @@ function generateUuid()
     );
 }
 
-// Delete image helper (cleans local storage for unused uploaded images)
+// Delete image helper — removes file from domains/omgproductsimages/ (Hostinger domains root)
 function deleteLocalImage($imagePath)
 {
     if (empty($imagePath)) return;
-    
-    // Convert absolute URL to relative path if needed
-    // e.g., http://localhost:8000/backend/uploads/filename.jpg -> uploads/filename.jpg
-    $filename = basename($imagePath);
-    $localPath = __DIR__ . '/uploads/' . $filename;
-    
+
+    // Accept a full URL, a relative path, or just a filename
+    $filename  = basename($imagePath);
+    // 3 levels up from backend/: backend → public_html → domain-folder → domains/
+    $localPath = dirname(dirname(dirname(__DIR__))) . '/omgproductsimages/' . $filename;
+
     if (file_exists($localPath)) {
         @unlink($localPath);
     }
@@ -560,77 +560,103 @@ function updateStock($db)
 // 9. Upload Images (POST API)
 function uploadImages()
 {
-    $uploadDir = 'uploads/';
+    // Upload directory: Hostinger domains root, 3 levels above backend/
+    // Disk path : /home/<user>/domains/omgproductsimages/
+    // Web URL   : <IMAGES_BASE_URL>/omgproductsimages/<filename>
+    $uploadDir    = dirname(dirname(dirname(__DIR__))) . '/omgproductsimages/';
+    $imagesBaseUrl = rtrim(
+        getenv('IMAGES_BASE_URL') ?: (
+            $_ENV['IMAGES_BASE_URL'] ?? (
+                (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : 'http')
+                . '://' . $_SERVER['HTTP_HOST']
+            )
+        ),
+        '/'
+    );
+
     if (!file_exists($uploadDir)) {
-        mkdir($uploadDir, 0777, true);
+        if (!mkdir($uploadDir, 0755, true)) {
+            http_response_code(500);
+            echo json_encode(['success' => false, 'message' => 'Upload directory could not be created. Check server permissions.']);
+            return;
+        }
+    }
+
+    if (!is_writable($uploadDir)) {
+        http_response_code(500);
+        echo json_encode(['success' => false, 'message' => 'Upload directory is not writable. Check server permissions.']);
+        return;
     }
 
     if (!isset($_FILES['files'])) {
         http_response_code(400);
-        echo json_encode(["message" => "No files uploaded"]);
+        echo json_encode(['message' => 'No files uploaded']);
         return;
     }
 
-    $files = $_FILES['files'];
-    $urls = [];
-    $errors = [];
+    $files     = $_FILES['files'];
+    $urls      = [];
+    $errors    = [];
 
-    // Verify multiple file uploads
+    // Allowed MIME types and extensions (no GIF per requirements)
+    $allowedMimeTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+    $allowedExts      = ['jpg', 'jpeg', 'png', 'webp'];
+
     $fileCount = is_array($files['name']) ? count($files['name']) : 1;
 
     for ($i = 0; $i < $fileCount; $i++) {
-        $tmpName = is_array($files['tmp_name']) ? $files['tmp_name'][$i] : $files['tmp_name'];
-        $name = is_array($files['name']) ? $files['name'][$i] : $files['name'];
-        $size = is_array($files['size']) ? $files['size'][$i] : $files['size'];
-        $error = is_array($files['error']) ? $files['error'][$i] : $files['error'];
+        $tmpName   = is_array($files['tmp_name']) ? $files['tmp_name'][$i] : $files['tmp_name'];
+        $origName  = is_array($files['name'])     ? $files['name'][$i]     : $files['name'];
+        $size      = is_array($files['size'])      ? $files['size'][$i]     : $files['size'];
+        $error     = is_array($files['error'])     ? $files['error'][$i]    : $files['error'];
 
+        // ── PHP upload error ─────────────────────────────────────────────
         if ($error !== UPLOAD_ERR_OK) {
-            $errors[] = "Error uploading file: $name";
+            $errors[] = "Upload error for '$origName' (PHP error code: $error).";
             continue;
         }
 
-        // Size check (max 5MB)
+        // ── Size limit (5 MB) ────────────────────────────────────────────
         if ($size > 5 * 1024 * 1024) {
-            $errors[] = "File is too large: $name. Max limit is 5MB.";
+            $errors[] = "'$origName' is too large. Maximum allowed size is 5 MB.";
             continue;
         }
 
-        // Validate MIME type
-        $finfo = new finfo(FILEINFO_MIME_TYPE);
+        // ── MIME-type validation ─────────────────────────────────────────
+        $finfo    = new finfo(FILEINFO_MIME_TYPE);
         $mimeType = $finfo->file($tmpName);
-        $allowedMimeTypes = [
-            'image/jpeg',
-            'image/jpg',
-            'image/png',
-            'image/gif',
-            'image/webp'
-        ];
 
-        if (!in_array($mimeType, $allowedMimeTypes)) {
-            $errors[] = "Invalid type: $name. Only JPG, PNG, GIF, and WEBP allowed.";
+        if (!in_array($mimeType, $allowedMimeTypes, true)) {
+            $errors[] = "'$origName' has an invalid file type ('$mimeType'). Only JPG, JPEG, PNG, and WEBP are allowed.";
             continue;
         }
 
-        // Secure file naming
-        $extension = pathinfo($name, PATHINFO_EXTENSION);
-        $uniqueName = uniqid('prod_', true) . '.' . $extension;
+        // ── Extension validation ─────────────────────────────────────────
+        $ext = strtolower(pathinfo($origName, PATHINFO_EXTENSION));
+        if (!in_array($ext, $allowedExts, true)) {
+            $errors[] = "'$origName' has an invalid extension ('.$ext'). Only .jpg, .jpeg, .png, and .webp are permitted.";
+            continue;
+        }
+
+        // ── Generate unique filename ─────────────────────────────────────
+        // Always store as .jpg since move_uploaded_file preserves the binary;
+        // use the original extension so non-GD paths stay consistent.
+        $uniqueName = uniqid('prod_', true) . '.' . $ext;
         $targetFile = $uploadDir . $uniqueName;
 
+        // ── Secure move ──────────────────────────────────────────────────
         if (move_uploaded_file($tmpName, $targetFile)) {
-            $protocol = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? "https" : "http";
-            $host = $_SERVER['HTTP_HOST'];
-            $baseDir = dirname($_SERVER['SCRIPT_NAME']);
-            $url = $protocol . "://" . $host . $baseDir . "/" . $targetFile;
+            $url    = $imagesBaseUrl . '/omgproductsimages/' . $uniqueName;
             $urls[] = $url;
         } else {
-            $errors[] = "Failed to store file: $name";
+            $errors[] = "Failed to store '$origName'. Check directory permissions.";
         }
     }
 
     if (empty($urls)) {
         http_response_code(400);
-        echo json_encode(["success" => false, "message" => "Upload failed", "errors" => $errors]);
+        echo json_encode(['success' => false, 'message' => 'All uploads failed.', 'errors' => $errors]);
     } else {
-        echo json_encode(["success" => true, "urls" => $urls, "errors" => $errors]);
+        echo json_encode(['success' => true, 'urls' => $urls, 'errors' => $errors]);
     }
 }

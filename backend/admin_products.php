@@ -80,8 +80,10 @@ function deleteLocalImage($imagePath)
 {
     if (empty($imagePath))
         return;
-    $filename = basename($imagePath);
-    $localPath = __DIR__ . '/uploads/' . $filename;
+    // Accept a full URL, a relative path, or just a filename
+    $filename  = basename($imagePath);
+    // 3 levels up from backend/: backend → public_html → domain-folder → domains/
+    $localPath = dirname(dirname(dirname(__DIR__))) . '/omgproductsimages/' . $filename;
     if (file_exists($localPath)) {
         @unlink($localPath);
     }
@@ -153,40 +155,66 @@ function handleFileUpload($fileKey, $existingUrl = '')
     if (!isset($_FILES[$fileKey]) || $_FILES[$fileKey]['error'] !== UPLOAD_ERR_OK) {
         return $existingUrl;
     }
-    $file = $_FILES[$fileKey];
-    $size = $file['size'];
+    $file    = $_FILES[$fileKey];
+    $size    = $file['size'];
     $tmpName = $file['tmp_name'];
+    $origName = $file['name'];
 
+    // ── Size limit (5 MB) ─────────────────────────────────────────
     if ($size > 5 * 1024 * 1024) {
-        throw new Exception("File is too large. Max limit is 5MB.");
+        throw new Exception('File is too large. Maximum allowed size is 5 MB.');
     }
 
-    $finfo = new finfo(FILEINFO_MIME_TYPE);
+    // ── MIME-type validation ──────────────────────────────────────
+    $finfo    = new finfo(FILEINFO_MIME_TYPE);
     $mimeType = $finfo->file($tmpName);
-    $allowedMimes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+    $allowedMimes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
 
-    if (!in_array($mimeType, $allowedMimes)) {
-        throw new Exception("Invalid file type. Only JPG, PNG, GIF, and WEBP allowed.");
+    if (!in_array($mimeType, $allowedMimes, true)) {
+        throw new Exception('Invalid file type. Only JPG, JPEG, PNG, and WEBP are allowed.');
     }
 
-    $uploadDir = 'uploads/';
+    // ── Extension validation ───────────────────────────────────────
+    $ext         = strtolower(pathinfo($origName, PATHINFO_EXTENSION));
+    $allowedExts = ['jpg', 'jpeg', 'png', 'webp'];
+
+    if (!in_array($ext, $allowedExts, true)) {
+        throw new Exception("Invalid file extension ('.$ext'). Only .jpg, .jpeg, .png, and .webp are permitted.");
+    }
+
+    // ── Upload directory ──────────────────────────────────────────
+    // Hostinger domains root, 3 levels above backend/
+    $uploadDir = dirname(dirname(dirname(__DIR__))) . '/omgproductsimages/';
+    $imagesBaseUrl = rtrim(
+        getenv('IMAGES_BASE_URL') ?: (
+            $_ENV['IMAGES_BASE_URL'] ?? (
+                (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : 'http')
+                . '://' . $_SERVER['HTTP_HOST']
+            )
+        ),
+        '/'
+    );
+
     if (!file_exists($uploadDir)) {
-        mkdir($uploadDir, 0755, true);
+        if (!mkdir($uploadDir, 0755, true)) {
+            throw new Exception('Upload directory could not be created. Check server permissions.');
+        }
+    }
+    if (!is_writable($uploadDir)) {
+        throw new Exception('Upload directory is not writable. Check server permissions.');
     }
 
-    $uniqueName = uniqid('prod_', true) . '.jpg';
+    // ── Unique filename + secure move via GD crop (falls back to move_uploaded_file) ──
+    $uniqueName = uniqid('prod_', true) . '.jpg'; // cropToSquare1000 always outputs JPEG
     $targetFile = $uploadDir . $uniqueName;
 
     if (cropToSquare1000($tmpName, $targetFile)) {
         if (!empty($existingUrl)) {
             deleteLocalImage($existingUrl);
         }
-        $protocol = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? "https" : "http";
-        $host = $_SERVER['HTTP_HOST'];
-        $baseDir = dirname($_SERVER['SCRIPT_NAME']);
-        return $protocol . "://" . $host . $baseDir . "/" . $targetFile;
+        return $imagesBaseUrl . '/omgproductsimages/' . $uniqueName;
     } else {
-        throw new Exception("Failed to process and save uploaded image.");
+        throw new Exception('Failed to process and save the uploaded image.');
     }
 }
 
@@ -196,42 +224,71 @@ function handleMultipleFileUploads($fileKey, $existingImages = [])
         return $existingImages;
     }
 
-    $files = $_FILES[$fileKey];
+    $files     = $_FILES[$fileKey];
     $newImages = [];
     $fileCount = count($files['name']);
+
+    // Allowed MIME types and extensions (no GIF per requirements)
+    $allowedMimes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+    $allowedExts  = ['jpg', 'jpeg', 'png', 'webp'];
+
+    // Upload directory: Hostinger domains root, 3 levels above backend/
+    $uploadDir = dirname(dirname(dirname(__DIR__))) . '/omgproductsimages/';
+    $imagesBaseUrl = rtrim(
+        getenv('IMAGES_BASE_URL') ?: (
+            $_ENV['IMAGES_BASE_URL'] ?? (
+                (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : 'http')
+                . '://' . $_SERVER['HTTP_HOST']
+            )
+        ),
+        '/'
+    );
+
+    if (!file_exists($uploadDir)) {
+        if (!mkdir($uploadDir, 0755, true)) {
+            throw new Exception('Upload directory could not be created. Check server permissions.');
+        }
+    }
+    if (!is_writable($uploadDir)) {
+        throw new Exception('Upload directory is not writable. Check server permissions.');
+    }
 
     for ($i = 0; $i < $fileCount; $i++) {
         if ($files['error'][$i] !== UPLOAD_ERR_OK)
             continue;
 
-        $tmpName = $files['tmp_name'][$i];
-        $size = $files['size'][$i];
+        $tmpName  = $files['tmp_name'][$i];
+        $origName = $files['name'][$i];
+        $size     = $files['size'][$i];
 
+        // ── Size limit (5 MB) ───────────────────────────────────────────
         if ($size > 5 * 1024 * 1024) {
-            throw new Exception("One of the additional images exceeds 5MB size limit.");
+            throw new Exception("'$origName' exceeds the 5 MB size limit.");
         }
 
-        $finfo = new finfo(FILEINFO_MIME_TYPE);
+        // ── MIME-type validation ─────────────────────────────────────────
+        $finfo    = new finfo(FILEINFO_MIME_TYPE);
         $mimeType = $finfo->file($tmpName);
-        $allowedMimes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
 
-        if (!in_array($mimeType, $allowedMimes)) {
-            throw new Exception("Invalid file type in additional images. Only JPG, PNG, GIF, and WEBP allowed.");
+        if (!in_array($mimeType, $allowedMimes, true)) {
+            throw new Exception("'$origName' has an invalid file type. Only JPG, JPEG, PNG, and WEBP are allowed.");
         }
 
-        $uploadDir = 'uploads/';
-        if (!file_exists($uploadDir)) {
-            mkdir($uploadDir, 0755, true);
+        // ── Extension validation ─────────────────────────────────────────
+        $ext = strtolower(pathinfo($origName, PATHINFO_EXTENSION));
+        if (!in_array($ext, $allowedExts, true)) {
+            throw new Exception("'$origName' has an invalid extension ('.$ext'). Only .jpg, .jpeg, .png, and .webp are permitted.");
         }
 
+        // ── Unique filename + secure move ─────────────────────────────────
+        // cropToSquare1000 always outputs JPEG, so filename ends in .jpg
         $uniqueName = uniqid('prod_', true) . '.jpg';
         $targetFile = $uploadDir . $uniqueName;
 
         if (cropToSquare1000($tmpName, $targetFile)) {
-            $protocol = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? "https" : "http";
-            $host = $_SERVER['HTTP_HOST'];
-            $baseDir = dirname($_SERVER['SCRIPT_NAME']);
-            $newImages[] = $protocol . "://" . $host . $baseDir . "/" . $targetFile;
+            $protocol    = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on') ? 'https' : 'http';
+            $host        = $_SERVER['HTTP_HOST'];
+            $newImages[] = $imagesBaseUrl . '/omgproductsimages/' . $uniqueName;
         }
     }
     return array_merge($existingImages, $newImages);

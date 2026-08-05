@@ -60,7 +60,7 @@ if (isset($db) && $db !== null && $isLoggedIn) {
             $adminId = $headerUser['id'];
             $adminDisplayName = !empty($headerUser['name']) ? $headerUser['name'] : $headerUser['username'];
             $adminEmail = $headerUser['email'] ?? '';
-            $isMainAdmin = (bool)($headerUser['is_main_admin'] ?? ($headerUser['username'] === 'main_admin'));
+            $isMainAdmin = (bool) ($headerUser['is_main_admin'] ?? ($headerUser['username'] === 'main_admin'));
         }
 
         // Fetch list of all admin accounts ONLY if logged-in user is Main Admin (Backend Security Protection)
@@ -70,7 +70,8 @@ if (isset($db) && $db !== null && $isLoggedIn) {
                 $allAdminsList = $allAdminsStmt->fetchAll(PDO::FETCH_ASSOC);
             }
         }
-    } catch (Exception $e) {}
+    } catch (Exception $e) {
+    }
 }
 
 // Determine active page & active tab for highlighting
@@ -105,10 +106,14 @@ if (!$isLoggedIn && $currentPage !== 'admin.php') {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?php echo isset($pageTitle) ? htmlspecialchars($pageTitle) . ' | OH MY GUDNESS Admin' : 'Admin Portal | OH MY GUDNESS'; ?></title>
+    <title>
+        <?php echo isset($pageTitle) ? htmlspecialchars($pageTitle) . ' | OH MY GUDNESS Admin' : 'Admin Portal | OH MY GUDNESS'; ?>
+    </title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Playfair+Display:wght@600;700&display=swap"
+        rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
@@ -123,10 +128,24 @@ if (!$isLoggedIn && $currentPage !== 'admin.php') {
         }
     </script>
     <style>
-        .gold-gradient { background: linear-gradient(135deg, #D4AF37 0%, #AA7C11 100%); }
-        .scrollbar-hide::-webkit-scrollbar { display: none; }
-        .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
-        .table-wrapper { overflow-x: auto; width: 100%; -webkit-overflow-scrolling: touch; }
+        .gold-gradient {
+            background: linear-gradient(135deg, #D4AF37 0%, #AA7C11 100%);
+        }
+
+        .scrollbar-hide::-webkit-scrollbar {
+            display: none;
+        }
+
+        .scrollbar-hide {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+
+        .table-wrapper {
+            overflow-x: auto;
+            width: 100%;
+            -webkit-overflow-scrolling: touch;
+        }
     </style>
 </head>
 
@@ -139,10 +158,14 @@ if (!$isLoggedIn && $currentPage !== 'admin.php') {
                     <!-- Brand & Portal Tag -->
                     <div class="flex items-center gap-3">
                         <a href="admin.php" class="flex items-center gap-2">
-                            <img src="assets/logo.png" alt="OMG Logo" class="h-8 w-auto object-contain bg-white/90 px-2 py-1 rounded-lg border border-amber-400/40" onerror="this.onerror=null; this.src='../images/logo/omg-brand-logo.png';">
-                            <span class="font-serif font-bold text-lg text-amber-400 tracking-wider hidden xs:inline">OH MY GUDNESS</span>
+                            <img src="assets/logo.png" alt="OMG Logo"
+                                class="h-8 w-auto object-contain bg-white/90 px-2 py-1 rounded-lg border border-amber-400/40"
+                                onerror="this.onerror=null; this.src='../images/logo/omg-brand-logo.png';">
+                            <span class="font-serif font-bold text-lg text-amber-400 tracking-wider hidden xs:inline">OH MY
+                                GUDNESS</span>
                         </a>
-                        <span class="px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest bg-amber-500/20 text-amber-400 border border-amber-500/30 rounded-md">
+                        <span
+                            class="px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest bg-amber-500/20 text-amber-400 border border-amber-500/30 rounded-md">
                             Admin Panel
                         </span>
                     </div>
@@ -171,7 +194,8 @@ if (!$isLoggedIn && $currentPage !== 'admin.php') {
                     <div class="hidden sm:flex items-center gap-4">
                         <button type="button" onclick="openAdminHeaderProfileModal()"
                             class="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-slate-800/90 hover:bg-slate-700/90 border border-slate-700 hover:border-amber-400/50 text-xs transition-all cursor-pointer shadow-sm group">
-                            <span class="text-slate-300">Logged in as <strong class="text-amber-400 group-hover:text-amber-300"><?php echo htmlspecialchars($adminDisplayName); ?></strong></span>
+                            <span class="text-slate-300">Logged in as <strong
+                                    class="text-amber-400 group-hover:text-amber-300"><?php echo htmlspecialchars($adminDisplayName); ?></strong></span>
                             <span class="text-[10px] text-slate-400">▼</span>
                         </button>
                         <a href="admin.php?logout=1"
@@ -184,22 +208,30 @@ if (!$isLoggedIn && $currentPage !== 'admin.php') {
 
             <!-- Mobile Menu Drawer -->
             <div id="mobile-menu" class="hidden md:hidden border-t border-slate-800 bg-slate-900 px-4 pt-3 pb-4 space-y-2">
-                <div class="px-3 py-2 text-xs text-slate-400 border-b border-slate-800 flex justify-between items-center mb-2">
-                    <span>Logged in as: <button type="button" onclick="openAdminHeaderProfileModal()" class="text-amber-400 underline font-bold"><?php echo htmlspecialchars($adminDisplayName); ?></button></span>
+                <div
+                    class="px-3 py-2 text-xs text-slate-400 border-b border-slate-800 flex justify-between items-center mb-2">
+                    <span>Logged in as: <button type="button" onclick="openAdminHeaderProfileModal()"
+                            class="text-amber-400 underline font-bold"><?php echo htmlspecialchars($adminDisplayName); ?></button></span>
                 </div>
                 <a href="admin.php?tab=orders"
-                    class="block px-3 py-2.5 rounded-lg text-base font-medium text-slate-200 hover:bg-slate-800 hover:text-amber-400">📦 Orders</a>
+                    class="block px-3 py-2.5 rounded-lg text-base font-medium text-slate-200 hover:bg-slate-800 hover:text-amber-400">📦
+                    Orders</a>
                 <a href="admin.php?tab=inquiries"
-                    class="block px-3 py-2.5 rounded-lg text-base font-medium text-slate-200 hover:bg-slate-800 hover:text-amber-400">💬 Inquiries</a>
+                    class="block px-3 py-2.5 rounded-lg text-base font-medium text-slate-200 hover:bg-slate-800 hover:text-amber-400">💬
+                    Inquiries</a>
                 <a href="admin.php?tab=customisations"
-                    class="block px-3 py-2.5 rounded-lg text-base font-medium text-slate-200 hover:bg-slate-800 hover:text-amber-400">✨ Customisations</a>
+                    class="block px-3 py-2.5 rounded-lg text-base font-medium text-slate-200 hover:bg-slate-800 hover:text-amber-400">✨
+                    Customisations</a>
                 <a href="admin.php?tab=surprises"
-                    class="block px-3 py-2.5 rounded-lg text-base font-medium text-slate-200 hover:bg-slate-800 hover:text-amber-400">🎉 Surprises & Pincodes</a>
+                    class="block px-3 py-2.5 rounded-lg text-base font-medium text-slate-200 hover:bg-slate-800 hover:text-amber-400">🎉
+                    Surprises & Pincodes</a>
                 <a href="admin.php?tab=products"
-                    class="block px-3 py-2.5 rounded-lg text-base font-medium text-slate-200 hover:bg-slate-800 hover:text-amber-400">🌸 Products</a>
+                    class="block px-3 py-2.5 rounded-lg text-base font-medium text-slate-200 hover:bg-slate-800 hover:text-amber-400">🌸
+                    Products</a>
                 <?php if ($isMainAdmin): ?>
                     <a href="admin.php?tab=manage"
-                        class="block px-3 py-2.5 rounded-lg text-base font-medium text-slate-200 hover:bg-slate-800 hover:text-amber-400">🛡️ Manage Admins</a>
+                        class="block px-3 py-2.5 rounded-lg text-base font-medium text-slate-200 hover:bg-slate-800 hover:text-amber-400">🛡️
+                        Manage Admins</a>
                 <?php endif; ?>
                 <a href="admin.php?logout=1"
                     class="block px-3 py-2.5 rounded-lg text-base font-semibold text-rose-400 hover:bg-rose-950/40">Logout</a>
@@ -207,13 +239,16 @@ if (!$isLoggedIn && $currentPage !== 'admin.php') {
         </header>
 
         <!-- GLOBAL ADMIN DETAILS POPUP (ROLE-RESTRICTED) -->
-        <div id="adminHeaderProfileModal" class="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md hidden items-center justify-center p-4">
-            <div class="bg-white border border-slate-200 <?php echo $isMainAdmin ? 'max-w-3xl' : 'max-w-md'; ?> w-full rounded-3xl p-6 shadow-2xl space-y-6 max-h-[90vh] overflow-y-auto">
-                
+        <div id="adminHeaderProfileModal"
+            class="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md hidden items-center justify-center p-4">
+            <div
+                class="bg-white border border-slate-200 <?php echo $isMainAdmin ? 'max-w-3xl' : 'max-w-md'; ?> w-full rounded-3xl p-6 shadow-2xl space-y-6 max-h-[90vh] overflow-y-auto">
+
                 <!-- Modal Header -->
                 <div class="flex items-center justify-between border-b border-slate-100 pb-4">
                     <div class="flex items-center gap-3">
-                        <div class="w-10 h-10 rounded-2xl bg-amber-100 text-amber-800 border border-amber-300 flex items-center justify-center font-serif font-bold text-lg">
+                        <div
+                            class="w-10 h-10 rounded-2xl bg-amber-100 text-amber-800 border border-amber-300 flex items-center justify-center font-serif font-bold text-lg">
                             <?php echo htmlspecialchars(strtoupper(substr($adminDisplayName, 0, 1))); ?>
                         </div>
                         <div>
@@ -221,46 +256,56 @@ if (!$isLoggedIn && $currentPage !== 'admin.php') {
                                 <?php echo htmlspecialchars($adminDisplayName); ?>
                             </h3>
                             <p class="text-xs text-slate-500">
-                                Role: <span class="font-bold text-amber-700"><?php echo $isMainAdmin ? 'Root Main Admin' : 'Administrator'; ?></span>
+                                Role: <span
+                                    class="font-bold text-amber-700"><?php echo $isMainAdmin ? 'Root Main Admin' : 'Administrator'; ?></span>
                             </p>
                         </div>
                     </div>
-                    <button type="button" onclick="closeAdminHeaderProfileModal()" class="text-slate-400 hover:text-slate-600 font-bold text-2xl leading-none">&times;</button>
+                    <button type="button" onclick="closeAdminHeaderProfileModal()"
+                        class="text-slate-400 hover:text-slate-600 font-bold text-2xl leading-none">&times;</button>
                 </div>
 
                 <?php if ($isMainAdmin): ?>
                     <!-- MAIN ADMIN COMPLETE MANAGEMENT POPUP -->
-                    
+
                     <!-- SECTION 1: MY ADMIN PROFILE & SECURITY SETTINGS -->
                     <div class="space-y-4">
                         <div class="flex items-center justify-between border-b border-slate-100 pb-2">
                             <h4 class="text-sm font-bold uppercase tracking-wider text-slate-800">
                                 🔒 My Admin Profile & Security Settings
                             </h4>
-                            <span class="text-[11px] font-bold text-amber-700 bg-amber-50 px-2.5 py-0.5 rounded-full border border-amber-200">Main Admin</span>
+                            <span
+                                class="text-[11px] font-bold text-amber-700 bg-amber-50 px-2.5 py-0.5 rounded-full border border-amber-200">Main
+                                Admin</span>
                         </div>
 
                         <form method="POST" action="admin.php?tab=manage" class="space-y-4">
                             <input type="hidden" name="action" value="update_my_profile">
-                            
+
                             <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
                                 <div>
-                                    <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Admin ID (Username)</label>
+                                    <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Admin ID
+                                        (Username)</label>
                                     <input type="text" value="<?php echo htmlspecialchars($adminUsername); ?>" disabled
                                         class="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-100 text-slate-500 text-sm font-semibold cursor-not-allowed">
                                     <span class="text-[11px] text-slate-400 mt-1 block">Admin ID cannot be changed.</span>
                                 </div>
 
                                 <div>
-                                    <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Display Name</label>
-                                    <input type="text" name="my_name" placeholder="Full Display Name" value="<?php echo htmlspecialchars($adminDisplayName); ?>"
+                                    <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Display
+                                        Name</label>
+                                    <input type="text" name="my_name" placeholder="Full Display Name"
+                                        value="<?php echo htmlspecialchars($adminDisplayName); ?>"
                                         class="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-amber-500 outline-none">
-                                    <span class="text-[11px] text-slate-400 mt-1 block">Admin ID & Display Name can be different.</span>
+                                    <span class="text-[11px] text-slate-400 mt-1 block">Admin ID & Display Name can be
+                                        different.</span>
                                 </div>
 
                                 <div>
-                                    <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Admin Email Address</label>
-                                    <input type="email" name="my_email" required placeholder="admin@ohmygudness.in" value="<?php echo htmlspecialchars($adminEmail); ?>"
+                                    <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Admin
+                                        Email Address</label>
+                                    <input type="email" name="my_email" required placeholder="admin@ohmygudness.in"
+                                        value="<?php echo htmlspecialchars($adminEmail); ?>"
                                         class="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-amber-500 outline-none">
                                     <span class="text-[11px] text-slate-400 mt-1 block">Used for OTP password resets.</span>
                                 </div>
@@ -268,27 +313,32 @@ if (!$isLoggedIn && $currentPage !== 'admin.php') {
 
                             <div class="pt-3 border-t border-slate-100 grid grid-cols-1 sm:grid-cols-3 gap-4">
                                 <div>
-                                    <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Current Password *</label>
+                                    <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Current
+                                        Password *</label>
                                     <input type="password" name="current_password" required placeholder="••••••••"
                                         class="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-amber-500 outline-none">
-                                    <span class="text-[11px] text-slate-400 mt-1 block">Required to confirm profile changes.</span>
+                                    <span class="text-[11px] text-slate-400 mt-1 block">Required to confirm profile
+                                        changes.</span>
                                 </div>
 
                                 <div>
-                                    <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">New Password (Optional)</label>
+                                    <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">New
+                                        Password (Optional)</label>
                                     <input type="password" name="new_password" placeholder="Leave blank to keep current"
                                         class="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-amber-500 outline-none">
                                 </div>
 
                                 <div>
-                                    <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Confirm New Password</label>
+                                    <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Confirm
+                                        New Password</label>
                                     <input type="password" name="confirm_password" placeholder="Confirm new password"
                                         class="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-amber-500 outline-none">
                                 </div>
                             </div>
 
                             <div class="flex justify-end pt-2">
-                                <button type="submit" class="py-2.5 px-6 gold-gradient text-slate-950 font-bold rounded-xl text-sm shadow-md hover:shadow-lg transition-all">
+                                <button type="submit"
+                                    class="py-2.5 px-6 gold-gradient text-slate-950 font-bold rounded-xl text-sm shadow-md hover:shadow-lg transition-all">
                                     Save Profile & Password Updates
                                 </button>
                             </div>
@@ -300,10 +350,11 @@ if (!$isLoggedIn && $currentPage !== 'admin.php') {
                         <h4 class="text-sm font-bold uppercase tracking-wider text-slate-800">
                             📋 All Administrator Accounts (<?php echo count($allAdminsList); ?>)
                         </h4>
-                        
+
                         <div class="border border-slate-200 rounded-2xl overflow-hidden">
                             <table class="w-full text-left text-xs">
-                                <thead class="bg-slate-50 text-slate-600 uppercase text-[10px] font-bold tracking-wider border-b border-slate-200">
+                                <thead
+                                    class="bg-slate-50 text-slate-600 uppercase text-[10px] font-bold tracking-wider border-b border-slate-200">
                                     <tr>
                                         <th class="py-2.5 px-3">Display Name</th>
                                         <th class="py-2.5 px-3">Username (Admin ID)</th>
@@ -313,7 +364,8 @@ if (!$isLoggedIn && $currentPage !== 'admin.php') {
                                 </thead>
                                 <tbody class="divide-y divide-slate-100">
                                     <?php foreach ($allAdminsList as $adm): ?>
-                                        <tr class="<?php echo $adm['username'] === $adminUsername ? 'bg-amber-50/50 font-semibold' : 'hover:bg-slate-50'; ?>">
+                                        <tr
+                                            class="<?php echo $adm['username'] === $adminUsername ? 'bg-amber-50/50 font-semibold' : 'hover:bg-slate-50'; ?>">
                                             <td class="py-3 px-3 text-slate-900 font-bold">
                                                 <?php echo htmlspecialchars($adm['name'] ?: $adm['username']); ?>
                                             </td>
@@ -325,9 +377,12 @@ if (!$isLoggedIn && $currentPage !== 'admin.php') {
                                             </td>
                                             <td class="py-3 px-3">
                                                 <?php if ($adm['username'] === 'main_admin' || !empty($adm['is_main_admin'])): ?>
-                                                    <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300">Root Admin</span>
+                                                    <span
+                                                        class="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300">Root
+                                                        Admin</span>
                                                 <?php else: ?>
-                                                    <span class="px-2 py-0.5 rounded text-[10px] font-medium bg-slate-100 text-slate-700">Administrator</span>
+                                                    <span
+                                                        class="px-2 py-0.5 rounded text-[10px] font-medium bg-slate-100 text-slate-700">Administrator</span>
                                                 <?php endif; ?>
                                             </td>
                                         </tr>
@@ -342,7 +397,7 @@ if (!$isLoggedIn && $currentPage !== 'admin.php') {
                         <h4 class="text-xs font-bold uppercase tracking-wider text-slate-500 border-b border-slate-100 pb-2">
                             My Account Details
                         </h4>
-                        
+
                         <div class="space-y-3 bg-slate-50 p-4 rounded-2xl border border-slate-200/80">
                             <div class="flex justify-between items-center text-sm py-1 border-b border-slate-200/60">
                                 <span class="text-slate-500 font-medium">Display Name</span>
@@ -351,7 +406,8 @@ if (!$isLoggedIn && $currentPage !== 'admin.php') {
 
                             <div class="flex justify-between items-center text-sm py-1 border-b border-slate-200/60">
                                 <span class="text-slate-500 font-medium">Username (Admin ID)</span>
-                                <code class="text-slate-800 font-mono bg-white px-2 py-0.5 rounded border border-slate-200"><?php echo htmlspecialchars($adminUsername); ?></code>
+                                <code
+                                    class="text-slate-800 font-mono bg-white px-2 py-0.5 rounded border border-slate-200"><?php echo htmlspecialchars($adminUsername); ?></code>
                             </div>
 
                             <div class="flex justify-between items-center text-sm py-1 border-b border-slate-200/60">
@@ -361,7 +417,8 @@ if (!$isLoggedIn && $currentPage !== 'admin.php') {
 
                             <div class="flex justify-between items-center text-sm py-1">
                                 <span class="text-slate-500 font-medium">Role</span>
-                                <span class="px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-200 text-slate-700">Administrator</span>
+                                <span
+                                    class="px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-200 text-slate-700">Administrator</span>
                             </div>
                         </div>
                     </div>

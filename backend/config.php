@@ -39,8 +39,10 @@ date_default_timezone_set('Asia/Kolkata');
 
 session_start();
 
-// Auto-ensure backend/uploads directory exists with write permissions
-$uploadsDir = __DIR__ . '/uploads';
+// Auto-ensure domains/omgproductsimages directory exists with write permissions.
+// On Hostinger the folder lives at the domains root — 3 levels above backend/:
+//   backend/ → public_html/ → ghostwhite-kudu-967584.../ → domains/omgproductsimages/
+$uploadsDir = dirname(dirname(dirname(__DIR__))) . '/omgproductsimages';
 if (!file_exists($uploadsDir)) {
     @mkdir($uploadsDir, 0755, true);
 }
