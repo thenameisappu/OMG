@@ -14,6 +14,7 @@ export interface Product {
   category: string;
   image: string;
   hover_image?: string;
+  images?: string[];
   features?: string[];
   is_featured?: boolean;
   stock_status: 'in_stock' | 'out_of_stock';

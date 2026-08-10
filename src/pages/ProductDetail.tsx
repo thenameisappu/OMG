@@ -141,11 +141,55 @@ export default function ProductDetail() {
     navigate('/checkout');
   };
 
-  const images = [
-    product.image,
-    product.hover_image || product.image,
-    product.image
-  ];
+  // Helper to extract gallery image URLs
+  const getGalleryImages = (prod: any): string[] => {
+    if (!prod) return [];
+    let gallery: string[] = [];
+    if (Array.isArray(prod.images)) {
+      gallery = prod.images.filter((img: any) => typeof img === 'string' && img.trim() !== '');
+    } else if (typeof prod.images === 'string' && prod.images.trim() !== '') {
+      try {
+        const parsed = JSON.parse(prod.images);
+        if (Array.isArray(parsed)) {
+          gallery = parsed.filter((img: any) => typeof img === 'string' && img.trim() !== '');
+        }
+      } catch {
+        gallery = [prod.images.trim()];
+      }
+    }
+    return gallery;
+  };
+
+  // Construct deduplicated product image list: Main -> Hover (if unique) -> Gallery Images
+  const images: string[] = (() => {
+    if (!product) return [];
+    const list: string[] = [];
+
+    // 1. Main Image
+    if (product.image && typeof product.image === 'string' && product.image.trim() !== '') {
+      list.push(product.image.trim());
+    }
+
+    // 2. Hover Image (only if unique)
+    if (
+      product.hover_image &&
+      typeof product.hover_image === 'string' &&
+      product.hover_image.trim() !== '' &&
+      !list.includes(product.hover_image.trim())
+    ) {
+      list.push(product.hover_image.trim());
+    }
+
+    // 3. Gallery Images (only unique URLs)
+    const galleryList = getGalleryImages(product);
+    for (const galleryImg of galleryList) {
+      if (galleryImg && !list.includes(galleryImg)) {
+        list.push(galleryImg);
+      }
+    }
+
+    return list.length > 0 ? list : ['/images/placeholder.jpg'];
+  })();
 
   return (
     <div className="bg-white min-h-0 flex flex-col justify-start pb-6 lg:pb-8">
@@ -166,34 +210,62 @@ export default function ProductDetail() {
             {/* Main Product Image (Strict 3:4 Aspect Ratio) */}
             <div className="w-full aspect-[3/4] rounded-2xl sm:rounded-[24px] overflow-hidden bg-neutral-100 relative shadow-sm border border-neutral-200/80 shrink-0 group">
               <img
-                src={images[activeImage]}
+                src={images[activeImage] || images[0]}
                 alt={product.name}
                 className="h-full w-full object-cover transition-all duration-500 group-hover:scale-102"
+                onError={(e) => {
+                  const target = e.currentTarget as HTMLImageElement;
+                  if (product.image && target.src !== product.image) {
+                    target.src = product.image;
+                  }
+                }}
               />
               <WishlistButton
                 product={product}
                 size="lg"
+                variant="gold"
                 className="absolute top-3.5 right-3.5 z-20"
               />
             </div>
 
-            {/* Exactly 3 Product Thumbnails (Strict 1:1 Square Ratio) in one horizontal row */}
-            <div className="grid grid-cols-3 gap-3 mt-3 w-full shrink-0">
-              {images.slice(0, 3).map((img, idx) => (
-                <button
-                  key={idx}
-                  onClick={() => setActiveImage(idx)}
-                  className={cn(
-                    "w-full aspect-[1/1] rounded-xl sm:rounded-[14px] overflow-hidden transition-all duration-200 shrink-0 p-0.5 flex items-center justify-center bg-white",
-                    activeImage === idx
-                      ? "border-2 border-secondary shadow-xs scale-[1.02] bg-secondary/10"
-                      : "border border-neutral-200/90 opacity-75 hover:opacity-100"
-                  )}
-                >
-                  <img src={img} alt={`${product.name} view ${idx + 1}`} className="w-full h-full object-cover rounded-[10px] aspect-[1/1]" />
-                </button>
-              ))}
-            </div>
+            {/* Product Gallery Thumbnails */}
+            {images.length > 1 && (
+              <div
+                className={cn(
+                  "mt-3 w-full shrink-0 gap-3",
+                  images.length === 2 ? "grid grid-cols-2" :
+                  images.length === 3 ? "grid grid-cols-3" :
+                  images.length === 4 ? "grid grid-cols-4" :
+                  "flex items-center overflow-x-auto scrollbar-hide py-1"
+                )}
+              >
+                {images.map((img, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => setActiveImage(idx)}
+                    className={cn(
+                      "aspect-square rounded-xl sm:rounded-[14px] overflow-hidden transition-all duration-200 p-0.5 flex items-center justify-center bg-white",
+                      images.length <= 4 ? "w-full" : "w-16 sm:w-20 shrink-0",
+                      activeImage === idx
+                        ? "border-2 border-secondary shadow-xs scale-[1.02] bg-secondary/10"
+                        : "border border-neutral-200/90 opacity-75 hover:opacity-100"
+                    )}
+                  >
+                    <img
+                      src={img}
+                      alt={`${product.name} view ${idx + 1}`}
+                      className="w-full h-full object-cover rounded-[10px] aspect-square"
+                      onError={(e) => {
+                        const target = e.currentTarget as HTMLImageElement;
+                        if (product.image && target.src !== product.image) {
+                          target.src = product.image;
+                        }
+                      }}
+                    />
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Right Column: Scaled Up & Balanced Product Information */}
