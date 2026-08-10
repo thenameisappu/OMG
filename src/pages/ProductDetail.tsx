@@ -234,9 +234,9 @@ export default function ProductDetail() {
                 className={cn(
                   "mt-3 w-full shrink-0 gap-3",
                   images.length === 2 ? "grid grid-cols-2" :
-                  images.length === 3 ? "grid grid-cols-3" :
-                  images.length === 4 ? "grid grid-cols-4" :
-                  "flex items-center overflow-x-auto scrollbar-hide py-1"
+                    images.length === 3 ? "grid grid-cols-3" :
+                      images.length === 4 ? "grid grid-cols-4" :
+                        "flex items-center overflow-x-auto scrollbar-hide py-1"
                 )}
               >
                 {images.map((img, idx) => (
@@ -451,7 +451,7 @@ export default function ProductDetail() {
                       if (Array.isArray(parsed)) {
                         featuresList = parsed.map((f: any) => String(f).trim()).filter(Boolean);
                       }
-                    } catch {}
+                    } catch { }
                     if (featuresList.length === 0) {
                       featuresList = rawFeatures.split(/\r?\n/).map((f: string) => f.trim()).filter(Boolean);
                     }
@@ -469,9 +469,6 @@ export default function ProductDetail() {
                           ))}
                         </ul>
                       )}
-                      <p className="text-xs text-muted-foreground/80 pt-1">
-                        Handcrafted using farm-fresh, premium cut stems by OMG master florists. Wrapped in signature luxury eco-velvet packaging with custom message cards.
-                      </p>
                     </>
                   );
                 })()}
