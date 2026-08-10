@@ -27,8 +27,9 @@ import { Input } from '@/components/ui/input';
 import { useCart } from '@/contexts/CartContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
-import { getProductBySlug, addToWishlist, removeFromWishlist, isInWishlist } from '@/db/api';
+import { getProductBySlug } from '@/db/api';
 import { surpriseService } from '@/services/api';
+import { WishlistButton } from '@/components/common/WishlistButton';
 
 export default function ProductDetail() {
   const { slug } = useParams();
@@ -39,8 +40,6 @@ export default function ProductDetail() {
   const { toast } = useToast();
   const [quantity, setQuantity] = useState(1);
   const [activeImage, setActiveImage] = useState(0);
-  const [inWishlist, setInWishlist] = useState(false);
-  const [wishlistLoading, setWishlistLoading] = useState(false);
   const [product, setProduct] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
@@ -54,12 +53,6 @@ export default function ProductDetail() {
       fetchProduct();
     }
   }, [slug]);
-
-  useEffect(() => {
-    if (product && isAuthenticated) {
-      checkWishlistStatus();
-    }
-  }, [product, isAuthenticated]);
 
   const fetchProduct = async () => {
     try {
@@ -75,57 +68,6 @@ export default function ProductDetail() {
       });
     } finally {
       setLoading(false);
-    }
-  };
-
-  const checkWishlistStatus = async () => {
-    if (!product) return;
-    try {
-      const status = await isInWishlist(product.id);
-      setInWishlist(status);
-    } catch (error) {
-      console.error('Error checking wishlist:', error);
-    }
-  };
-
-  const handleWishlistToggle = async () => {
-    if (!isAuthenticated) {
-      toast({
-        title: "Login Required",
-        description: "Please login to add items to your wishlist.",
-        variant: "destructive",
-      });
-      navigate('/login', { state: { from: location } });
-      return;
-    }
-
-    if (!product) return;
-
-    setWishlistLoading(true);
-    try {
-      if (inWishlist) {
-        await removeFromWishlist(product.id);
-        setInWishlist(false);
-        toast({
-          title: "Removed from Wishlist",
-          description: `${product.name} has been removed from your wishlist.`,
-        });
-      } else {
-        await addToWishlist(product.id);
-        setInWishlist(true);
-        toast({
-          title: "Saved to Wishlist ✨",
-          description: `${product.name} has been added to your wishlist.`,
-        });
-      }
-    } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to update wishlist.",
-        variant: "destructive",
-      });
-    } finally {
-      setWishlistLoading(false);
     }
   };
 
@@ -228,18 +170,11 @@ export default function ProductDetail() {
                 alt={product.name}
                 className="h-full w-full object-cover transition-all duration-500 group-hover:scale-102"
               />
-              <Button
-                variant="ghost"
-                size="icon"
-                className={cn(
-                  "absolute top-3 right-3 backdrop-blur-md rounded-full shadow-xs transition-all hover:scale-105 h-8.5 w-8.5 border border-white/60",
-                  inWishlist ? "bg-secondary text-primary hover:bg-secondary/90" : "bg-white/90 text-neutral-700 hover:bg-white"
-                )}
-                onClick={handleWishlistToggle}
-                disabled={wishlistLoading}
-              >
-                <Heart className={cn("h-4 w-4", inWishlist && "fill-current")} />
-              </Button>
+              <WishlistButton
+                product={product}
+                size="lg"
+                className="absolute top-3.5 right-3.5 z-20"
+              />
             </div>
 
             {/* Exactly 3 Product Thumbnails (Strict 1:1 Square Ratio) in one horizontal row */}
@@ -277,6 +212,13 @@ export default function ProductDetail() {
             <h1 className="text-3xl sm:text-4xl font-bold font-serif text-primary leading-tight tracking-tight">
               {product.name}
             </h1>
+
+            {/* Product Description from Admin Panel */}
+            {product.description && product.description.trim() !== '' && (
+              <p className="text-sm sm:text-base text-muted-foreground leading-relaxed whitespace-pre-line">
+                {product.description}
+              </p>
+            )}
 
             {/* Rating & Reviews */}
             <div className="flex flex-wrap items-center gap-2.5 text-xs sm:text-sm text-muted-foreground font-medium">
@@ -425,8 +367,42 @@ export default function ProductDetail() {
                   FLOWER CARE GUIDE
                 </TabsTrigger>
               </TabsList>
-              <TabsContent value="details" className="pt-3 text-xs sm:text-sm text-muted-foreground leading-relaxed font-normal">
-                {product.description || "Handcrafted using farm-fresh, premium cut stems by OMG master florists. Wrapped in signature luxury eco-velvet packaging with custom message cards."}
+              <TabsContent value="details" className="pt-3 text-xs sm:text-sm text-muted-foreground leading-relaxed font-normal space-y-3">
+                {(() => {
+                  const rawFeatures = product.features;
+                  let featuresList: string[] = [];
+                  if (Array.isArray(rawFeatures)) {
+                    featuresList = rawFeatures.map((f: any) => String(f).trim()).filter(Boolean);
+                  } else if (typeof rawFeatures === 'string') {
+                    try {
+                      const parsed = JSON.parse(rawFeatures);
+                      if (Array.isArray(parsed)) {
+                        featuresList = parsed.map((f: any) => String(f).trim()).filter(Boolean);
+                      }
+                    } catch {}
+                    if (featuresList.length === 0) {
+                      featuresList = rawFeatures.split(/\r?\n/).map((f: string) => f.trim()).filter(Boolean);
+                    }
+                  }
+
+                  return (
+                    <>
+                      {featuresList.length > 0 && (
+                        <ul className="space-y-1.5 list-none pl-0">
+                          {featuresList.map((feature, idx) => (
+                            <li key={idx} className="flex items-start gap-2 text-muted-foreground text-xs sm:text-sm">
+                              <span className="text-secondary font-bold text-base leading-none">•</span>
+                              <span>{feature}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                      <p className="text-xs text-muted-foreground/80 pt-1">
+                        Handcrafted using farm-fresh, premium cut stems by OMG master florists. Wrapped in signature luxury eco-velvet packaging with custom message cards.
+                      </p>
+                    </>
+                  );
+                })()}
               </TabsContent>
               <TabsContent value="shipping" className="pt-3 text-xs sm:text-sm text-muted-foreground leading-relaxed font-normal">
                 Same-day express delivery across Bangalore for orders placed before 2:00 PM. Transported in specialized temperature-regulated vehicles.

@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { formatINR } from '@/lib/currency';
 import { getFeaturedProducts } from '@/db/api';
-import { useWishlist } from '@/contexts/WishlistContext';
+import { WishlistButton } from '@/components/common/WishlistButton';
 
 
 
@@ -494,15 +494,6 @@ function CategoryCard({ title, subtitle, image, link, className }: { title: stri
 }
 
 function ProductCard({ product }: { product: any }) {
-  const { isInWishlist, toggleWishlist } = useWishlist();
-  const isWishlisted = isInWishlist(product.id);
-
-  const handleWishlistClick = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    toggleWishlist(product);
-  };
-
   return (
     <div
       className="group relative bg-white border border-border/60 luxury-shadow hover-lift rounded-2xl overflow-hidden flex flex-col h-full transition-all duration-300"
@@ -515,18 +506,11 @@ function ProductCard({ product }: { product: any }) {
           className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-110"
         />
         {/* Wishlist Button */}
-        <button
-          onClick={handleWishlistClick}
-          className={cn(
-            "absolute top-2 right-2 z-20 p-2 rounded-full backdrop-blur-md transition-all duration-300 shadow-md",
-            isWishlisted
-              ? "bg-secondary text-primary hover:bg-secondary/90 scale-110"
-              : "bg-white/80 text-foreground hover:bg-white hover:scale-110"
-          )}
-          aria-label="Add to wishlist"
-        >
-          <Heart className={cn("h-3.5 w-3.5", isWishlisted && "fill-current")} />
-        </button>
+        <WishlistButton
+          product={product}
+          size="md"
+          className="absolute top-2.5 right-2.5 z-20"
+        />
       </Link>
       {/* Body scales via CSS container queries (product-card-* classes in index.css) */}
       <div className="product-card-body flex flex-col flex-1">

@@ -91,10 +91,12 @@ if (!function_exists('deleteLocalImage')) {
      */
     function deleteLocalImage(string $imagePath): void
     {
-        if (empty($imagePath)) return;
+        if (empty($imagePath))
+            return;
 
         $filename = basename($imagePath);
-        if (empty($filename) || $filename === '.' || $filename === '..') return;
+        if (empty($filename) || $filename === '.' || $filename === '..')
+            return;
 
         $primary = OMG_PRIMARY_DIR . $filename;
         if (is_file($primary)) {
@@ -122,7 +124,8 @@ if (!function_exists('cropToSquare1000')) {
         }
 
         $info = getimagesize($tmpName);
-        if (!$info) return false;
+        if (!$info)
+            return false;
 
         [$srcW, $srcH, $imgType] = [$info[0], $info[1], $info[2]];
 
@@ -142,7 +145,8 @@ if (!function_exists('cropToSquare1000')) {
             default:
                 return false;
         }
-        if (!$src) return false;
+        if (!$src)
+            return false;
 
         $squareSize = min($srcW, $srcH);
         $cropX = (int) (($srcW - $squareSize) / 2);
@@ -215,28 +219,28 @@ if (!function_exists('handleFileUpload')) {
             return $existingUrl;
         }
 
-        $file     = $_FILES[$fileKey];
-        $size     = $file['size'];
-        $tmpName  = $file['tmp_name'];
+        $file = $_FILES[$fileKey];
+        $size = $file['size'];
+        $tmpName = $file['tmp_name'];
         $origName = $file['name'];
 
         if ($size > 5 * 1024 * 1024) {
             throw new Exception('File is too large. Maximum allowed size is 5 MB.');
         }
 
-        $mimeType     = (new finfo(FILEINFO_MIME_TYPE))->file($tmpName);
+        $mimeType = (new finfo(FILEINFO_MIME_TYPE))->file($tmpName);
         $allowedMimes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
         if (!in_array($mimeType, $allowedMimes, true)) {
             throw new Exception('Invalid file type. Only JPG, JPEG, PNG, and WEBP are allowed.');
         }
 
-        $ext         = strtolower(pathinfo($origName, PATHINFO_EXTENSION));
+        $ext = strtolower(pathinfo($origName, PATHINFO_EXTENSION));
         $allowedExts = ['jpg', 'jpeg', 'png', 'webp'];
         if (!in_array($ext, $allowedExts, true)) {
             throw new Exception("Invalid file extension ('.$ext'). Only .jpg, .jpeg, .png, and .webp are permitted.");
         }
 
-        $primaryDir   = OMG_PRIMARY_DIR;
+        $primaryDir = OMG_PRIMARY_DIR;
         $secondaryDir = OMG_SECONDARY_DIR;
 
         if (!is_dir($primaryDir) && !mkdir($primaryDir, 0755, true)) {
@@ -250,9 +254,9 @@ if (!function_exists('handleFileUpload')) {
         }
 
         $overwriteFilename = ($keepSameFilename && !empty($existingUrl)) ? basename($existingUrl) : null;
-        $targetFilename    = generateProductImageFilename(!empty($productName) ? $productName : 'product', $suffixTag, 'jpg', $overwriteFilename);
+        $targetFilename = generateProductImageFilename(!empty($productName) ? $productName : 'product', $suffixTag, 'jpg', $overwriteFilename);
 
-        $primaryTarget   = $primaryDir   . $targetFilename;
+        $primaryTarget = $primaryDir . $targetFilename;
         $secondaryTarget = $secondaryDir . $targetFilename;
 
         if (!cropToSquare1000($tmpName, $primaryTarget)) {
@@ -280,13 +284,13 @@ if (!function_exists('handleMultipleFileUploads')) {
             return $existingImages;
         }
 
-        $files        = $_FILES[$fileKey];
-        $newImages    = [];
-        $fileCount    = count($files['name']);
+        $files = $_FILES[$fileKey];
+        $newImages = [];
+        $fileCount = count($files['name']);
         $allowedMimes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
-        $allowedExts  = ['jpg', 'jpeg', 'png', 'webp'];
+        $allowedExts = ['jpg', 'jpeg', 'png', 'webp'];
 
-        $primaryDir   = OMG_PRIMARY_DIR;
+        $primaryDir = OMG_PRIMARY_DIR;
         $secondaryDir = OMG_SECONDARY_DIR;
 
         if (!is_dir($primaryDir) && !mkdir($primaryDir, 0755, true)) {
@@ -302,11 +306,12 @@ if (!function_exists('handleMultipleFileUploads')) {
         $startingIndex = count($existingImages) + 1;
 
         for ($i = 0; $i < $fileCount; $i++) {
-            if ($files['error'][$i] !== UPLOAD_ERR_OK) continue;
+            if ($files['error'][$i] !== UPLOAD_ERR_OK)
+                continue;
 
-            $tmpName  = $files['tmp_name'][$i];
+            $tmpName = $files['tmp_name'][$i];
             $origName = $files['name'][$i];
-            $size     = $files['size'][$i];
+            $size = $files['size'][$i];
 
             if ($size > 5 * 1024 * 1024) {
                 throw new Exception("'$origName' exceeds the 5 MB size limit.");
@@ -322,10 +327,10 @@ if (!function_exists('handleMultipleFileUploads')) {
                 throw new Exception("'$origName' has an invalid extension.");
             }
 
-            $suffixTag      = 'gallery-' . ($startingIndex + $i);
+            $suffixTag = 'gallery-' . ($startingIndex + $i);
             $targetFilename = generateProductImageFilename(!empty($productName) ? $productName : 'product', $suffixTag, 'jpg');
 
-            $primaryTarget   = $primaryDir   . $targetFilename;
+            $primaryTarget = $primaryDir . $targetFilename;
             $secondaryTarget = $secondaryDir . $targetFilename;
 
             if (!cropToSquare1000($tmpName, $primaryTarget)) {
@@ -337,7 +342,7 @@ if (!function_exists('handleMultipleFileUploads')) {
                 error_log('[OMG Upload] copy() to backend/uploads/ failed for: ' . $targetFilename);
             }
 
-            $protocol    = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on') ? 'https' : 'http';
+            $protocol = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on') ? 'https' : 'http';
             $newImages[] = $protocol . '://' . $_SERVER['HTTP_HOST'] . OMG_IMG_URL_PATH . $targetFilename;
         }
 
@@ -549,7 +554,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             } elseif ($imageType === 'gallery') {
                 $existing = !empty($prod['images']) ? json_decode($prod['images'], true) : [];
                 if (is_array($existing)) {
-                    $filtered = array_values(array_filter($existing, function($url) use ($imageUrl) {
+                    $filtered = array_values(array_filter($existing, function ($url) use ($imageUrl) {
                         return basename($url) !== basename($imageUrl);
                     }));
                     $up = $db->prepare("UPDATE products SET images = :images WHERE id = :id");
@@ -594,7 +599,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             } elseif ($imageType === 'gallery') {
                 $existing = !empty($prod['images']) ? json_decode($prod['images'], true) : [];
                 if (is_array($existing)) {
-                    $updatedGallery = array_map(function($url) use ($existingUrl, $newUrl) {
+                    $updatedGallery = array_map(function ($url) use ($existingUrl, $newUrl) {
                         if (basename($url) === basename($existingUrl)) {
                             return $newUrl;
                         }
@@ -789,7 +794,8 @@ require_once 'admin_header.php';
                 <option value="">All Categories</option>
                 <?php foreach ($categoryNames as $key => $val): ?>
                     <option value="<?php echo $key; ?>" <?php echo $categoryFilter === $key ? 'selected' : ''; ?>>
-                        <?php echo $val; ?></option>
+                        <?php echo $val; ?>
+                    </option>
                 <?php endforeach; ?>
             </select>
             <button type="submit"
@@ -879,24 +885,25 @@ require_once 'admin_header.php';
                                 <td class="py-3 px-4 align-middle text-xs">
                                     <?php if ($is_main_admin): ?>
                                         <!-- Interactive toggle for main_admin -->
-                                        <button
-                                            type="button"
-                                            id="status-btn-<?php echo $p['id']; ?>"
+                                        <button type="button" id="status-btn-<?php echo $p['id']; ?>"
                                             data-product-id="<?php echo $p['id']; ?>"
                                             data-is-active="<?php echo $p['is_active'] ? '1' : '0'; ?>"
                                             onclick="toggleProductStatus('<?php echo $p['id']; ?>', this)"
                                             title="Click to toggle Active / Inactive"
-                                            class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border transition-all cursor-pointer hover:opacity-80 focus:outline-none focus:ring-2 focus:ring-offset-1 <?php echo $p['is_active'] ? 'bg-emerald-50 text-emerald-700 border-emerald-200 focus:ring-emerald-400' : 'bg-slate-100 text-slate-500 border-slate-200 focus:ring-slate-400'; ?>"
-                                        >
-                                            <span id="status-dot-<?php echo $p['id']; ?>" class="w-1.5 h-1.5 rounded-full <?php echo $p['is_active'] ? 'bg-emerald-500' : 'bg-slate-400'; ?>"></span>
-                                            <span id="status-label-<?php echo $p['id']; ?>"><?php echo $p['is_active'] ? 'Active' : 'Inactive'; ?></span>
+                                            class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border transition-all cursor-pointer hover:opacity-80 focus:outline-none focus:ring-2 focus:ring-offset-1 <?php echo $p['is_active'] ? 'bg-emerald-50 text-emerald-700 border-emerald-200 focus:ring-emerald-400' : 'bg-slate-100 text-slate-500 border-slate-200 focus:ring-slate-400'; ?>">
+                                            <span id="status-dot-<?php echo $p['id']; ?>"
+                                                class="w-1.5 h-1.5 rounded-full <?php echo $p['is_active'] ? 'bg-emerald-500' : 'bg-slate-400'; ?>"></span>
+                                            <span
+                                                id="status-label-<?php echo $p['id']; ?>"><?php echo $p['is_active'] ? 'Active' : 'Inactive'; ?></span>
                                         </button>
                                     <?php else: ?>
                                         <!-- Read-only badge for non-main-admin -->
                                         <?php if ($p['is_active']): ?>
-                                            <span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">Active</span>
+                                            <span
+                                                class="px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">Active</span>
                                         <?php else: ?>
-                                            <span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-500 border border-slate-200">Inactive</span>
+                                            <span
+                                                class="px-2 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-500 border border-slate-200">Inactive</span>
                                         <?php endif; ?>
                                     <?php endif; ?>
                                 </td>
@@ -992,8 +999,8 @@ require_once 'admin_header.php';
                 </div>
 
                 <div class="space-y-1">
-                    <label class="block text-xs font-bold uppercase tracking-wider text-slate-700">Key Features (One feature
-                        per line)</label>
+                    <label class="block text-xs font-bold uppercase tracking-wider text-slate-700">Arrangement
+                        Details</label>
                     <textarea name="features" rows="3"
                         placeholder="Fresh Pink Roses&#10;Signature Hat Box&#10;Hand-crafted Ribbon"
                         class="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:ring-2 focus:ring-amber-500 text-sm outline-none font-mono text-xs"></textarea>
@@ -1157,13 +1164,15 @@ require_once 'admin_header.php';
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <!-- Main Image Box -->
                         <div class="bg-white p-3 rounded-xl border border-slate-200 space-y-2">
-                            <span class="block text-[11px] font-bold uppercase tracking-wider text-slate-500">Main Product Image</span>
+                            <span class="block text-[11px] font-bold uppercase tracking-wider text-slate-500">Main Product
+                                Image</span>
                             <div id="mainImageContainer"></div>
                         </div>
 
                         <!-- Hover Image Box -->
                         <div class="bg-white p-3 rounded-xl border border-slate-200 space-y-2">
-                            <span class="block text-[11px] font-bold uppercase tracking-wider text-slate-500">Hover Image</span>
+                            <span class="block text-[11px] font-bold uppercase tracking-wider text-slate-500">Hover
+                                Image</span>
                             <div id="hoverImageContainer"></div>
                         </div>
                     </div>
@@ -1171,7 +1180,8 @@ require_once 'admin_header.php';
                     <!-- Gallery Images Section -->
                     <div class="bg-white p-3 rounded-xl border border-slate-200 space-y-3">
                         <div class="flex items-center justify-between">
-                            <span class="text-[11px] font-bold uppercase tracking-wider text-slate-500">Gallery Images</span>
+                            <span class="text-[11px] font-bold uppercase tracking-wider text-slate-500">Gallery
+                                Images</span>
                             <span id="galleryCountBadge" class="text-[10px] font-bold text-slate-400">0 images</span>
                         </div>
                         <div id="galleryImagesContainer" class="grid grid-cols-1 sm:grid-cols-2 gap-3"></div>
@@ -1279,7 +1289,8 @@ require_once 'admin_header.php';
     </div>
 
     <!-- Hidden input for single image replacement -->
-    <input type="file" id="global_image_replace_input" accept="image/*" class="hidden" onchange="handleImageReplacementSelected(event)">
+    <input type="file" id="global_image_replace_input" accept="image/*" class="hidden"
+        onchange="handleImageReplacementSelected(event)">
 
     <script>
         // Existing Products Data for Duplicate Checking
@@ -1740,8 +1751,8 @@ require_once 'admin_header.php';
         const currentActive = parseInt(btn.dataset.isActive, 10);
         const newActive = currentActive === 1 ? 0 : 1;
 
-        const label    = document.getElementById('status-label-' + productId);
-        const dot      = document.getElementById('status-dot-'   + productId);
+        const label = document.getElementById('status-label-' + productId);
+        const dot = document.getElementById('status-dot-' + productId);
         const originalText = label.textContent;
 
         // Loading state
@@ -1765,13 +1776,13 @@ require_once 'admin_header.php';
                 if (newActive === 1) {
                     btn.className = btn.className
                         .replace('bg-slate-100 text-slate-500 border-slate-200 focus:ring-slate-400',
-                                 'bg-emerald-50 text-emerald-700 border-emerald-200 focus:ring-emerald-400');
+                            'bg-emerald-50 text-emerald-700 border-emerald-200 focus:ring-emerald-400');
                     dot.className = dot.className.replace('bg-slate-400', 'bg-emerald-500');
                     label.textContent = 'Active';
                 } else {
                     btn.className = btn.className
                         .replace('bg-emerald-50 text-emerald-700 border-emerald-200 focus:ring-emerald-400',
-                                 'bg-slate-100 text-slate-500 border-slate-200 focus:ring-slate-400');
+                            'bg-slate-100 text-slate-500 border-slate-200 focus:ring-slate-400');
                     dot.className = dot.className.replace('bg-emerald-500', 'bg-slate-400');
                     label.textContent = 'Inactive';
                 }

@@ -19,6 +19,7 @@ interface AuthContextType {
   signOut: () => Promise<void>;
   verifyOtp: (email: string, otp: string) => Promise<void>;
   resendOtp: (email: string) => Promise<void>;
+  refreshUser: () => Promise<void>;
   isAuthenticated: boolean;
 }
 
@@ -202,6 +203,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     signOut,
     verifyOtp,
     resendOtp,
+    refreshUser: checkAuth,
     isAuthenticated: !!user,
   };
 

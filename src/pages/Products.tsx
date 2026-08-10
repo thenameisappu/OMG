@@ -18,7 +18,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Badge } from '@/components/ui/badge';
 import { useCart } from '@/contexts/CartContext';
-import { useWishlist } from '@/contexts/WishlistContext';
+import { WishlistButton } from '@/components/common/WishlistButton';
 
 const categories = [
   { name: 'All Collections', slug: 'all' },
@@ -399,9 +399,7 @@ export default function Products() {
 
 function ProductCard({ product }: { product: any }) {
   const { addToCart } = useCart();
-  const { isInWishlist, toggleWishlist } = useWishlist();
   const { toast } = useToast();
-  const isWishlisted = isInWishlist(product.id);
 
   const handleQuickAdd = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -410,12 +408,6 @@ function ProductCard({ product }: { product: any }) {
       title: "Added to Shopping Bag",
       description: `${product.name} has been added.`,
     });
-  };
-
-  const handleWishlistClick = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    toggleWishlist(product);
   };
 
   return (
@@ -432,19 +424,11 @@ function ProductCard({ product }: { product: any }) {
         <div className="absolute inset-0 bg-black/10 opacity-0 group-hover:opacity-100 transition-opacity" />
 
         {/* Wishlist Heart Button */}
-        <button
-          type="button"
-          onClick={handleWishlistClick}
-          className={cn(
-            "absolute top-2 right-2 z-20 p-1.5 rounded-full backdrop-blur-md transition-all duration-300 shadow-md",
-            isWishlisted
-              ? "bg-secondary text-primary hover:bg-secondary/90 scale-110"
-              : "bg-white/80 text-foreground hover:bg-white hover:scale-110"
-          )}
-          aria-label="Add to wishlist"
-        >
-          <Heart className={cn("h-3.5 w-3.5", isWishlisted && "fill-current")} />
-        </button>
+        <WishlistButton
+          product={product}
+          size="md"
+          className="absolute top-2.5 right-2.5 z-20"
+        />
 
         {product.stock_status === 'out_of_stock' && (
           <div className="absolute inset-0 bg-white/70 backdrop-blur-[2px] flex items-center justify-center z-10">

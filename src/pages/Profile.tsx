@@ -10,7 +10,7 @@ import { useToast } from '@/hooks/use-toast';
 import { getUserProfile, updateUserProfile } from '@/db/api';
 
 export default function Profile() {
-    const { user, signOut, isAuthenticated, loading: authLoading } = useAuth();
+    const { user, signOut, isAuthenticated, loading: authLoading, refreshUser } = useAuth();
     const navigate = useNavigate();
     const { toast } = useToast();
 
@@ -62,6 +62,7 @@ export default function Profile() {
         setSaving(true);
         try {
             await updateUserProfile(profile);
+            await refreshUser();
             toast({
                 title: "Profile Saved",
                 description: "Your delivery information has been updated.",

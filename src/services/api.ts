@@ -1,28 +1,83 @@
 
 import axios from 'axios';
 import { API_BASE_URL } from '@/config';
+import {
+    reportNetworkErrorGlobal,
+    clearNetworkErrorGlobal,
+    checkActualConnectivity,
+} from '@/contexts/NetworkContext';
 
 export { API_BASE_URL };
 
 export const api = axios.create({
     baseURL: API_BASE_URL,
+    timeout: 10000, // 10s default timeout
     headers: {
         'Content-Type': 'application/json',
     },
     withCredentials: true, // IMPORTANT: Send cookies (session) with requests
 });
 
-// Response interceptor for unified error handling (optional but good practice)
+// Request interceptor: Check offline state before sending requests
+api.interceptors.request.use(
+    async (config) => {
+        if (typeof navigator !== 'undefined' && !navigator.onLine) {
+            reportNetworkErrorGlobal('offline');
+            return Promise.reject(new Error('No Internet Connection. Please check your internet connection and try again.'));
+        }
+        return config;
+    },
+    (error) => Promise.reject(error)
+);
+
+// Helper for delay in retry
+const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+// Response interceptor with timeout detection, retries, and network status reporting
 api.interceptors.response.use(
-    (response) => response,
-    (error) => {
-        if (error.response && error.response.status === 401) {
-            // Check if we are not already on the login page to avoid loops
-            if (!window.location.pathname.includes('/login')) {
-                // Dispatch a custom event or use a callback to handle redirects if needed
-                // For now, we just pass the error through
+    (response) => {
+        // Successful response clears any previous network error
+        clearNetworkErrorGlobal();
+        return response;
+    },
+    async (error) => {
+        const config = error.config;
+
+        // HTTP response errors (4xx, 5xx): Do NOT treat as internet connectivity issues
+        if (error.response) {
+            if (error.response.status === 401 && !window.location.pathname.includes('/login')) {
+                // Keep existing 401 handling
+            }
+            return Promise.reject(error);
+        }
+
+        // Handle network error / request timeout / aborted requests (no error.response)
+        const isTimeout = error.code === 'ECONNABORTED' || (error.message && error.message.toLowerCase().includes('timeout'));
+
+        // Retry logic for temporary network hiccup or single request timeout
+        if (config && !config._retryAttempted) {
+            config._retryAttempted = true;
+            await delay(1000);
+            try {
+                const retryResponse = await api(config);
+                clearNetworkErrorGlobal();
+                return retryResponse;
+            } catch (retryError: any) {
+                // If retry also fails, proceed to classify error
+                error = retryError;
             }
         }
+
+        // Retry failed or already attempted: classify network state
+        const retryFn = config ? () => api(config) : undefined;
+        const online = await checkActualConnectivity();
+
+        if (!online) {
+            reportNetworkErrorGlobal('offline', retryFn);
+        } else if (isTimeout || error.code === 'ERR_NETWORK') {
+            reportNetworkErrorGlobal('slow', retryFn);
+        }
+
         return Promise.reject(error);
     }
 );

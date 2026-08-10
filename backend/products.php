@@ -37,6 +37,22 @@ function generateSlug($name)
     return empty($text) ? 'n-a' : $text;
 }
 
+// Parse product key features from string or JSON
+function parseProductFeatures($featuresRaw) {
+    if (empty($featuresRaw)) {
+        return [];
+    }
+    if (is_array($featuresRaw)) {
+        return array_values(array_filter(array_map('trim', $featuresRaw)));
+    }
+    $decoded = json_decode($featuresRaw, true);
+    if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
+        return array_values(array_filter(array_map('trim', $decoded)));
+    }
+    $lines = explode("\n", $featuresRaw);
+    return array_values(array_filter(array_map('trim', $lines)));
+}
+
 // Ensure slug uniqueness
 function makeUniqueSlug($db, $name, $excludeId = null)
 {
@@ -186,13 +202,9 @@ function getProducts($db)
 
     $products = $stmt->fetchAll(PDO::FETCH_ASSOC);
     
-    // Parse features JSON for standard output consistency
+    // Parse features JSON or string for standard output consistency
     foreach ($products as &$p) {
-        if (!empty($p['features'])) {
-            $p['features'] = json_decode($p['features']);
-        } else {
-            $p['features'] = [];
-        }
+        $p['features'] = parseProductFeatures($p['features'] ?? null);
         if (!empty($p['images'])) {
             $p['images'] = json_decode($p['images']);
         } else {
@@ -221,12 +233,8 @@ function getProductBySlug($db)
     if ($stmt->rowCount() > 0) {
         $product = $stmt->fetch(PDO::FETCH_ASSOC);
         
-        // Parse JSON fields
-        if (!empty($product['features'])) {
-            $product['features'] = json_decode($product['features']);
-        } else {
-            $product['features'] = [];
-        }
+        // Parse JSON / feature fields
+        $product['features'] = parseProductFeatures($product['features'] ?? null);
         if (!empty($product['images'])) {
             $product['images'] = json_decode($product['images']);
         } else {
