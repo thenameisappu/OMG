@@ -12,10 +12,16 @@ export default function Login() {
   const navigate = useNavigate();
   const location = useLocation();
   const { toast } = useToast();
-  const { signIn, signUp, verifyOtp, resendOtp } = useAuth();
+  const { signIn, signUp, verifyOtp, resendOtp, isAuthenticated } = useAuth();
   const [loading, setLoading] = useState(false);
 
   const from = (location.state as any)?.from?.pathname || '/';
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate(from, { replace: true });
+    }
+  }, [isAuthenticated, navigate, from]);
 
   const [loginData, setLoginData] = useState({
     email: '',
@@ -160,7 +166,7 @@ export default function Login() {
             </h2>
 
             <p className="text-emerald-100/80 text-sm leading-relaxed font-light">
-              Sign in to manage your orders, track surprise deliveries, save favorite blooms to your wishlist, and
+              Sign in to manage your orders, track surprise deliveries, save favorite blooms to your wishlist, and enjoy concierge access.
             </p>
 
             <div className="pt-6 border-t border-white/15 flex items-center gap-6 text-xs text-white/70">

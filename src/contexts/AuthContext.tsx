@@ -49,7 +49,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (lastActivityStr && user) {
         const lastActivity = parseInt(lastActivityStr, 10);
         if (Date.now() - lastActivity > SESSION_TIMEOUT_MS) {
-          signOut();
+          signOut(true);
         }
       }
     };
@@ -177,21 +177,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const signOut = async () => {
+  const signOut = async (silent = false) => {
     try {
       authService.logout();
       setUser(null);
 
-      toast({
-        title: 'Signed out',
-        description: 'You have been successfully signed out.',
-      });
+      if (!silent) {
+        toast({
+          title: 'Signed out',
+          description: 'You have been successfully signed out.',
+        });
+      }
     } catch (error: any) {
-      toast({
-        title: 'Sign out failed',
-        description: 'Something went wrong',
-        variant: 'destructive',
-      });
+      if (!silent) {
+        toast({
+          title: 'Sign out failed',
+          description: 'Something went wrong',
+          variant: 'destructive',
+        });
+      }
     }
   };
 
