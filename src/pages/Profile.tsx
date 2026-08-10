@@ -114,12 +114,20 @@ export default function Profile() {
 
                         <div className="flex items-center gap-3">
                             <Link to="/orders">
-                                <Button variant="outline" size="sm" className="rounded-full border-white/20 text-white hover:bg-white/10 text-xs font-bold gap-1.5">
+                                <Button
+                                    size="lg"
+                                    className="h-8 px-5 rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-600 text-black font-bold text-lg hover:brightness-110 transition-all shadow-lg hover:scale-105 gold-glow"
+                                    onClick={() => navigate('/orders')}
+                                >
                                     <Package className="h-3.5 w-3.5 text-secondary" />
                                     My Orders
                                 </Button>
                             </Link>
-                            <Button variant="ghost" size="sm" className="rounded-full text-red-400 hover:bg-red-500/10 text-xs font-bold gap-1.5" onClick={handleLogout}>
+                            <Button
+                                size="lg"
+                                className="h-8 px-5 rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-600 text-black font-bold text-lg hover:brightness-110 transition-all shadow-lg hover:scale-105 gold-glow"
+                                onClick={handleLogout}
+                            >
                                 <LogOut className="h-3.5 w-3.5" />
                                 Sign Out
                             </Button>

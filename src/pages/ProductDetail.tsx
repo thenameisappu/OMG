@@ -206,10 +206,10 @@ export default function ProductDetail() {
   ];
 
   return (
-    <div className="bg-white min-h-screen pb-20">
-      <div className="container py-10">
-        {/* Breadcrumbs */}
-        <div className="flex items-center gap-2 text-muted-foreground text-xs uppercase tracking-wider mb-8">
+    <div className="bg-white min-h-0 flex flex-col justify-start pb-6 lg:pb-8">
+      <div className="container max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-2 lg:py-3 flex-1 flex flex-col justify-start">
+        {/* Breadcrumb */}
+        <div className="flex items-center gap-1.5 text-muted-foreground text-[11px] font-bold uppercase tracking-wider mb-2 lg:mb-3 shrink-0">
           <Link to="/" className="hover:text-secondary transition-colors">Home</Link>
           <ChevronRight className="h-3 w-3" />
           <Link to="/products" className="hover:text-secondary transition-colors">Shop</Link>
@@ -217,98 +217,97 @@ export default function ProductDetail() {
           <span className="text-primary font-bold">{product.name}</span>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-start">
-          {/* Gallery Images */}
-          <div className="lg:col-span-6 space-y-4">
-            <div className="aspect-[4/4] md:aspect-[4/5] overflow-hidden rounded-3xl bg-muted/20 relative luxury-shadow border border-border">
+        {/* 2-Column Main Layout (Balanced 50/50 Desktop Split) */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 lg:gap-8 items-start w-full">
+          {/* Left Column: Product Gallery (Adjusted for Screen View) */}
+          <div className="lg:col-span-6 max-w-[340px] sm:max-w-[380px] lg:max-w-[410px] flex flex-col justify-start w-full shrink-0 mx-auto lg:mx-0">
+            {/* Main Product Image (Strict 3:4 Aspect Ratio) */}
+            <div className="w-full aspect-[3/4] rounded-2xl sm:rounded-[24px] overflow-hidden bg-neutral-100 relative shadow-sm border border-neutral-200/80 shrink-0 group">
               <img
                 src={images[activeImage]}
                 alt={product.name}
-                className="h-full w-full object-cover transition-all duration-700 hover:scale-105"
+                className="h-full w-full object-cover transition-all duration-500 group-hover:scale-102"
               />
               <Button
                 variant="ghost"
                 size="icon"
                 className={cn(
-                  "absolute top-5 right-5 backdrop-blur-md rounded-full shadow-md transition-all hover:scale-110",
-                  inWishlist ? "bg-secondary text-primary hover:bg-secondary/90" : "bg-white/80 text-foreground"
+                  "absolute top-3 right-3 backdrop-blur-md rounded-full shadow-xs transition-all hover:scale-105 h-8.5 w-8.5 border border-white/60",
+                  inWishlist ? "bg-secondary text-primary hover:bg-secondary/90" : "bg-white/90 text-neutral-700 hover:bg-white"
                 )}
                 onClick={handleWishlistToggle}
                 disabled={wishlistLoading}
               >
-                <Heart className={cn("h-5 w-5", inWishlist && "fill-current")} />
+                <Heart className={cn("h-4 w-4", inWishlist && "fill-current")} />
               </Button>
             </div>
-            
-            <div className="grid grid-cols-3 gap-4">
-              {images.map((img, idx) => (
+
+            {/* Exactly 3 Product Thumbnails (Strict 1:1 Square Ratio) in one horizontal row */}
+            <div className="grid grid-cols-3 gap-3 mt-3 w-full shrink-0">
+              {images.slice(0, 3).map((img, idx) => (
                 <button
                   key={idx}
                   onClick={() => setActiveImage(idx)}
                   className={cn(
-                    "aspect-square rounded-xl overflow-hidden border-2 transition-all duration-300",
-                    activeImage === idx ? "border-secondary scale-105 shadow-md" : "border-border opacity-70 hover:opacity-100"
+                    "w-full aspect-[1/1] rounded-xl sm:rounded-[14px] overflow-hidden transition-all duration-200 shrink-0 p-0.5 flex items-center justify-center bg-white",
+                    activeImage === idx
+                      ? "border-2 border-secondary shadow-xs scale-[1.02] bg-secondary/10"
+                      : "border border-neutral-200/90 opacity-75 hover:opacity-100"
                   )}
                 >
-                  <img src={img} alt="" className="h-full w-full object-cover" />
+                  <img src={img} alt={`${product.name} view ${idx + 1}`} className="w-full h-full object-cover rounded-[10px] aspect-[1/1]" />
                 </button>
               ))}
             </div>
           </div>
 
-          {/* Product Detail Info */}
-          <div className="lg:col-span-6 flex flex-col space-y-6">
-            <div>
-              <div className="flex items-center gap-3 mb-3">
-                <Badge variant="secondary" className="bg-secondary/15 text-secondary border-none uppercase tracking-widest text-[10px] font-bold px-3 py-1">
-                  {product.category ? product.category.replace('-', ' ') : 'Bloom'}
-                </Badge>
-                <span className="text-xs text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded font-bold flex items-center gap-1">
-                  <ShieldCheck className="h-3.5 w-3.5" /> Freshness Guaranteed
-                </span>
-              </div>
-
-              <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold font-serif text-primary mb-3 leading-tight">
-                {product.name}
-              </h1>
-
-              <div className="flex flex-wrap items-center gap-3 text-sm">
-                <div className="flex items-center text-amber-500 font-bold">
-                  {[1, 2, 3, 4, 5].map(i => <Star key={i} className="h-4 w-4 fill-current" />)}
-                  <span className="ml-2 text-primary font-bold">{product.rating || 4.9}</span>
-                </div>
-                <Separator orientation="vertical" className="h-4" />
-                <span className="text-xs text-muted-foreground font-medium">{product.reviews_count || 48} Verified Reviews</span>
-                <Separator orientation="vertical" className="h-4" />
-                <span className="text-xs text-emerald-600 font-bold">
-                  In Stock & Ready for Delivery
-                </span>
-              </div>
+          {/* Right Column: Scaled Up & Balanced Product Information */}
+          <div className="lg:col-span-6 flex flex-col justify-start space-y-3 lg:space-y-3.5 w-full">
+            {/* Badges */}
+            <div className="flex items-center gap-2">
+              <Badge variant="secondary" className="bg-secondary/15 text-secondary border-none uppercase tracking-widest text-xs font-bold px-3 py-1 rounded-full">
+                {product.category ? product.category.replace('-', ' ') : 'GIFTING'}
+              </Badge>
+              <span className="text-xs text-emerald-700 bg-emerald-50 border border-emerald-200/60 px-3 py-1 rounded-full font-bold flex items-center gap-1.5">
+                <ShieldCheck className="h-3.5 w-3.5" /> Freshness Guaranteed
+              </span>
             </div>
 
-            <div className="p-6 rounded-2xl bg-muted/20 border border-border/80 flex items-baseline justify-between">
-              <div>
-                <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-1">Price</p>
-                <span className="text-4xl font-extrabold text-primary">{formatINR(product.price)}</span>
-                <p className="text-xs text-muted-foreground mt-1">Includes all applicable taxes & charges</p>
+            {/* Product Title (Noticeably Larger Hierarchy) */}
+            <h1 className="text-3xl sm:text-4xl font-bold font-serif text-primary leading-tight tracking-tight">
+              {product.name}
+            </h1>
+
+            {/* Rating & Reviews */}
+            <div className="flex flex-wrap items-center gap-2.5 text-xs sm:text-sm text-muted-foreground font-medium">
+              <div className="flex items-center text-amber-500 font-bold">
+                {[1, 2, 3, 4, 5].map(i => <Star key={i} className="h-4 w-4 fill-current" />)}
               </div>
+              <span className="font-bold text-primary text-sm">{product.rating || 4.9}</span>
+              <Separator orientation="vertical" className="h-3.5" />
+              <span className="text-xs sm:text-sm text-muted-foreground font-normal">{product.reviews_count || 48} Verified Reviews</span>
+              <Separator orientation="vertical" className="h-3.5" />
+              <span className="text-xs sm:text-sm text-emerald-600 font-bold">In Stock & Ready for Delivery</span>
             </div>
 
-            <p className="text-base text-muted-foreground leading-relaxed font-light">
-              {product.description}
-            </p>
+            {/* Price Card */}
+            <div className="p-4 px-5 rounded-2xl bg-secondary/10 border border-secondary/20 flex flex-col justify-center">
+              <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-1">Price</p>
+              <span className="text-3xl sm:text-4xl font-extrabold text-primary tracking-tight">{formatINR(product.price)}</span>
+              <p className="text-xs text-muted-foreground mt-1">Includes all applicable taxes & charges</p>
+            </div>
 
             {/* Pincode Delivery Slot Checker */}
-            <div className="p-5 rounded-2xl border border-secondary/20 bg-secondary/5 space-y-3">
-              <span className="text-xs font-bold text-primary uppercase tracking-wider flex items-center gap-1.5">
+            <div className="p-4 rounded-2xl border border-secondary/20 bg-secondary/5 space-y-2">
+              <span className="text-xs font-bold text-primary uppercase tracking-wider flex items-center gap-2">
                 <MapPin className="h-4 w-4 text-secondary" />
-                Check Same-Day Delivery Availability
+                CHECK SAME-DAY DELIVERY AVAILABILITY
               </span>
-              <form onSubmit={checkPincode} className="flex flex-col sm:flex-row gap-2">
+              <form onSubmit={checkPincode} className="flex gap-2">
                 <Input
                   maxLength={6}
-                  placeholder="Enter 6-digit Pincode (e.g. 560038)"
-                  className="h-11 bg-white text-sm border-border flex-1 font-mono tracking-wider"
+                  placeholder="Enter 6-digit Pincode (e.g., 560036)"
+                  className="h-10.5 bg-white text-sm border-border rounded-xl flex-1 font-mono px-3.5 shadow-2xs placeholder:font-sans placeholder:text-muted-foreground"
                   value={pincode}
                   onChange={(e) => {
                     const clean = e.target.value.replace(/\D/g, '').slice(0, 6);
@@ -316,112 +315,123 @@ export default function ProductDetail() {
                     setPincodeStatus(null);
                   }}
                 />
-                <Button 
-                  type="submit" 
-                  variant="secondary" 
+                <Button
+                  type="submit"
+                  variant="secondary"
                   disabled={pincodeLoading}
-                  className="h-11 px-6 font-bold text-xs uppercase tracking-wider whitespace-nowrap min-w-[120px] flex items-center justify-center gap-2"
+                  className="h-10.5 px-5 rounded-xl font-bold text-xs uppercase tracking-wider whitespace-nowrap shrink-0 border-2 border-secondary shadow-2xs"
                 >
                   {pincodeLoading ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      <span>Checking...</span>
-                    </>
+                    <Loader2 className="h-4 w-4 animate-spin" />
                   ) : (
-                    "Check Slot"
+                    "CHECK SLOT"
                   )}
                 </Button>
               </form>
               {pincodeStatus?.valid === true && (
-                <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200/80 text-emerald-800 space-y-0.5 animate-fadeIn">
-                  <p className="text-xs font-bold flex items-center gap-1.5 text-emerald-800">
-                    <Check className="h-4 w-4 text-emerald-600 shrink-0" />
-                    {pincodeStatus.message}
-                  </p>
-                  <p className="text-[11px] text-emerald-700 pl-5 font-medium">
-                    {pincodeStatus.detail || "Same-day delivery is available for your location."}
-                  </p>
+                <div className="p-2.5 px-3.5 rounded-xl bg-emerald-50 border border-emerald-200/80 text-emerald-800 text-xs sm:text-sm flex items-center gap-2">
+                  <Check className="h-4 w-4 text-emerald-600 shrink-0" />
+                  <span className="font-semibold">{pincodeStatus.message}</span>
                 </div>
               )}
               {pincodeStatus?.valid === false && (
-                <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200/80 text-rose-700 font-medium text-xs animate-fadeIn">
+                <div className="p-2.5 px-3.5 rounded-xl bg-rose-50 border border-rose-200/80 text-rose-700 font-medium text-xs sm:text-sm">
                   {pincodeStatus.message}
                 </div>
               )}
             </div>
 
-            {/* Quantity and Actions */}
-            <div className="space-y-4 pt-2">
-              <div className="flex flex-col sm:flex-row gap-4">
-                <div className="flex items-center border border-border rounded-full px-4 h-14 bg-white justify-between w-full sm:w-36">
-                  <button
-                    onClick={() => setQuantity(q => Math.max(1, q - 1))}
-                    className="p-2 hover:text-secondary"
-                  >
-                    <Minus className="h-4 w-4" />
-                  </button>
-                  <span className="font-bold text-lg">{quantity}</span>
-                  <button
-                    onClick={() => setQuantity(q => q + 1)}
-                    className="p-2 hover:text-secondary"
-                  >
-                    <Plus className="h-4 w-4" />
-                  </button>
-                </div>
+            {/* Action Row: Quantity + Add to Bag + Buy Now */}
+            <div className="flex flex-wrap sm:flex-nowrap items-center gap-2.5 sm:gap-3 w-full pt-1">
+              {/* Quantity Selector */}
+              <div className="flex items-center justify-between h-11 px-3.5 border border-border rounded-full bg-white shadow-2xs w-32 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setQuantity(q => Math.max(1, q - 1))}
+                  className="text-muted-foreground hover:text-primary transition-colors p-1"
+                  aria-label="Decrease quantity"
+                >
+                  <Minus className="h-4 w-4" />
+                </button>
+                <span className="font-bold text-sm text-primary">{quantity}</span>
+                <button
+                  type="button"
+                  onClick={() => setQuantity(q => q + 1)}
+                  className="text-muted-foreground hover:text-primary transition-colors p-1"
+                  aria-label="Increase quantity"
+                >
+                  <Plus className="h-4 w-4" />
+                </button>
+              </div>
 
-                <div className="flex-1 flex gap-3">
-                  <Button
-                    size="lg"
-                    variant="outline"
-                    className="flex-1 h-14 rounded-full text-base font-bold border-secondary text-secondary hover:bg-secondary hover:text-primary transition-all"
-                    onClick={handleAddToCart}
-                  >
-                    Add to Bag
-                  </Button>
-                  <Button
-                    size="lg"
-                    variant="secondary"
-                    className="flex-1 h-14 rounded-full text-base font-bold shadow-lg gold-glow hover-lift"
-                    onClick={handleBuyNow}
-                  >
-                    Buy Now
-                  </Button>
+              {/* Add to Bag Button */}
+              <Button
+                type="button"
+                variant="outline"
+                className="flex-1 h-11 rounded-full border-2 border-secondary text-secondary hover:bg-secondary hover:text-primary font-bold text-xs sm:text-sm uppercase tracking-wider shadow-2xs transition-colors whitespace-nowrap px-4"
+                onClick={handleAddToCart}
+              >
+                Add to Bag
+              </Button>
+
+              {/* Buy Now Button */}
+              <Button
+                type="button"
+                variant="secondary"
+                className="flex-1 h-11 rounded-full font-bold text-xs sm:text-sm uppercase tracking-wider bg-secondary text-primary hover:bg-secondary/90 shadow-2xs gold-glow transition-all whitespace-nowrap px-4"
+                onClick={handleBuyNow}
+              >
+                Buy Now
+              </Button>
+            </div>
+
+            {/* Side-by-Side Feature Cards (Express Delivery & Farm Fresh Stems) */}
+            <div className="grid grid-cols-2 gap-3 pt-1">
+              <div className="p-3.5 rounded-2xl border border-border bg-white flex items-center gap-3">
+                <Truck className="h-5 w-5 text-secondary shrink-0" />
+                <div>
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-primary leading-tight">EXPRESS DELIVERY</h4>
+                  <p className="text-xs text-muted-foreground leading-tight mt-0.5">Within 2 to 4 hours in Bangalore</p>
+                </div>
+              </div>
+              <div className="p-3.5 rounded-2xl border border-border bg-white flex items-center gap-3">
+                <Flower className="h-5 w-5 text-secondary shrink-0" />
+                <div>
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-primary leading-tight">FARM FRESH STEMS</h4>
+                  <p className="text-xs text-muted-foreground leading-tight mt-0.5">Guaranteed 7-day stay bloom life</p>
                 </div>
               </div>
             </div>
 
-            {/* Feature Icons */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4">
-              <div className="p-4 rounded-xl border border-border bg-white flex items-center gap-3">
-                <Truck className="h-6 w-6 text-secondary flex-shrink-0" />
-                <div>
-                  <h4 className="text-xs font-bold uppercase tracking-wider text-primary">Express Delivery</h4>
-                  <p className="text-[11px] text-muted-foreground">Within 2 to 4 hours in Bangalore</p>
-                </div>
-              </div>
-              <div className="p-4 rounded-xl border border-border bg-white flex items-center gap-3">
-                <Flower className="h-6 w-6 text-secondary flex-shrink-0" />
-                <div>
-                  <h4 className="text-xs font-bold uppercase tracking-wider text-primary">Farm Fresh Stems</h4>
-                  <p className="text-[11px] text-muted-foreground">Guaranteed 7-day stay bloom life</p>
-                </div>
-              </div>
-            </div>
-
-            {/* Tabs */}
-            <Tabs defaultValue="details" className="w-full pt-4">
-              <TabsList className="w-full justify-start border-b rounded-none h-12 bg-transparent p-0 gap-6">
-                <TabsTrigger value="details" className="rounded-none border-b-2 border-transparent data-[state=active]:border-secondary font-bold text-xs uppercase tracking-wider bg-transparent p-0 pb-3">Arrangement Details</TabsTrigger>
-                <TabsTrigger value="shipping" className="rounded-none border-b-2 border-transparent data-[state=active]:border-secondary font-bold text-xs uppercase tracking-wider bg-transparent p-0 pb-3">Delivery Info</TabsTrigger>
-                <TabsTrigger value="care" className="rounded-none border-b-2 border-transparent data-[state=active]:border-secondary font-bold text-xs uppercase tracking-wider bg-transparent p-0 pb-3">Flower Care Guide</TabsTrigger>
+            {/* Tabs Row */}
+            <Tabs defaultValue="details" className="w-full pt-1.5">
+              <TabsList className="w-full flex items-center justify-start gap-5 sm:gap-6 bg-transparent p-0 h-10 border-b border-border rounded-none pb-1">
+                <TabsTrigger
+                  value="details"
+                  className="rounded-none border-b-2 border-transparent data-[state=active]:border-secondary data-[state=active]:text-primary font-bold text-xs uppercase tracking-wider bg-transparent p-0 pb-2 transition-colors"
+                >
+                  ARRANGEMENT DETAILS
+                </TabsTrigger>
+                <TabsTrigger
+                  value="shipping"
+                  className="rounded-none border-b-2 border-transparent data-[state=active]:border-secondary data-[state=active]:text-primary font-bold text-xs uppercase tracking-wider bg-transparent p-0 pb-2 transition-colors"
+                >
+                  DELIVERY INFO
+                </TabsTrigger>
+                <TabsTrigger
+                  value="care"
+                  className="rounded-none border-b-2 border-transparent data-[state=active]:border-secondary data-[state=active]:text-primary font-bold text-xs uppercase tracking-wider bg-transparent p-0 pb-2 transition-colors"
+                >
+                  FLOWER CARE GUIDE
+                </TabsTrigger>
               </TabsList>
-              <TabsContent value="details" className="pt-4 text-xs md:text-sm text-muted-foreground leading-relaxed">
-                Handcrafted using farm-fresh, premium cut stems by OMG master florists. Wrapped in signature luxury eco-velvet packaging with custom message cards.
+              <TabsContent value="details" className="pt-3 text-xs sm:text-sm text-muted-foreground leading-relaxed font-normal">
+                {product.description || "Handcrafted using farm-fresh, premium cut stems by OMG master florists. Wrapped in signature luxury eco-velvet packaging with custom message cards."}
               </TabsContent>
-              <TabsContent value="shipping" className="pt-4 text-xs md:text-sm text-muted-foreground leading-relaxed">
+              <TabsContent value="shipping" className="pt-3 text-xs sm:text-sm text-muted-foreground leading-relaxed font-normal">
                 Same-day express delivery across Bangalore for orders placed before 2:00 PM. Transported in specialized temperature-regulated vehicles.
               </TabsContent>
-              <TabsContent value="care" className="pt-4 text-xs md:text-sm text-muted-foreground leading-relaxed">
+              <TabsContent value="care" className="pt-3 text-xs sm:text-sm text-muted-foreground leading-relaxed font-normal">
                 Trim stems at a 45° angle, place in fresh cool water with flower food, and keep away from direct sunlight and air conditioners.
               </TabsContent>
             </Tabs>

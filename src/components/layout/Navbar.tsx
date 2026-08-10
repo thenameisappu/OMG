@@ -147,7 +147,9 @@ export default function Navbar() {
               <DropdownMenuContent align="end" className="w-52 p-2">
                 <div className="px-3 py-2 text-xs font-semibold text-muted-foreground border-b border-border mb-1">
                   Logged in as <br />
-                  <span className="text-sm font-bold text-primary truncate block">{user?.email}</span>
+                  <span className="text-sm font-bold text-primary truncate block">
+                    {user?.name && user.name.trim() !== '' ? user.name : user?.email}
+                  </span>
                 </div>
                 <DropdownMenuItem className="cursor-pointer py-2.5">
                   <Link to="/profile" className="w-full font-medium">My Profile</Link>

@@ -49,11 +49,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const lastActivity = parseInt(lastActivityStr, 10);
         if (Date.now() - lastActivity > SESSION_TIMEOUT_MS) {
           signOut();
-          toast({
-            title: "Session Expired",
-            description: "You have been automatically logged out after 24 hours of inactivity. Please sign in again.",
-            variant: "destructive",
-          });
         }
       }
     };
