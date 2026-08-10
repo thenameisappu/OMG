@@ -29,7 +29,7 @@ export function WishlistProvider({ children }: { children: React.ReactNode }) {
       if (saved) {
         try {
           const parsed = JSON.parse(saved);
-          setWishlistIds(parsed.map((item: any) => item.id || item.product_id));
+          setWishlistIds(parsed.map((item: any) => String(item.product_id || item.id)));
           setWishlistItems(parsed);
         } catch (e) {
           setWishlistIds([]);
@@ -47,7 +47,7 @@ export function WishlistProvider({ children }: { children: React.ReactNode }) {
       const data = await getWishlist();
       if (Array.isArray(data)) {
         setWishlistItems(data);
-        setWishlistIds(data.map((item: any) => item.product_id || item.id));
+        setWishlistIds(data.map((item: any) => String(item.product_id || item.id)));
       }
     } catch (e) {
       console.error('Failed to fetch wishlist from backend:', e);
@@ -62,18 +62,20 @@ export function WishlistProvider({ children }: { children: React.ReactNode }) {
     }
   }, [authLoading, refreshWishlist]);
 
-  const isInWishlist = (productId: string) => {
-    return wishlistIds.includes(productId);
+  const isInWishlist = (productId: string | number) => {
+    if (!productId) return false;
+    return wishlistIds.some(id => String(id) === String(productId));
   };
 
   const toggleWishlist = async (product: any): Promise<boolean> => {
-    const productId = product.id;
+    if (!product || (!product.id && !product.product_id)) return false;
+    const productId = String(product.id || product.product_id);
     const exists = isInWishlist(productId);
 
     if (exists) {
       // Remove from wishlist
-      setWishlistIds(prev => prev.filter(id => id !== productId));
-      setWishlistItems(prev => prev.filter(item => (item.product_id || item.id) !== productId));
+      setWishlistIds(prev => prev.filter(id => String(id) !== productId));
+      setWishlistItems(prev => prev.filter(item => String(item.product_id || item.id) !== productId));
 
       if (isAuthenticated) {
         try {
@@ -82,7 +84,7 @@ export function WishlistProvider({ children }: { children: React.ReactNode }) {
           console.error('Failed to remove from backend wishlist', e);
         }
       } else {
-        const updated = wishlistItems.filter(item => (item.product_id || item.id) !== productId);
+        const updated = wishlistItems.filter(item => String(item.product_id || item.id) !== productId);
         localStorage.setItem('omg_wishlist', JSON.stringify(updated));
       }
 
@@ -93,7 +95,7 @@ export function WishlistProvider({ children }: { children: React.ReactNode }) {
       return false;
     } else {
       // Add to wishlist
-      setWishlistIds(prev => [...prev, productId]);
+      setWishlistIds(prev => [...prev.filter(id => String(id) !== productId), productId]);
       const newItem = {
         id: `w-${productId}`,
         product_id: productId,
@@ -104,7 +106,7 @@ export function WishlistProvider({ children }: { children: React.ReactNode }) {
           slug: product.slug
         }
       };
-      setWishlistItems(prev => [...prev, newItem]);
+      setWishlistItems(prev => [...prev.filter(item => String(item.product_id || item.id) !== productId), newItem]);
 
       if (isAuthenticated) {
         try {
@@ -113,7 +115,7 @@ export function WishlistProvider({ children }: { children: React.ReactNode }) {
           console.error('Failed to add to backend wishlist', e);
         }
       } else {
-        const updated = [...wishlistItems, newItem];
+        const updated = [...wishlistItems.filter(item => String(item.product_id || item.id) !== productId), newItem];
         localStorage.setItem('omg_wishlist', JSON.stringify(updated));
       }
 

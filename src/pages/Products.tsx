@@ -433,6 +433,7 @@ function ProductCard({ product }: { product: any }) {
 
         {/* Wishlist Heart Button */}
         <button
+          type="button"
           onClick={handleWishlistClick}
           className={cn(
             "absolute top-2 right-2 z-20 p-1.5 rounded-full backdrop-blur-md transition-all duration-300 shadow-md",
