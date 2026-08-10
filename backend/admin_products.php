@@ -1146,8 +1146,8 @@ require_once 'admin_header.php';
                 </div>
 
                 <div class="space-y-1">
-                    <label class="block text-xs font-bold uppercase tracking-wider text-slate-700">Key Features (One feature
-                        per line)</label>
+                    <label class="block text-xs font-bold uppercase tracking-wider text-slate-700">Arrangement Details (One
+                        feature per line)</label>
                     <textarea name="features" id="edit_features" rows="3"
                         class="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:ring-2 focus:ring-amber-500 text-sm outline-none font-mono text-xs"></textarea>
                 </div>
