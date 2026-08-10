@@ -877,12 +877,27 @@ require_once 'admin_header.php';
                                     <?php endif; ?>
                                 </td>
                                 <td class="py-3 px-4 align-middle text-xs">
-                                    <?php if ($p['is_active']): ?>
-                                        <span
-                                            class="px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">Active</span>
+                                    <?php if ($is_main_admin): ?>
+                                        <!-- Interactive toggle for main_admin -->
+                                        <button
+                                            type="button"
+                                            id="status-btn-<?php echo $p['id']; ?>"
+                                            data-product-id="<?php echo $p['id']; ?>"
+                                            data-is-active="<?php echo $p['is_active'] ? '1' : '0'; ?>"
+                                            onclick="toggleProductStatus('<?php echo $p['id']; ?>', this)"
+                                            title="Click to toggle Active / Inactive"
+                                            class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border transition-all cursor-pointer hover:opacity-80 focus:outline-none focus:ring-2 focus:ring-offset-1 <?php echo $p['is_active'] ? 'bg-emerald-50 text-emerald-700 border-emerald-200 focus:ring-emerald-400' : 'bg-slate-100 text-slate-500 border-slate-200 focus:ring-slate-400'; ?>"
+                                        >
+                                            <span id="status-dot-<?php echo $p['id']; ?>" class="w-1.5 h-1.5 rounded-full <?php echo $p['is_active'] ? 'bg-emerald-500' : 'bg-slate-400'; ?>"></span>
+                                            <span id="status-label-<?php echo $p['id']; ?>"><?php echo $p['is_active'] ? 'Active' : 'Inactive'; ?></span>
+                                        </button>
                                     <?php else: ?>
-                                        <span
-                                            class="px-2 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-500 border border-slate-200">Inactive</span>
+                                        <!-- Read-only badge for non-main-admin -->
+                                        <?php if ($p['is_active']): ?>
+                                            <span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">Active</span>
+                                        <?php else: ?>
+                                            <span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-500 border border-slate-200">Inactive</span>
+                                        <?php endif; ?>
                                     <?php endif; ?>
                                 </td>
                                 <?php if ($is_main_admin): ?>
@@ -1719,4 +1734,67 @@ require_once 'admin_header.php';
         setInterval(checkUpdates, 15000);
         checkUpdates();
     })();
+
+    // ── PRODUCT STATUS TOGGLE ────────────────────────────────────────────────
+    async function toggleProductStatus(productId, btn) {
+        const currentActive = parseInt(btn.dataset.isActive, 10);
+        const newActive = currentActive === 1 ? 0 : 1;
+
+        const label    = document.getElementById('status-label-' + productId);
+        const dot      = document.getElementById('status-dot-'   + productId);
+        const originalText = label.textContent;
+
+        // Loading state
+        btn.disabled = true;
+        btn.style.opacity = '0.6';
+        label.textContent = 'Saving...';
+
+        try {
+            const response = await fetch('products.php?action=toggle_status', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: productId, is_active: newActive })
+            });
+
+            const result = await response.json();
+
+            if (response.ok && result.success) {
+                // Update button appearance in-place — no page reload
+                btn.dataset.isActive = String(newActive);
+
+                if (newActive === 1) {
+                    btn.className = btn.className
+                        .replace('bg-slate-100 text-slate-500 border-slate-200 focus:ring-slate-400',
+                                 'bg-emerald-50 text-emerald-700 border-emerald-200 focus:ring-emerald-400');
+                    dot.className = dot.className.replace('bg-slate-400', 'bg-emerald-500');
+                    label.textContent = 'Active';
+                } else {
+                    btn.className = btn.className
+                        .replace('bg-emerald-50 text-emerald-700 border-emerald-200 focus:ring-emerald-400',
+                                 'bg-slate-100 text-slate-500 border-slate-200 focus:ring-slate-400');
+                    dot.className = dot.className.replace('bg-emerald-500', 'bg-slate-400');
+                    label.textContent = 'Inactive';
+                }
+
+                // Brief success flash on the row
+                const row = btn.closest('tr');
+                if (row) {
+                    row.style.transition = 'background 0.15s';
+                    row.style.background = newActive === 1 ? '#f0fdf4' : '#f8fafc';
+                    setTimeout(() => { row.style.background = ''; }, 1200);
+                }
+            } else {
+                // Revert label on error
+                label.textContent = originalText;
+                alert('Error: ' + (result.message || 'Failed to update status.'));
+            }
+        } catch (err) {
+            label.textContent = originalText;
+            alert('Network error. Please check your connection and try again.');
+            console.error('toggleProductStatus error:', err);
+        } finally {
+            btn.disabled = false;
+            btn.style.opacity = '';
+        }
+    }
 </script>

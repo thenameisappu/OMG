@@ -82,6 +82,15 @@ switch ($action) {
         }
         updateOrderStatus($db, $data);
         break;
+    case 'bulk_archive':
+        // BULK ARCHIVE ORDERS (ADMIN ONLY) - SOFT DELETE, NEVER HARD DELETE
+        if (!isset($_SESSION['admin_logged_in']) || $_SESSION['admin_logged_in'] !== true) {
+            http_response_code(401);
+            echo json_encode(["message" => "Unauthorized - Please login as Admin"]);
+            exit();
+        }
+        bulkArchiveOrders($db, $data);
+        break;
     default:
         echo json_encode(["message" => "Invalid action"]);
         break;
@@ -371,6 +380,88 @@ function updateOrderStatus($db, $data)
         http_response_code(500);
         echo json_encode(["message" => "Error updating status: " . $e->getMessage()]);
     }
+}
 
+/**
+ * bulkArchiveOrders()
+ *
+ * Soft-archives one or more orders by setting is_archived = 1.
+ * NEVER performs a DELETE operation on orders.
+ * Customer order history (getUserOrders / getOrderById) is NOT affected
+ * because those queries do not filter by is_archived.
+ *
+ * Required DB columns (added by migrate_archive.php):
+ *   orders.is_archived  TINYINT(1) DEFAULT 0
+ *   orders.archived_at  DATETIME   DEFAULT NULL
+ *   orders.archived_by  VARCHAR(100) DEFAULT NULL
+ */
+function bulkArchiveOrders($db, $data)
+{
+    // Validate payload
+    if (empty($data->order_ids) || !is_array($data->order_ids)) {
+        http_response_code(400);
+        echo json_encode(["message" => "order_ids array is required."]);
+        return;
+    }
 
+    $orderIds = $data->order_ids;
+
+    // Sanitize: only allow valid UUID-like strings (prevent SQL injection even with parameterized queries)
+    $validIds = [];
+    foreach ($orderIds as $id) {
+        $clean = trim((string)$id);
+        // UUID format: 8-4-4-4-12 hex chars
+        if (preg_match('/^[0-9a-f\-]{32,36}$/i', $clean)) {
+            $validIds[] = $clean;
+        }
+    }
+
+    if (empty($validIds)) {
+        http_response_code(400);
+        echo json_encode(["message" => "No valid order IDs provided."]);
+        return;
+    }
+
+    if (count($validIds) > 500) {
+        http_response_code(400);
+        echo json_encode(["message" => "Cannot archive more than 500 orders at once."]);
+        return;
+    }
+
+    try {
+        $archivedBy = $_SESSION['admin_username'] ?? 'admin';
+
+        // Build parameterized IN clause
+        $placeholders = implode(',', array_fill(0, count($validIds), '?'));
+
+        // Verify all provided IDs exist in DB
+        $checkStmt = $db->prepare("SELECT COUNT(*) FROM orders WHERE id IN ($placeholders)");
+        $checkStmt->execute($validIds);
+        $foundCount = (int) $checkStmt->fetchColumn();
+
+        if ($foundCount === 0) {
+            http_response_code(404);
+            echo json_encode(["message" => "None of the provided order IDs were found."]);
+            return;
+        }
+
+        // SOFT ARCHIVE: UPDATE only — never DELETE
+        $params = array_merge([$archivedBy], $validIds);
+        $archiveStmt = $db->prepare(
+            "UPDATE orders SET is_archived = 1, archived_at = NOW(), archived_by = ? WHERE id IN ($placeholders)"
+        );
+        $archiveStmt->execute($params);
+
+        $archivedCount = $archiveStmt->rowCount();
+
+        $noun = $archivedCount === 1 ? 'order' : 'orders';
+        echo json_encode([
+            "success"        => true,
+            "archived_count" => $archivedCount,
+            "message"        => "$archivedCount $noun archived successfully."
+        ]);
+    } catch (Exception $e) {
+        http_response_code(500);
+        echo json_encode(["message" => "Failed to archive orders: " . $e->getMessage()]);
+    }
 }

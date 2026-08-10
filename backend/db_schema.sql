@@ -59,8 +59,12 @@ CREATE TABLE IF NOT EXISTS `orders` (
     `delivery_time` VARCHAR(50),
     `payment_method` VARCHAR(50) NOT NULL,
     `status` VARCHAR(50) DEFAULT 'pending',
+    `is_archived` TINYINT(1) NOT NULL DEFAULT 0, -- Soft-delete flag (admin archive). 1 = hidden from Admin Orders. Customer order history always shows all orders regardless of this flag.
+    `archived_at` DATETIME DEFAULT NULL,          -- Timestamp when admin archived this order
+    `archived_by` VARCHAR(100) DEFAULT NULL,      -- Admin username who archived the order
     `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (`user_id`) REFERENCES `users`(`id`)
+    FOREIGN KEY (`user_id`) REFERENCES `users`(`id`),
+    INDEX `idx_orders_is_archived` (`is_archived`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- 5. Order Items Table

@@ -140,6 +140,10 @@ switch ($action) {
         requireMainAdmin();
         uploadImages();
         break;
+    case 'toggle_status':
+        requireMainAdmin();
+        toggleProductStatus($db);
+        break;
     default:
         http_response_code(400);
         echo json_encode(["message" => "Invalid action"]);
@@ -687,3 +691,56 @@ function uploadImages(): void
 }
 
 
+// 9. Toggle Product Active/Inactive Status (AJAX, main_admin only)
+function toggleProductStatus($db)
+{
+    $data = json_decode(file_get_contents("php://input"));
+
+    if (empty($data->id)) {
+        http_response_code(400);
+        echo json_encode(["success" => false, "message" => "Product ID is required."]);
+        return;
+    }
+
+    if (!isset($data->is_active) || !in_array((int)$data->is_active, [0, 1], true)) {
+        http_response_code(400);
+        echo json_encode(["success" => false, "message" => "is_active must be 0 or 1."]);
+        return;
+    }
+
+    try {
+        $id        = trim($data->id);
+        $is_active = (int) $data->is_active;
+
+        // Verify product exists
+        $checkStmt = $db->prepare("SELECT id, name FROM products WHERE id = :id LIMIT 1");
+        $checkStmt->bindParam(':id', $id);
+        $checkStmt->execute();
+        $product = $checkStmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$product) {
+            http_response_code(404);
+            echo json_encode(["success" => false, "message" => "Product not found."]);
+            return;
+        }
+
+        // Update only is_active — no other fields touched
+        $stmt = $db->prepare("UPDATE products SET is_active = :is_active WHERE id = :id");
+        $stmt->bindParam(':is_active', $is_active, PDO::PARAM_INT);
+        $stmt->bindParam(':id', $id);
+
+        if ($stmt->execute()) {
+            $statusLabel = $is_active ? 'Active' : 'Inactive';
+            echo json_encode([
+                "success"   => true,
+                "is_active" => $is_active,
+                "message"   => "Product '" . htmlspecialchars($product['name']) . "' set to $statusLabel."
+            ]);
+        } else {
+            throw new Exception("SQL execution failed.");
+        }
+    } catch (Exception $e) {
+        http_response_code(500);
+        echo json_encode(["success" => false, "message" => "Failed to update status: " . $e->getMessage()]);
+    }
+}
