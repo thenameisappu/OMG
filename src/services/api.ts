@@ -51,8 +51,13 @@ api.interceptors.response.use(
         // HTTP response errors (4xx, 5xx): Do NOT treat as internet connectivity issues
         if (error.response) {
             if (error.response.status === 401) {
+                // Check if original request carried an Authorization header
+                const authHeader = config?.headers?.Authorization || config?.headers?.authorization;
+                const hadAuthHeader = !!authHeader && String(authHeader).trim() !== '';
+
                 localStorage.removeItem('auth_token');
-                if (error.response.data?.single_session_logged_out && typeof window !== 'undefined') {
+
+                if (hadAuthHeader && error.response.data?.single_session_logged_out && typeof window !== 'undefined') {
                     window.dispatchEvent(new CustomEvent('omg_single_session_logout', {
                         detail: { message: error.response.data.message || 'Your account has been logged in on another device. Please log in again.' }
                     }));

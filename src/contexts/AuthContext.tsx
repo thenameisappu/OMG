@@ -118,6 +118,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const checkAuth = async (): Promise<User | null> => {
     try {
       setLoading(true);
+      const token = localStorage.getItem('auth_token');
+      if (!token) {
+        setUser(null);
+        setLoading(false);
+        return null;
+      }
+
       const { data, error } = await authService.getUser();
       if (data && data.user && data.user.id) {
         const tokenToSave = data.token || data.user.id;
