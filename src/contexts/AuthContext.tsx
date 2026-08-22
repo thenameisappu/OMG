@@ -28,6 +28,8 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loginInProgress, setLoginInProgress] = useState(false);
+  const loginInProgressRef = useRef(false);
   const { toast } = useToast();
 
   const SESSION_TIMEOUT_MS = 24 * 60 * 60 * 1000; // 24 Hours in milliseconds
@@ -36,6 +38,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     checkAuth();
 
     const handleSingleSessionLogout = (e: any) => {
+      // If login is currently in progress, DO NOT trigger forced logout or toast
+      if (loginInProgressRef.current) return;
+
       setUser((prevUser) => {
         // Only show session expired toast if the user WAS currently authenticated
         if (prevUser !== null) {
@@ -58,25 +63,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Periodic Single Active Session check when user is logged in
   useEffect(() => {
-    if (!user) return;
+    if (!user || loginInProgress) return;
 
     // Check single session on tab focus
     const onFocus = () => {
-      checkAuth();
+      if (!loginInProgressRef.current) {
+        checkAuth();
+      }
     };
 
     window.addEventListener('focus', onFocus);
 
     // Heartbeat check every 15 seconds to detect logins from other devices in near-realtime
     const interval = setInterval(() => {
-      authService.getUser().catch(() => {});
+      if (!loginInProgressRef.current && user) {
+        authService.getUser().catch(() => {});
+      }
     }, 15000);
 
     return () => {
       window.removeEventListener('focus', onFocus);
       clearInterval(interval);
     };
-  }, [user]);
+  }, [user, loginInProgress]);
 
   // 24-Hour Inactivity Auto-Logout Monitoring
   useEffect(() => {
@@ -115,10 +124,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, [user]);
 
-  const checkAuth = async (): Promise<User | null> => {
+  const checkAuth = async (explicitToken?: string): Promise<User | null> => {
     try {
       setLoading(true);
-      const token = localStorage.getItem('auth_token');
+      const token = explicitToken || localStorage.getItem('auth_token');
       if (!token) {
         setUser(null);
         setLoading(false);
@@ -133,12 +142,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
 
         const fetchedUser: User = {
-          id: data.user.id,
+          id: String(data.user.id),
           email: data.user.email,
-          name: data.user.name,
-          phone: data.user.phone,
-          address: data.user.address,
-          city: data.user.city,
+          name: data.user.name || '',
+          phone: data.user.phone || '',
+          address: data.user.address || '',
+          city: data.user.city || '',
         };
         setUser(fetchedUser);
         return fetchedUser;
@@ -184,7 +193,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         localStorage.setItem('auth_token', tokenToSave);
       }
 
-      const authenticatedUser = await checkAuth();
+      const authenticatedUser = await checkAuth(tokenToSave);
 
       if (!authenticatedUser || !authenticatedUser.id) {
         setUser(null);
@@ -226,30 +235,38 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signIn = async (email: string, password: string) => {
+    loginInProgressRef.current = true;
+    setLoginInProgress(true);
+
     try {
-      // Clear any stale token before attempting new login
+      // 1. Clear old/stale authentication state
       localStorage.removeItem('auth_token');
 
+      // 2. Call login API
       const res = await authService.login(email, password);
 
-      const tokenToSave = res?.token || res?.user?.id;
-      if (tokenToSave) {
-        localStorage.setItem('auth_token', tokenToSave);
+      if (!res || !res.token) {
+        throw new Error(res?.message || 'Invalid email or password.');
       }
 
+      // 3. Save NEW token
+      const newToken = res.token;
+      localStorage.setItem('auth_token', newToken);
+
+      // 4. Update authenticated user state directly
       let authenticatedUser: User | null = null;
       if (res && res.user && res.user.id) {
         authenticatedUser = {
-          id: res.user.id,
+          id: String(res.user.id),
           email: res.user.email,
-          name: res.user.name,
-          phone: res.user.phone,
-          address: res.user.address,
-          city: res.user.city,
+          name: res.user.name || '',
+          phone: res.user.phone || '',
+          address: res.user.address || '',
+          city: res.user.city || '',
         };
         setUser(authenticatedUser);
       } else {
-        authenticatedUser = await checkAuth();
+        authenticatedUser = await checkAuth(newToken);
       }
 
       if (!authenticatedUser || !authenticatedUser.id) {
@@ -258,15 +275,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         throw new Error('Authentication succeeded but user session could not be established. Please try logging in again.');
       }
 
+      // 5. Mark login as completed successfully
+      loginInProgressRef.current = false;
+      setLoginInProgress(false);
+
+      // 6. Show Welcome back toast ONLY after complete successful setup
       toast({
         title: 'Welcome back!',
         description: 'You have successfully signed in.',
       });
     } catch (error: any) {
+      loginInProgressRef.current = false;
+      setLoginInProgress(false);
       setUser(null);
       localStorage.removeItem('auth_token');
+
       if (error.response?.status === 403 && error.response?.data?.requires_verification) {
-        // Pass the verification required status up
         throw error;
       }
       const errorMsg = error.response?.data?.message || error.message || 'Invalid email or password.';
