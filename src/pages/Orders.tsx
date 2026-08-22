@@ -77,8 +77,10 @@ export default function Orders() {
     const getStatusColor = (status: string) => {
         switch (status.toLowerCase()) {
             case 'pending': return 'bg-yellow-100 text-yellow-800';
+            case 'order accepted': return 'bg-cyan-100 text-cyan-800';
             case 'processing': return 'bg-blue-100 text-blue-800';
             case 'shipped': return 'bg-indigo-100 text-indigo-800';
+            case 'out for delivery': return 'bg-purple-100 text-purple-800';
             case 'delivered': return 'bg-green-100 text-green-800';
             case 'cancelled': return 'bg-red-100 text-red-800';
             default: return 'bg-gray-100 text-gray-800';
@@ -88,8 +90,10 @@ export default function Orders() {
     const getStatusIcon = (status: string) => {
         switch (status.toLowerCase()) {
             case 'pending': return <Clock className="h-4 w-4" />;
+            case 'order accepted': return <CheckCircle2 className="h-4 w-4" />;
             case 'processing': return <Package className="h-4 w-4" />;
             case 'shipped': return <Truck className="h-4 w-4" />;
+            case 'out for delivery': return <Truck className="h-4 w-4" />;
             case 'delivered': return <CheckCircle2 className="h-4 w-4" />;
             case 'cancelled': return <XCircle className="h-4 w-4" />;
             default: return <Clock className="h-4 w-4" />;

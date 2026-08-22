@@ -31,7 +31,7 @@ switch ($action) {
 
 function getProfile($db, $userId)
 {
-    $query = "SELECT * FROM user_profiles WHERE id = :id";
+    $query = "SELECT id, name, phone, address, city FROM user_profiles WHERE id = :id";
     $stmt = $db->prepare($query);
     $stmt->bindParam(":id", $userId);
     $stmt->execute();

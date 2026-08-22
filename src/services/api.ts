@@ -214,7 +214,7 @@ export const orderService = {
         return { data: response.data, error: null };
     },
     cancel: async (id: string): Promise<{ data: any; error: any }> => {
-        const response = await api.get(`/orders.php?action=cancel_order&id=${id}`);
+        const response = await api.post(`/orders.php?action=cancel_order&id=${id}`);
         return { data: response.data, error: null };
     },
 };

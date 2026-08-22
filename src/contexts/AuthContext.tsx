@@ -170,9 +170,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       const { data, error } = await authService.getUser();
       if (data && data.user && data.user.id) {
-        const tokenToSave = data.token || data.user.id;
-        if (tokenToSave) {
-          tokenStorage.set(tokenToSave);
+        // NOTE: getUser returns { user: {...} } with NO token field.
+        // Do NOT overwrite the stored session token with data.user.id (UUID).
+        // The token already in tokenStorage is the correct 64-char hex session token
+        // validated by authenticate(). Only refresh it if the server explicitly
+        // returns a new token (it currently does not).
+        if (data.token && typeof data.token === 'string' && data.token.length > 10) {
+          tokenStorage.set(data.token);
         }
 
         const fetchedUser: User = {

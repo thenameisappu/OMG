@@ -1,5 +1,5 @@
 <?php
-// Enable error reporting for debugging
+// Enable error reporting (display off; errors logged server-side)
 ini_set('display_errors', 0);
 ini_set('display_startup_errors', 0);
 error_reporting(E_ALL);
@@ -7,20 +7,20 @@ error_reporting(E_ALL);
 // FEATURE 4: USE SYSTEM TIME FOR ORDERS
 date_default_timezone_set('Asia/Kolkata');
 
-$logFile = __DIR__ . '/debug_orders.log';
+// Debug logging — only active when APP_DEBUG=true in .env
+// WARNING: Never enable in production; logs include request headers (auth tokens).
+$_appDebug = (strtolower((string)(getenv('APP_DEBUG') ?: '')) === 'true');
 function logDebug($message)
 {
-    global $logFile;
-    $entry = date('Y-m-d H:i:s') . " - " . $message . "\n";
+    global $_appDebug;
+    if (!$_appDebug) return;
+    $logFile = __DIR__ . '/debug_orders.log';
+    $entry = date('Y-m-d H:i:s') . ' - ' . $message . "\n";
     file_put_contents($logFile, $entry, FILE_APPEND);
 }
 
-logDebug("Request received: " . $_SERVER['REQUEST_URI']);
-logDebug("Mehtod: " . $_SERVER['REQUEST_METHOD']);
-
-// Log ALL headers to debug Authorization stripping
-$headers = apache_request_headers();
-logDebug("Headers: " . print_r($headers, true));
+logDebug('Request received: ' . $_SERVER['REQUEST_URI']);
+logDebug('Method: ' . $_SERVER['REQUEST_METHOD']);
 
 require_once 'config.php';
 
@@ -28,17 +28,17 @@ $database = new Database();
 $db = $database->getConnection();
 
 if ($db === null) {
-    $errorMsg = "Database connection failed.";
-    logDebug("Error: " . $errorMsg);
+    $errorMsg = 'Database connection failed.';
+    logDebug('Error: ' . $errorMsg);
     http_response_code(500);
-    echo json_encode(["message" => $errorMsg]);
+    echo json_encode(['message' => $errorMsg]);
     exit();
 }
 
 // Check for simple connectivity test
 if (isset($_GET['action']) && $_GET['action'] === 'test') {
-    logDebug("Test action received.");
-    echo json_encode(["status" => "success", "message" => "Backend is reachable", "log_file" => $logFile]);
+    logDebug('Test action received.');
+    echo json_encode(['status' => 'success', 'message' => 'Backend is reachable']);
     exit();
 }
 
@@ -103,9 +103,11 @@ function createOrder($db, $userId, $data)
         $db->beginTransaction();
 
         // FEATURE 3: STOCK CONTROL LOGIC
-        // Validate stock for ALL items before creating order
+        // Validate stock for ALL items before creating order.
+        // SELECT ... FOR UPDATE locks the rows within the transaction,
+        // preventing race conditions when two users order the same item simultaneously.
         foreach ($data->items as $item) {
-            $stockQuery = "SELECT stock_status, stock_quantity, name, is_active FROM products WHERE id = :id";
+            $stockQuery = "SELECT stock_status, stock_quantity, name, is_active FROM products WHERE id = :id FOR UPDATE";
             $stockStmt = $db->prepare($stockQuery);
             $stockStmt->bindParam(":id", $item->product_id);
             $stockStmt->execute();
@@ -118,8 +120,7 @@ function createOrder($db, $userId, $data)
                 if ($product['stock_status'] === 'out_of_stock' || (int)$product['stock_quantity'] < $item->quantity) {
                     throw new Exception("Product '" . $product['name'] . "' has insufficient stock available (Requested: " . $item->quantity . ", Available: " . $product['stock_quantity'] . ").");
                 }
-            }
-            else {
+            } else {
                 throw new Exception("Product ID " . $item->product_id . " not found.");
             }
         }
@@ -166,20 +167,23 @@ function createOrder($db, $userId, $data)
             $itemStmt->bindParam(":unit_price", $item->unit_price);
             $itemStmt->execute();
 
-            // Deduct stock quantity and update stock status accordingly
-            $deductQuery = "UPDATE products 
-                            SET stock_quantity = GREATEST(0, stock_quantity - :qty),
-                                stock_status = IF(stock_quantity - :qty <= 0, 'out_of_stock', 'in_stock')
+            // Deduct stock quantity atomically; use two distinct named params (:qty1, :qty2)
+            // since some PDO drivers do not support the same named placeholder used twice.
+            $deductQuery = "UPDATE products
+                            SET stock_quantity = GREATEST(0, stock_quantity - :qty1),
+                                stock_status = IF(stock_quantity - :qty2 <= 0, 'out_of_stock', 'in_stock')
                             WHERE id = :id";
             $deductStmt = $db->prepare($deductQuery);
-            $deductStmt->bindParam(":qty", $item->quantity);
+            $deductStmt->bindParam(":qty1", $item->quantity, PDO::PARAM_INT);
+            $deductStmt->bindParam(":qty2", $item->quantity, PDO::PARAM_INT);
             $deductStmt->bindParam(":id", $item->product_id);
             $deductStmt->execute();
         }
 
         // Generate WhatsApp Notification Message
-        $admin_whatsapp = "917353363881"; // Admin number
-        $apikey = "REPLACE_WITH_YOUR_API_KEY"; // TODO: User needs to set this
+        $admin_whatsapp = "917353363881"; // Admin WhatsApp number
+        // Read API key from env; set CALLMEBOT_APIKEY in .env to enable notifications
+        $apikey = getenv('CALLMEBOT_APIKEY') ?: '';
 
         $msg_userId = $userId;
         $msg_name = $data->customer_name;
@@ -314,15 +318,39 @@ function cancelOrder($db, $userId, $orderId)
             return;
         }
 
-        // Update status to cancelled
+        $db->beginTransaction();
+
+        // Restore stock for each item in the cancelled order
+        $itemQuery = "SELECT product_id, quantity FROM order_items WHERE order_id = :order_id";
+        $itemStmt = $db->prepare($itemQuery);
+        $itemStmt->bindParam(":order_id", $orderId);
+        $itemStmt->execute();
+        $items = $itemStmt->fetchAll(PDO::FETCH_ASSOC);
+
+        foreach ($items as $item) {
+            // Use two distinct named params (:qty1, :qty2) to avoid PDO duplicate
+            // named parameter issues when the same placeholder appears twice.
+            $restoreQuery = "UPDATE products
+                             SET stock_quantity = stock_quantity + :qty1,
+                                 stock_status = IF(stock_quantity + :qty2 > 0, 'in_stock', stock_status)
+                             WHERE id = :id";
+            $restoreStmt = $db->prepare($restoreQuery);
+            $restoreStmt->bindParam(":qty1", $item['quantity'], PDO::PARAM_INT);
+            $restoreStmt->bindParam(":qty2", $item['quantity'], PDO::PARAM_INT);
+            $restoreStmt->bindParam(":id", $item['product_id']);
+            $restoreStmt->execute();
+        }
+
+        // Update order status to cancelled
         $updateQuery = "UPDATE orders SET status = 'cancelled' WHERE id = :id";
         $updateStmt = $db->prepare($updateQuery);
         $updateStmt->bindParam(":id", $orderId);
 
         if ($updateStmt->execute()) {
+            $db->commit();
             echo json_encode(["message" => "Order cancelled successfully."]);
-        }
-        else {
+        } else {
+            $db->rollBack();
             http_response_code(500);
             echo json_encode(["message" => "Failed to cancel order."]);
         }

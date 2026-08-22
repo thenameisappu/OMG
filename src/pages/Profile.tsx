@@ -118,7 +118,6 @@ export default function Profile() {
                                 <Button
                                     size="lg"
                                     className="h-8 px-5 rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-600 text-black font-bold text-lg hover:brightness-110 transition-all shadow-lg hover:scale-105 gold-glow"
-                                    onClick={() => navigate('/orders')}
                                 >
                                     <Package className="h-3.5 w-3.5 text-secondary" />
                                     My Orders
