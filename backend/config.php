@@ -399,7 +399,6 @@ function getBearerToken()
     return null;
 }
 
-// Centralized authentication function for all backend files (enforces Single Active Session)
 function authenticate()
 {
     $token = getBearerToken();
@@ -407,6 +406,16 @@ function authenticate()
     $sessionToken = $_SESSION['session_token'] ?? null;
 
     $activeToken = $token ?: $sessionToken;
+
+    // If no token or session ID provided at all -> simple unauthenticated response (NOT single_session_logged_out)
+    if (empty($activeToken) && empty($userId)) {
+        http_response_code(401);
+        echo json_encode([
+            "message" => "Unauthorized - Please log in.",
+            "single_session_logged_out" => false
+        ]);
+        exit();
+    }
 
     $database = new Database();
     $db = $database->getConnection();
@@ -419,7 +428,7 @@ function authenticate()
             $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
             if ($user) {
-                // If DB current_session_id matches active token or is not set yet
+                // If DB current_session_id matches active token or is empty
                 if (empty($user['current_session_id']) || $user['current_session_id'] === $activeToken) {
                     if (empty($user['current_session_id'])) {
                         $up = $db->prepare("UPDATE users SET current_session_id = :st WHERE id = :id");
@@ -444,7 +453,7 @@ function authenticate()
         }
     }
 
-    // Authentication failed / Session invalidated due to login on another device
+    // A token or session was provided, but failed validation because the account was logged in on another device
     $_SESSION = array();
     @session_unset();
     @session_destroy();

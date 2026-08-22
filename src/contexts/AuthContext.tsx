@@ -36,13 +36,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     checkAuth();
 
     const handleSingleSessionLogout = (e: any) => {
-      setUser(null);
-      localStorage.removeItem('auth_token');
-      toast({
-        title: 'Session Expired',
-        description: e.detail?.message || 'Your account was logged in from another device. Please log in again.',
-        variant: 'destructive',
+      setUser((prevUser) => {
+        // Only show session expired toast if the user WAS currently authenticated
+        if (prevUser !== null) {
+          toast({
+            title: 'Session Expired',
+            description: e.detail?.message || 'Your account has been logged in on another device. Please log in again.',
+            variant: 'destructive',
+          });
+        }
+        return null;
       });
+      localStorage.removeItem('auth_token');
     };
 
     window.addEventListener('omg_single_session_logout', handleSingleSessionLogout);
@@ -215,6 +220,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signIn = async (email: string, password: string) => {
     try {
+      // Clear any stale token before attempting new login
+      localStorage.removeItem('auth_token');
+
       const res = await authService.login(email, password);
 
       const tokenToSave = res?.token || res?.user?.id;
@@ -222,8 +230,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         localStorage.setItem('auth_token', tokenToSave);
       }
 
-      // Re-verify auth state with backend before confirming login
-      const authenticatedUser = await checkAuth();
+      let authenticatedUser: User | null = null;
+      if (res && res.user && res.user.id) {
+        authenticatedUser = {
+          id: res.user.id,
+          email: res.user.email,
+          name: res.user.name,
+          phone: res.user.phone,
+          address: res.user.address,
+          city: res.user.city,
+        };
+        setUser(authenticatedUser);
+      } else {
+        authenticatedUser = await checkAuth();
+      }
 
       if (!authenticatedUser || !authenticatedUser.id) {
         setUser(null);
