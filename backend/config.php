@@ -445,16 +445,28 @@ function authenticate()
     $db = $database->getConnection();
 
     if ($db && !empty($activeToken)) {
-        // Query user_sessions table for the session token
-        $stmt = $db->prepare(
-            "SELECT us.user_id, us.status, us.expires_at, u.is_verified
-             FROM user_sessions us
-             JOIN users u ON u.id = us.user_id
-             WHERE us.session_token = :token
-             LIMIT 1"
-        );
-        $stmt->execute([':token' => $activeToken]);
-        $session = $stmt->fetch(PDO::FETCH_ASSOC);
+        // Query user_sessions table for the session token.
+        // Wrapped in try-catch: if the table doesn't exist yet (fresh deployment,
+        // first request hitting orders/wishlist/profile before auth.php runs
+        // ensureAuthTablesExist), the PDOException is caught and we fall through
+        // to the legacy current_session_id check rather than returning a 500.
+        $session = false;
+        try {
+            $stmt = $db->prepare(
+                "SELECT us.user_id, us.status, us.expires_at, u.is_verified
+                 FROM user_sessions us
+                 JOIN users u ON u.id = us.user_id
+                 WHERE us.session_token = :token
+                 LIMIT 1"
+            );
+            $stmt->execute([':token' => $activeToken]);
+            $session = $stmt->fetch(PDO::FETCH_ASSOC);
+        } catch (Exception $sessionEx) {
+            // Table might not exist yet — ensureAuthTablesExist() will create it
+            // on the next auth.php call. Fall through to legacy check.
+            error_log('[OMG Auth] user_sessions query failed: ' . $sessionEx->getMessage());
+            $session = false;
+        }
 
         if ($session) {
             if ((int)$session['is_verified'] !== 1) {

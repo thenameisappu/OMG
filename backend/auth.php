@@ -286,7 +286,7 @@ function verifyOtp($db, $data)
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
         $now = date('Y-m-d H:i:s');
 
-        if (($row['otp_code'] === $otp || $otp === '123456') && $row['otp_expiry'] >= $now) {
+        if ($row['otp_code'] === $otp && $row['otp_expiry'] >= $now) {
             $sessionToken = bin2hex(random_bytes(32));
             $expiresAt = date('Y-m-d H:i:s', time() + 3600); // 1-hour expiry
 
