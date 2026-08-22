@@ -451,7 +451,7 @@ function authenticate()
 
     http_response_code(401);
     echo json_encode([
-        "message" => "Unauthorized - Your session has expired or you have logged in on another device.",
+        "message" => "Your account has been logged in on another device. Please log in again.",
         "single_session_logged_out" => true
     ]);
     exit();

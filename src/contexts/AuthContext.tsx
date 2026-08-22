@@ -112,15 +112,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const checkAuth = async (): Promise<User | null> => {
     try {
-      const token = localStorage.getItem('auth_token');
-      if (!token) {
-        setUser(null);
-        setLoading(false);
-        return null;
-      }
-
+      setLoading(true);
       const { data, error } = await authService.getUser();
       if (data && data.user && data.user.id) {
+        const tokenToSave = data.token || data.user.id;
+        if (tokenToSave) {
+          localStorage.setItem('auth_token', tokenToSave);
+        }
+
         const fetchedUser: User = {
           id: data.user.id,
           email: data.user.email,
@@ -168,24 +167,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const res = await authService.verifyOtp(email, otp);
 
-      let authenticatedUser: User | null = null;
-      if (res && res.token) {
-        localStorage.setItem('auth_token', res.token);
+      const tokenToSave = res?.token || res?.user?.id;
+      if (tokenToSave) {
+        localStorage.setItem('auth_token', tokenToSave);
       }
 
-      if (res && res.user && res.user.id) {
-        authenticatedUser = {
-          id: res.user.id,
-          email: res.user.email,
-          name: res.user.name,
-          phone: res.user.phone,
-          address: res.user.address,
-          city: res.user.city,
-        };
-        setUser(authenticatedUser);
-      } else {
-        authenticatedUser = await checkAuth();
-      }
+      const authenticatedUser = await checkAuth();
 
       if (!authenticatedUser || !authenticatedUser.id) {
         setUser(null);
@@ -230,26 +217,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const res = await authService.login(email, password);
 
-      let authenticatedUser: User | null = null;
-      if (res && res.token) {
-        localStorage.setItem('auth_token', res.token);
+      const tokenToSave = res?.token || res?.user?.id;
+      if (tokenToSave) {
+        localStorage.setItem('auth_token', tokenToSave);
       }
 
-      if (res && res.user && res.user.id) {
-        authenticatedUser = {
-          id: res.user.id,
-          email: res.user.email,
-          name: res.user.name,
-          phone: res.user.phone,
-          address: res.user.address,
-          city: res.user.city,
-        };
-        setUser(authenticatedUser);
-      } else {
-        authenticatedUser = await checkAuth();
-      }
+      // Re-verify auth state with backend before confirming login
+      const authenticatedUser = await checkAuth();
 
-      // CRITICAL: Ensure authenticatedUser is non-null before declaring success!
       if (!authenticatedUser || !authenticatedUser.id) {
         setUser(null);
         localStorage.removeItem('auth_token');

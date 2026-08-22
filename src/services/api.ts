@@ -54,7 +54,7 @@ api.interceptors.response.use(
                 localStorage.removeItem('auth_token');
                 if (error.response.data?.single_session_logged_out && typeof window !== 'undefined') {
                     window.dispatchEvent(new CustomEvent('omg_single_session_logout', {
-                        detail: { message: error.response.data.message || 'Logged out because account was logged in on another device.' }
+                        detail: { message: error.response.data.message || 'Your account has been logged in on another device. Please log in again.' }
                     }));
                 }
             }
