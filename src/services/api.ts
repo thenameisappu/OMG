@@ -9,6 +9,22 @@ import {
 
 export { API_BASE_URL };
 
+
+export const tokenStorage = {
+    set: (token: string) => {
+        sessionStorage.setItem('auth_token', token);
+        localStorage.setItem('auth_token', token);
+    },
+    get: (): string | null => {
+        // sessionStorage takes priority — if the tab has its own token, use it.
+        return sessionStorage.getItem('auth_token') || localStorage.getItem('auth_token');
+    },
+    remove: () => {
+        sessionStorage.removeItem('auth_token');
+        localStorage.removeItem('auth_token');
+    },
+};
+
 export const api = axios.create({
     baseURL: API_BASE_URL,
     timeout: 10000, // 10s default timeout
@@ -25,7 +41,7 @@ api.interceptors.request.use(
             reportNetworkErrorGlobal('offline');
             return Promise.reject(new Error('No Internet Connection. Please check your internet connection and try again.'));
         }
-        const token = localStorage.getItem('auth_token');
+        const token = tokenStorage.get();
         if (token) {
             config.headers = config.headers || {};
             config.headers.Authorization = `Bearer ${token}`;
@@ -55,12 +71,28 @@ api.interceptors.response.use(
                 const authHeader = config?.headers?.Authorization || config?.headers?.authorization;
                 const hadAuthHeader = !!authHeader && String(authHeader).trim() !== '';
 
-                localStorage.removeItem('auth_token');
+                if (hadAuthHeader) {
+                    tokenStorage.remove();
 
-                if (hadAuthHeader && error.response.data?.single_session_logged_out && typeof window !== 'undefined') {
-                    window.dispatchEvent(new CustomEvent('omg_single_session_logout', {
-                        detail: { message: error.response.data.message || 'Your account has been logged in on another device. Please log in again.' }
-                    }));
+                    if (typeof window !== 'undefined') {
+                        const reason = error.response.data?.reason;
+                        const isConcurrentLogin =
+                            error.response.data?.single_session_logged_out === true ||
+                            reason === 'concurrent_login';
+                        const isExpired = reason === 'expired';
+
+                        if (isConcurrentLogin) {
+                            // Another device/browser logged in with the same account
+                            window.dispatchEvent(new CustomEvent('omg_single_session_logout', {
+                                detail: { message: error.response.data?.message || 'Your account has been logged in on another device. Please log in again.' }
+                            }));
+                        } else if (isExpired) {
+                            // Normal 1-hour session expiration
+                            window.dispatchEvent(new CustomEvent('omg_session_expired', {
+                                detail: { message: error.response.data?.message || 'Your session has expired. Please log in again.' }
+                            }));
+                        }
+                    }
                 }
             }
             return Promise.reject(error);
@@ -102,7 +134,7 @@ export const authService = {
     login: async (email: string, password: string): Promise<any> => {
         const response = await api.post('/auth.php?action=login', { email, password });
         if (response.data.token) {
-            localStorage.setItem('auth_token', response.data.token);
+            tokenStorage.set(response.data.token);
         }
         return response.data;
     },
@@ -111,8 +143,8 @@ export const authService = {
         return response.data;
     },
     logout: (): void => {
-        api.get('/auth.php?action=logout').catch(() => {});
-        localStorage.removeItem('auth_token');
+        api.get('/auth.php?action=logout').catch(() => { });
+        tokenStorage.remove();
     },
     getUser: async (): Promise<{ data: { user: any }; error: any }> => {
         try {
@@ -125,7 +157,7 @@ export const authService = {
     verifyOtp: async (email: string, otp: string): Promise<any> => {
         const response = await api.post('/auth.php?action=verify_otp', { email, otp });
         if (response.data.token) {
-            localStorage.setItem('auth_token', response.data.token);
+            tokenStorage.set(response.data.token);
         }
         return response.data;
     },

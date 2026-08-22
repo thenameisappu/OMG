@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useState, useRef, ReactNode } from 'react';
 import { useToast } from '@/hooks/use-toast';
-import { authService, profileService } from '@/services/api';
+import { authService, profileService, tokenStorage } from '@/services/api';
 
 interface User {
   id: string;
@@ -32,11 +32,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const loginInProgressRef = useRef(false);
   const { toast } = useToast();
 
-  const SESSION_TIMEOUT_MS = 24 * 60 * 60 * 1000; // 24 Hours in milliseconds
+  const SESSION_TIMEOUT_MS = 60 * 60 * 1000; // 1 Hour in milliseconds
 
   useEffect(() => {
     checkAuth();
 
+    // Listener: Same account logged in on another device/browser
     const handleSingleSessionLogout = (e: any) => {
       // If login is currently in progress, DO NOT trigger forced logout or toast
       if (loginInProgressRef.current) return;
@@ -45,19 +46,38 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // Only show session expired toast if the user WAS currently authenticated
         if (prevUser !== null) {
           toast({
-            title: 'Session Expired',
+            title: 'Logged Out',
             description: e.detail?.message || 'Your account has been logged in on another device. Please log in again.',
             variant: 'destructive',
           });
         }
         return null;
       });
-      localStorage.removeItem('auth_token');
+      tokenStorage.remove();
+    };
+
+    // Listener: Normal 1-hour session expiration
+    const handleSessionExpired = (e: any) => {
+      if (loginInProgressRef.current) return;
+
+      setUser((prevUser) => {
+        if (prevUser !== null) {
+          toast({
+            title: 'Session Expired',
+            description: e.detail?.message || 'Your session has expired. Please log in again.',
+            variant: 'destructive',
+          });
+        }
+        return null;
+      });
+      tokenStorage.remove();
     };
 
     window.addEventListener('omg_single_session_logout', handleSingleSessionLogout);
+    window.addEventListener('omg_session_expired', handleSessionExpired);
     return () => {
       window.removeEventListener('omg_single_session_logout', handleSingleSessionLogout);
+      window.removeEventListener('omg_session_expired', handleSessionExpired);
     };
   }, []);
 
@@ -74,29 +94,40 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     window.addEventListener('focus', onFocus);
 
-    // Heartbeat check every 15 seconds to detect logins from other devices in near-realtime
-    const interval = setInterval(() => {
-      if (!loginInProgressRef.current && user) {
-        authService.getUser().catch(() => {});
-      }
-    }, 15000);
+    // Heartbeat: verify session is still valid every 30 seconds.
+    // Use a 2-second startup delay so the heartbeat never fires during the
+    // brief window between loginInProgressRef being cleared and the toast
+    // being shown (avoids race condition that could wipe the new token).
+    let interval: ReturnType<typeof setInterval>;
+    const startHeartbeat = () => {
+      interval = setInterval(() => {
+        if (!loginInProgressRef.current && user) {
+          authService.getUser().catch(() => { });
+        }
+      }, 30000); // every 30 seconds
+    };
+    const startupDelay = setTimeout(startHeartbeat, 2000);
 
     return () => {
       window.removeEventListener('focus', onFocus);
+      clearTimeout(startupDelay);
       clearInterval(interval);
     };
   }, [user, loginInProgress]);
 
-  // 24-Hour Inactivity Auto-Logout Monitoring
+  // 1-Hour Inactivity Auto-Logout Monitoring (frontend guard — backend enforces authoritatively)
   useEffect(() => {
     if (!user) return;
 
+    // Use sessionStorage so each tab tracks its own user's activity independently.
+    // This prevents User 2's activity in Tab 2 from resetting User 1's inactivity
+    // timer in Tab 1.
     const updateActivity = () => {
-      localStorage.setItem('omg_last_activity_time', Date.now().toString());
+      sessionStorage.setItem('omg_last_activity_time', Date.now().toString());
     };
 
     const checkInactivity = () => {
-      const lastActivityStr = localStorage.getItem('omg_last_activity_time');
+      const lastActivityStr = sessionStorage.getItem('omg_last_activity_time');
       if (lastActivityStr && user) {
         const lastActivity = parseInt(lastActivityStr, 10);
         if (Date.now() - lastActivity > SESSION_TIMEOUT_MS) {
@@ -109,14 +140,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const events = ['mousemove', 'keydown', 'click', 'scroll', 'touchstart'];
     events.forEach(evt => window.addEventListener(evt, updateActivity));
 
-    // Initialize activity timestamp if missing
-    if (!localStorage.getItem('omg_last_activity_time')) {
+    // Initialize activity timestamp for this tab if missing
+    if (!sessionStorage.getItem('omg_last_activity_time')) {
       updateActivity();
     }
 
     // Periodic check every 60 seconds
     const checkInterval = setInterval(checkInactivity, 60000);
-    checkInactivity();
+    // Don't run checkInactivity() immediately on mount — the timestamp was
+    // already reset to Date.now() at login time (see signIn), so it is always
+    // fresh. Running it here immediately would risk a false positive if the
+    // effect fires before signIn has a chance to reset the timestamp.
 
     return () => {
       events.forEach(evt => window.removeEventListener(evt, updateActivity));
@@ -127,7 +161,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const checkAuth = async (explicitToken?: string): Promise<User | null> => {
     try {
       setLoading(true);
-      const token = explicitToken || localStorage.getItem('auth_token');
+      const token = explicitToken || tokenStorage.get();
       if (!token) {
         setUser(null);
         setLoading(false);
@@ -138,7 +172,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (data && data.user && data.user.id) {
         const tokenToSave = data.token || data.user.id;
         if (tokenToSave) {
-          localStorage.setItem('auth_token', tokenToSave);
+          tokenStorage.set(tokenToSave);
         }
 
         const fetchedUser: User = {
@@ -153,12 +187,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return fetchedUser;
       } else {
         setUser(null);
-        localStorage.removeItem('auth_token');
+        tokenStorage.remove();
         return null;
       }
     } catch (error) {
       setUser(null);
-      localStorage.removeItem('auth_token');
+      tokenStorage.remove();
       return null;
     } finally {
       setLoading(false);
@@ -190,14 +224,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       const tokenToSave = res?.token || res?.user?.id;
       if (tokenToSave) {
-        localStorage.setItem('auth_token', tokenToSave);
+        tokenStorage.set(tokenToSave);
       }
 
       const authenticatedUser = await checkAuth(tokenToSave);
 
       if (!authenticatedUser || !authenticatedUser.id) {
         setUser(null);
-        localStorage.removeItem('auth_token');
+        tokenStorage.remove();
         throw new Error('Verification succeeded but user session could not be established.');
       }
 
@@ -207,7 +241,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
     } catch (error: any) {
       setUser(null);
-      localStorage.removeItem('auth_token');
+      tokenStorage.remove();
       toast({
         title: 'Verification failed',
         description: error.response?.data?.message || error.message || 'Invalid or expired OTP',
@@ -240,7 +274,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     try {
       // 1. Clear old/stale authentication state
-      localStorage.removeItem('auth_token');
+      tokenStorage.remove();
 
       // 2. Call login API
       const res = await authService.login(email, password);
@@ -251,7 +285,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       // 3. Save NEW token
       const newToken = res.token;
-      localStorage.setItem('auth_token', newToken);
+      tokenStorage.set(newToken);
 
       // 4. Update authenticated user state directly
       let authenticatedUser: User | null = null;
@@ -271,7 +305,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (!authenticatedUser || !authenticatedUser.id) {
         setUser(null);
-        localStorage.removeItem('auth_token');
+        tokenStorage.remove();
         throw new Error('Authentication succeeded but user session could not be established. Please try logging in again.');
       }
 
@@ -279,7 +313,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       loginInProgressRef.current = false;
       setLoginInProgress(false);
 
-      // 6. Show Welcome back toast ONLY after complete successful setup
+      // 6. Reset the inactivity timer to NOW so a stale old timestamp from
+      //    a previous session cannot immediately trigger signOut on this
+      //    fresh session before the inactivity monitoring effect starts.
+      sessionStorage.setItem('omg_last_activity_time', Date.now().toString());
+
+      // 7. Show Welcome back toast ONLY after complete successful setup
       toast({
         title: 'Welcome back!',
         description: 'You have successfully signed in.',
@@ -288,7 +327,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       loginInProgressRef.current = false;
       setLoginInProgress(false);
       setUser(null);
-      localStorage.removeItem('auth_token');
+      tokenStorage.remove();
 
       if (error.response?.status === 403 && error.response?.data?.requires_verification) {
         throw error;

@@ -39,9 +39,9 @@ date_default_timezone_set('Asia/Kolkata');
 
 if (session_status() === PHP_SESSION_NONE) {
     $isHttps = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on') ||
-               (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https');
+        (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https');
     @session_set_cookie_params([
-        'lifetime' => 86400 * 30,
+        'lifetime' => 3600, // 1 hour
         'path' => '/',
         'domain' => '',
         'secure' => $isHttps,
@@ -67,13 +67,17 @@ if (session_status() === PHP_SESSION_NONE) {
 // ═══════════════════════════════════════════════════════════════════════════
 
 // Resolve absolute disk paths
-define('OMG_PRIMARY_DIR',   dirname(dirname(dirname(__DIR__))) . '/omgproductsimages/');
+define('OMG_PRIMARY_DIR', dirname(dirname(dirname(__DIR__))) . '/omgproductsimages/');
 define('OMG_SECONDARY_DIR', __DIR__ . '/uploads/');
-define('OMG_IMG_URL_PATH',  '/backend/uploads/');   // web path prefix for image URLs
+define('OMG_IMG_URL_PATH', '/backend/uploads/');   // web path prefix for image URLs
 
 // Ensure both directories exist
-if (!is_dir(OMG_PRIMARY_DIR))   { @mkdir(OMG_PRIMARY_DIR,   0755, true); }
-if (!is_dir(OMG_SECONDARY_DIR)) { @mkdir(OMG_SECONDARY_DIR, 0755, true); }
+if (!is_dir(OMG_PRIMARY_DIR)) {
+    @mkdir(OMG_PRIMARY_DIR, 0755, true);
+}
+if (!is_dir(OMG_SECONDARY_DIR)) {
+    @mkdir(OMG_SECONDARY_DIR, 0755, true);
+}
 
 /**
  * syncImagesToBackendUploads()
@@ -94,11 +98,12 @@ if (!is_dir(OMG_SECONDARY_DIR)) { @mkdir(OMG_SECONDARY_DIR, 0755, true); }
  */
 function syncImagesToBackendUploads(): void
 {
-    $primaryDir   = OMG_PRIMARY_DIR;
+    $primaryDir = OMG_PRIMARY_DIR;
     $secondaryDir = OMG_SECONDARY_DIR;
 
     // ── 1. Permanent store must exist ────────────────────────────────────
-    if (!is_dir($primaryDir)) return;
+    if (!is_dir($primaryDir))
+        return;
 
     // ── 2. Create uploads/ if absent ─────────────────────────────────────
     if (!is_dir($secondaryDir)) {
@@ -112,7 +117,7 @@ function syncImagesToBackendUploads(): void
 
     // ── 3. Scan secondary with scandir() ─────────────────────────────────
     $secondaryEntries = scandir($secondaryDir);
-    $secondaryImages  = [];
+    $secondaryImages = [];
     foreach ($secondaryEntries as $entry) {
         $ext = strtolower(pathinfo($entry, PATHINFO_EXTENSION));
         if (in_array($ext, $allowedExts, true)) {
@@ -121,7 +126,8 @@ function syncImagesToBackendUploads(): void
     }
 
     // ── 4. No-op if uploads/ already has image files ──────────────────────
-    if (!empty($secondaryImages)) return;
+    if (!empty($secondaryImages))
+        return;
 
     // ── 5. Scan permanent store and copy every missing image ──────────────
     $primaryEntries = scandir($primaryDir);
@@ -129,18 +135,22 @@ function syncImagesToBackendUploads(): void
     $failed = 0;
 
     foreach ($primaryEntries as $filename) {
-        if ($filename === '.' || $filename === '..') continue;
+        if ($filename === '.' || $filename === '..')
+            continue;
 
         $ext = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
-        if (!in_array($ext, $allowedExts, true)) continue;
+        if (!in_array($ext, $allowedExts, true))
+            continue;
 
         // ── 6. Skip if already exists in secondary ────────────────────────
-        if (isset($secondaryImages[$filename])) continue;
+        if (isset($secondaryImages[$filename]))
+            continue;
 
-        $src = $primaryDir   . $filename;
+        $src = $primaryDir . $filename;
         $dst = $secondaryDir . $filename;
 
-        if (!is_file($src)) continue;
+        if (!is_file($src))
+            continue;
 
         if (copy($src, $dst)) {
             $copied++;
@@ -159,20 +169,10 @@ function syncImagesToBackendUploads(): void
 syncImagesToBackendUploads();
 
 
-// 3-hour session inactivity auto-logout check (10800 seconds = 3 hours, configurable via SESSION_TIMEOUT_SECONDS in .env)
-$sessionTimeout = getenv('SESSION_TIMEOUT_SECONDS') ? (int)getenv('SESSION_TIMEOUT_SECONDS') : (isset($_ENV['SESSION_TIMEOUT_SECONDS']) ? (int)$_ENV['SESSION_TIMEOUT_SECONDS'] : 10800);
+// NOTE: Session expiry is enforced authoritatively by authenticate() via user_sessions.expires_at.
+// The PHP-session-based inactivity check has been removed to prevent it from destroying the
+// PHP session before authenticate() runs, which caused race conditions on every request.
 
-if (isset($_SESSION['user_id'])) {
-    if (isset($_SESSION['user_last_activity']) && (time() - $_SESSION['user_last_activity'] > $sessionTimeout)) {
-        $_SESSION = array();
-        session_unset();
-        session_destroy();
-        session_start();
-        $_SESSION['session_expired_msg'] = "Your session has expired due to 3 hours of inactivity. Please log in again.";
-    } else {
-        $_SESSION['user_last_activity'] = time();
-    }
-}
 
 // Handle CORS dynamically
 $allowedOriginsStr = getenv('ALLOWED_ORIGINS') !== false ? getenv('ALLOWED_ORIGINS') : (isset($_ENV['ALLOWED_ORIGINS']) ? $_ENV['ALLOWED_ORIGINS'] : '');
@@ -322,6 +322,18 @@ function ensureAuthTablesExist($db)
             `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
 
+        // 1b. User Sessions Table (tracks per-account active sessions with 1-hour expiry)
+        $db->exec("CREATE TABLE IF NOT EXISTS `user_sessions` (
+            `id` BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+            `user_id` CHAR(36) NOT NULL,
+            `session_token` VARCHAR(255) NOT NULL UNIQUE,
+            `status` ENUM('active','invalidated','expired') NOT NULL DEFAULT 'active',
+            `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            `expires_at` DATETIME NOT NULL,
+            INDEX `idx_user_sessions_token` (`session_token`),
+            INDEX `idx_user_sessions_user_status` (`user_id`, `status`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
+
         // Safely add missing columns to users table
         try {
             $userCols = $db->query("SHOW COLUMNS FROM `users`")->fetchAll(PDO::FETCH_COLUMN);
@@ -399,6 +411,17 @@ function getBearerToken()
     return null;
 }
 
+/**
+ * authenticate()
+ *
+ * Validates the Bearer token / session token against the user_sessions table.
+ *
+ * Returns:  $userId (string) on success
+ * Exits with 401 JSON on failure:
+ *   - reason "expired"          → normal 1-hour session expiry
+ *   - reason "concurrent_login" → same account logged in on another device
+ *   - reason "unauthorized"     → no token / no session provided
+ */
 function authenticate()
 {
     $token = getBearerToken();
@@ -407,11 +430,12 @@ function authenticate()
 
     $activeToken = $token ?: $sessionToken;
 
-    // If no token or session ID provided at all -> simple unauthenticated response (NOT single_session_logged_out)
+    // If no token or session ID provided at all -> simple unauthenticated response
     if (empty($activeToken) && empty($userId)) {
         http_response_code(401);
         echo json_encode([
             "message" => "Unauthorized - Please log in.",
+            "reason" => "unauthorized",
             "single_session_logged_out" => false
         ]);
         exit();
@@ -420,48 +444,114 @@ function authenticate()
     $database = new Database();
     $db = $database->getConnection();
 
-    if ($db) {
-        // Case 1: Session user_id is set
-        if ($userId && $activeToken) {
-            $stmt = $db->prepare("SELECT id, current_session_id FROM users WHERE id = :id AND is_verified = 1");
-            $stmt->execute([':id' => $userId]);
-            $user = $stmt->fetch(PDO::FETCH_ASSOC);
+    if ($db && !empty($activeToken)) {
+        // Query user_sessions table for the session token
+        $stmt = $db->prepare(
+            "SELECT us.user_id, us.status, us.expires_at, u.is_verified
+             FROM user_sessions us
+             JOIN users u ON u.id = us.user_id
+             WHERE us.session_token = :token
+             LIMIT 1"
+        );
+        $stmt->execute([':token' => $activeToken]);
+        $session = $stmt->fetch(PDO::FETCH_ASSOC);
 
-            if ($user) {
-                // If DB current_session_id matches active token or is empty
-                if (empty($user['current_session_id']) || $user['current_session_id'] === $activeToken) {
-                    if (empty($user['current_session_id'])) {
-                        $up = $db->prepare("UPDATE users SET current_session_id = :st WHERE id = :id");
-                        $up->execute([':st' => $activeToken, ':id' => $userId]);
-                    }
-                    return $userId;
+        if ($session) {
+            if ((int)$session['is_verified'] !== 1) {
+                // Account not verified
+                http_response_code(401);
+                echo json_encode([
+                    "message" => "Unauthorized - Please log in.",
+                    "reason" => "unauthorized",
+                    "single_session_logged_out" => false
+                ]);
+                exit();
+            }
+
+            // Check if session has expired (1-hour TTL)
+            if ($session['status'] === 'expired' || (new DateTime() > new DateTime($session['expires_at']))) {
+                // Mark as expired in DB if not already
+                if ($session['status'] !== 'expired') {
+                    $up = $db->prepare("UPDATE user_sessions SET status = 'expired' WHERE session_token = :token");
+                    $up->execute([':token' => $activeToken]);
                 }
+                // Clear PHP session
+                $_SESSION = array();
+                @session_unset();
+                @session_destroy();
+
+                http_response_code(401);
+                echo json_encode([
+                    "message" => "Your session has expired. Please log in again.",
+                    "reason" => "expired",
+                    "single_session_logged_out" => false
+                ]);
+                exit();
+            }
+
+            // Check if session was invalidated (same account logged in elsewhere)
+            if ($session['status'] === 'invalidated') {
+                $_SESSION = array();
+                @session_unset();
+                @session_destroy();
+
+                http_response_code(401);
+                echo json_encode([
+                    "message" => "Your account has been logged in on another device. Please log in again.",
+                    "reason" => "concurrent_login",
+                    "single_session_logged_out" => true
+                ]);
+                exit();
+            }
+
+            // Session is active and valid
+            if ($session['status'] === 'active') {
+                $foundUserId = $session['user_id'];
+                // Sync PHP session
+                $_SESSION['user_id'] = $foundUserId;
+                $_SESSION['session_token'] = $activeToken;
+                $_SESSION['user_last_activity'] = time();
+                return $foundUserId;
             }
         }
 
-        // Case 2: Bearer token provided in header without session user_id
-        if ($token) {
-            $stmt = $db->prepare("SELECT id, current_session_id FROM users WHERE current_session_id = :token AND is_verified = 1");
-            $stmt->execute([':token' => $token]);
-            $user = $stmt->fetch(PDO::FETCH_ASSOC);
-            if ($user && $user['current_session_id'] === $token) {
-                $_SESSION['user_id'] = $user['id'];
-                $_SESSION['session_token'] = $token;
+        // Token not found in user_sessions — fall back to legacy current_session_id check
+        // (for backward compatibility during transition)
+        if (!empty($activeToken)) {
+            $legacyStmt = $db->prepare(
+                "SELECT id, current_session_id FROM users WHERE current_session_id = :token AND is_verified = 1"
+            );
+            $legacyStmt->execute([':token' => $activeToken]);
+            $legacyUser = $legacyStmt->fetch(PDO::FETCH_ASSOC);
+            if ($legacyUser && $legacyUser['current_session_id'] === $activeToken) {
+                // Migrate session to user_sessions table
+                $expiresAt = date('Y-m-d H:i:s', time() + 3600);
+                $migrateStmt = $db->prepare(
+                    "INSERT IGNORE INTO user_sessions (user_id, session_token, status, expires_at)
+                     VALUES (:uid, :tok, 'active', :exp)"
+                );
+                $migrateStmt->execute([
+                    ':uid' => $legacyUser['id'],
+                    ':tok' => $activeToken,
+                    ':exp' => $expiresAt
+                ]);
+                $_SESSION['user_id'] = $legacyUser['id'];
+                $_SESSION['session_token'] = $activeToken;
                 $_SESSION['user_last_activity'] = time();
-                return $user['id'];
+                return $legacyUser['id'];
             }
         }
     }
 
-    // A token or session was provided, but failed validation because the account was logged in on another device
-    $_SESSION = array();
-    @session_unset();
-    @session_destroy();
-
+    // Token or session provided but failed all validation —
+    // treat as unauthorized (unknown/missing token), NOT as concurrent login.
+    // Sending concurrent_login here would incorrectly fire the
+    // "logged in on another device" event for genuine unknown tokens.
     http_response_code(401);
     echo json_encode([
-        "message" => "Your account has been logged in on another device. Please log in again.",
-        "single_session_logged_out" => true
+        "message" => "Unauthorized - Please log in.",
+        "reason" => "unauthorized",
+        "single_session_logged_out" => false
     ]);
     exit();
 }

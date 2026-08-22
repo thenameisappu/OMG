@@ -157,12 +157,12 @@ if (isset($_GET['logout'])) {
     exit();
 }
 
-// ── 4. SESSION TIMEOUT & INACTIVITY CHECK (3 Hours = 10,800 seconds) ───────
-$sessionTimeout = getenv('SESSION_TIMEOUT_SECONDS') ? (int)getenv('SESSION_TIMEOUT_SECONDS') : (isset($_ENV['SESSION_TIMEOUT_SECONDS']) ? (int)$_ENV['SESSION_TIMEOUT_SECONDS'] : 10800);
+// ── 4. SESSION TIMEOUT & INACTIVITY CHECK (Admin: 8 Hours = 28,800 seconds) ────
+$sessionTimeout = getenv('ADMIN_SESSION_TIMEOUT_SECONDS') ? (int)getenv('ADMIN_SESSION_TIMEOUT_SECONDS') : (isset($_ENV['ADMIN_SESSION_TIMEOUT_SECONDS']) ? (int)$_ENV['ADMIN_SESSION_TIMEOUT_SECONDS'] : 28800);
 $expiredError = "";
 
 if (isset($_GET['expired']) || isset($_SESSION['admin_session_expired'])) {
-    $expiredError = "Your session has expired due to inactivity. Please log in again.";
+    $expiredError = "Your session has expired. Please log in again.";
     unset($_SESSION['admin_session_expired']);
 }
 
