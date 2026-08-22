@@ -18,12 +18,17 @@ export const api = axios.create({
     withCredentials: true, // IMPORTANT: Send cookies (session) with requests
 });
 
-// Request interceptor: Check offline state before sending requests
+// Request interceptor: Check offline state and inject Authorization header
 api.interceptors.request.use(
     async (config) => {
         if (typeof navigator !== 'undefined' && !navigator.onLine) {
             reportNetworkErrorGlobal('offline');
             return Promise.reject(new Error('No Internet Connection. Please check your internet connection and try again.'));
+        }
+        const token = localStorage.getItem('auth_token');
+        if (token) {
+            config.headers = config.headers || {};
+            config.headers.Authorization = `Bearer ${token}`;
         }
         return config;
     },
@@ -45,8 +50,13 @@ api.interceptors.response.use(
 
         // HTTP response errors (4xx, 5xx): Do NOT treat as internet connectivity issues
         if (error.response) {
-            if (error.response.status === 401 && !window.location.pathname.includes('/login')) {
-                // Keep existing 401 handling
+            if (error.response.status === 401) {
+                localStorage.removeItem('auth_token');
+                if (error.response.data?.single_session_logged_out && typeof window !== 'undefined') {
+                    window.dispatchEvent(new CustomEvent('omg_single_session_logout', {
+                        detail: { message: error.response.data.message || 'Logged out because account was logged in on another device.' }
+                    }));
+                }
             }
             return Promise.reject(error);
         }
@@ -96,6 +106,7 @@ export const authService = {
         return response.data;
     },
     logout: (): void => {
+        api.get('/auth.php?action=logout').catch(() => {});
         localStorage.removeItem('auth_token');
     },
     getUser: async (): Promise<{ data: { user: any }; error: any }> => {
@@ -108,6 +119,9 @@ export const authService = {
     },
     verifyOtp: async (email: string, otp: string): Promise<any> => {
         const response = await api.post('/auth.php?action=verify_otp', { email, otp });
+        if (response.data.token) {
+            localStorage.setItem('auth_token', response.data.token);
+        }
         return response.data;
     },
     resendOtp: async (email: string): Promise<any> => {

@@ -37,7 +37,19 @@
 
 date_default_timezone_set('Asia/Kolkata');
 
-session_start();
+if (session_status() === PHP_SESSION_NONE) {
+    $isHttps = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on') ||
+               (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https');
+    @session_set_cookie_params([
+        'lifetime' => 86400 * 30,
+        'path' => '/',
+        'domain' => '',
+        'secure' => $isHttps,
+        'httponly' => true,
+        'samesite' => $isHttps ? 'None' : 'Lax'
+    ]);
+    session_start();
+}
 
 // ═══════════════════════════════════════════════════════════════════════════
 // DUAL IMAGE STORAGE SETUP
@@ -306,8 +318,19 @@ function ensureAuthTablesExist($db)
             `is_verified` TINYINT(1) DEFAULT 0,
             `otp_code` VARCHAR(6),
             `otp_expiry` DATETIME,
+            `current_session_id` VARCHAR(255) NULL,
             `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
+
+        // Safely add missing columns to users table
+        try {
+            $userCols = $db->query("SHOW COLUMNS FROM `users`")->fetchAll(PDO::FETCH_COLUMN);
+            if (!in_array('current_session_id', $userCols)) {
+                @$db->exec("ALTER TABLE `users` ADD COLUMN `current_session_id` VARCHAR(255) NULL");
+            }
+        } catch (Exception $alterEx) {
+            error_log("Notice in ALTER TABLE users: " . $alterEx->getMessage());
+        }
 
         // 2. Admin Users Table
         $db->exec("CREATE TABLE IF NOT EXISTS `admin_users` (
@@ -351,15 +374,86 @@ function ensureAuthTablesExist($db)
     }
 }
 
-// Centralized authentication function for all backend files
+// Extract Bearer token from headers
+function getBearerToken()
+{
+    $headers = null;
+    if (isset($_SERVER['Authorization'])) {
+        $headers = trim($_SERVER['Authorization']);
+    } else if (isset($_SERVER['HTTP_AUTHORIZATION'])) {
+        $headers = trim($_SERVER['HTTP_AUTHORIZATION']);
+    } else if (isset($_SERVER['REDIRECT_HTTP_AUTHORIZATION'])) {
+        $headers = trim($_SERVER['REDIRECT_HTTP_AUTHORIZATION']);
+    } else if (function_exists('apache_request_headers')) {
+        $requestHeaders = apache_request_headers();
+        $requestHeaders = array_combine(array_map('ucwords', array_keys($requestHeaders)), array_values($requestHeaders));
+        if (isset($requestHeaders['Authorization'])) {
+            $headers = trim($requestHeaders['Authorization']);
+        }
+    }
+    if (!empty($headers)) {
+        if (preg_match('/Bearer\s(\S+)/i', $headers, $matches)) {
+            return $matches[1];
+        }
+    }
+    return null;
+}
+
+// Centralized authentication function for all backend files (enforces Single Active Session)
 function authenticate()
 {
-    if (isset($_SESSION['user_id'])) {
-        return $_SESSION['user_id'];
+    $token = getBearerToken();
+    $userId = $_SESSION['user_id'] ?? null;
+    $sessionToken = $_SESSION['session_token'] ?? null;
+
+    $activeToken = $token ?: $sessionToken;
+
+    $database = new Database();
+    $db = $database->getConnection();
+
+    if ($db) {
+        // Case 1: Session user_id is set
+        if ($userId && $activeToken) {
+            $stmt = $db->prepare("SELECT id, current_session_id FROM users WHERE id = :id AND is_verified = 1");
+            $stmt->execute([':id' => $userId]);
+            $user = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            if ($user) {
+                // If DB current_session_id matches active token or is not set yet
+                if (empty($user['current_session_id']) || $user['current_session_id'] === $activeToken) {
+                    if (empty($user['current_session_id'])) {
+                        $up = $db->prepare("UPDATE users SET current_session_id = :st WHERE id = :id");
+                        $up->execute([':st' => $activeToken, ':id' => $userId]);
+                    }
+                    return $userId;
+                }
+            }
+        }
+
+        // Case 2: Bearer token provided in header without session user_id
+        if ($token) {
+            $stmt = $db->prepare("SELECT id, current_session_id FROM users WHERE current_session_id = :token AND is_verified = 1");
+            $stmt->execute([':token' => $token]);
+            $user = $stmt->fetch(PDO::FETCH_ASSOC);
+            if ($user && $user['current_session_id'] === $token) {
+                $_SESSION['user_id'] = $user['id'];
+                $_SESSION['session_token'] = $token;
+                $_SESSION['user_last_activity'] = time();
+                return $user['id'];
+            }
+        }
     }
 
+    // Authentication failed / Session invalidated due to login on another device
+    $_SESSION = array();
+    @session_unset();
+    @session_destroy();
+
     http_response_code(401);
-    echo json_encode(["message" => "Unauthorized - Please login"]);
+    echo json_encode([
+        "message" => "Unauthorized - Your session has expired or you have logged in on another device.",
+        "single_session_logged_out" => true
+    ]);
     exit();
 }
 ?>

@@ -423,6 +423,15 @@ function ProductCard({ product }: { product: any }) {
         />
         <div className="absolute inset-0 bg-black/10 opacity-0 group-hover:opacity-100 transition-opacity" />
 
+        {/* Best Seller Badge */}
+        {(product.is_bestseller === true || Number(product.is_bestseller) === 1) && (
+          <div className="absolute top-2.5 left-2.5 z-20">
+            <span className="inline-flex items-center gap-1 bg-amber-500/90 backdrop-blur-md text-white text-[10px] uppercase font-bold tracking-wider px-2.5 py-1 rounded-full shadow-md">
+              <Sparkles className="h-3 w-3" /> Best Seller
+            </span>
+          </div>
+        )}
+
         {/* Wishlist Heart Button */}
         <WishlistButton
           product={product}

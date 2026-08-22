@@ -271,7 +271,12 @@ export default function ProductDetail() {
           {/* Right Column: Scaled Up & Balanced Product Information */}
           <div className="lg:col-span-6 flex flex-col justify-start space-y-3 lg:space-y-3.5 w-full">
             {/* Badges */}
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
+              {(product.is_bestseller === true || Number(product.is_bestseller) === 1) && (
+                <span className="text-xs text-amber-800 bg-amber-50 border border-amber-300 px-3 py-1 rounded-full font-bold flex items-center gap-1.5 uppercase tracking-wider">
+                  <Sparkles className="h-3.5 w-3.5 text-amber-600 fill-amber-500" /> Best Seller
+                </span>
+              )}
               <Badge variant="secondary" className="bg-secondary/15 text-secondary border-none uppercase tracking-widest text-xs font-bold px-3 py-1 rounded-full">
                 {product.category ? product.category.replace('-', ' ') : 'GIFTING'}
               </Badge>

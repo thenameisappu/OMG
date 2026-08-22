@@ -34,6 +34,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     checkAuth();
+
+    const handleSingleSessionLogout = (e: any) => {
+      setUser(null);
+      authService.logout();
+      toast({
+        title: 'Session Expired',
+        description: e.detail?.message || 'You were logged out because your account was signed in on another device.',
+        variant: 'destructive',
+      });
+    };
+
+    window.addEventListener('omg_single_session_logout', handleSingleSessionLogout);
+    return () => {
+      window.removeEventListener('omg_single_session_logout', handleSingleSessionLogout);
+    };
   }, []);
 
   // 24-Hour Inactivity Auto-Logout Monitoring
@@ -77,19 +92,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const { data, error } = await authService.getUser();
       if (data && data.user) {
-        // Fetch profile to get name
-        try {
-          const { data: profile } = await profileService.get();
-          setUser({
-            ...data.user,
-            name: profile?.name,
-            phone: profile?.phone,
-            address: profile?.address,
-            city: profile?.city,
-          });
-        } catch (e) {
-          setUser(data.user);
-        }
+        setUser({
+          id: data.user.id,
+          email: data.user.email,
+          name: data.user.name,
+          phone: data.user.phone,
+          address: data.user.address,
+          city: data.user.city,
+        });
       } else {
         setUser(null);
       }
@@ -121,8 +131,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const verifyOtp = async (email: string, otp: string) => {
     try {
-      await authService.verifyOtp(email, otp);
-      await checkAuth();
+      const res = await authService.verifyOtp(email, otp);
+      if (res && res.user) {
+        setUser({
+          id: res.user.id,
+          email: res.user.email,
+          name: res.user.name,
+          phone: res.user.phone,
+          address: res.user.address,
+          city: res.user.city,
+        });
+      } else {
+        await checkAuth();
+      }
       toast({
         title: 'Email verified!',
         description: 'Welcome to OMG Luxury Gifting.',
@@ -156,8 +177,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signIn = async (email: string, password: string) => {
     try {
-      await authService.login(email, password);
-      await checkAuth();
+      const res = await authService.login(email, password);
+      if (res && res.user) {
+        setUser({
+          id: res.user.id,
+          email: res.user.email,
+          name: res.user.name,
+          phone: res.user.phone,
+          address: res.user.address,
+          city: res.user.city,
+        });
+      } else {
+        await checkAuth();
+      }
 
       toast({
         title: 'Welcome back!',

@@ -19,7 +19,7 @@ export default function Home() {
       try {
         setLoading(true);
         const data = await getFeaturedProducts();
-        setFeaturedProducts(data);
+        setFeaturedProducts(Array.isArray(data) ? data.slice(0, 10) : []);
       } catch (error) {
         console.error('Error fetching featured products:', error);
       } finally {
@@ -42,6 +42,13 @@ export default function Home() {
   }, []);
 
   const maxSlide = Math.max(0, featuredProducts.length - visibleCount);
+
+  // Reset/clamp current slide if maxSlide changes
+  useEffect(() => {
+    if (currentSlide > maxSlide) {
+      setCurrentSlide(maxSlide);
+    }
+  }, [maxSlide, currentSlide]);
 
   // Auto-advance carousel every 10 seconds
   useEffect(() => {
@@ -505,6 +512,14 @@ function ProductCard({ product }: { product: any }) {
           alt={product.name}
           className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-110"
         />
+        {/* Best Seller Badge */}
+        {(product.is_bestseller === true || Number(product.is_bestseller) === 1) && (
+          <div className="absolute top-2.5 left-2.5 z-20">
+            <span className="inline-flex items-center gap-1 bg-amber-500/90 backdrop-blur-md text-white text-[10px] uppercase font-bold tracking-wider px-2.5 py-1 rounded-full shadow-md">
+              <Sparkles className="h-3 w-3" /> Best Seller
+            </span>
+          </div>
+        )}
         {/* Wishlist Button */}
         <WishlistButton
           product={product}

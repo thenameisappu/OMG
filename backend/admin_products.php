@@ -873,13 +873,35 @@ require_once 'admin_header.php';
                                     ?>
                                 </td>
                                 <td class="py-3 px-4 align-middle text-xs">
-                                    <?php if ($p['is_featured']): ?>
-                                        <span
-                                            class="inline-block px-2 py-0.5 rounded bg-sky-50 text-sky-700 font-semibold border border-sky-200 text-[11px] mb-1">Featured</span><br>
+                                    <?php if ($is_main_admin): ?>
+                                        <button type="button" id="featured-btn-<?php echo $p['id']; ?>"
+                                            data-product-id="<?php echo $p['id']; ?>"
+                                            data-is-featured="<?php echo $p['is_featured'] ? '1' : '0'; ?>"
+                                            onclick="toggleProductFeatured('<?php echo $p['id']; ?>', this)"
+                                            title="Click to toggle Featured Product status"
+                                            class="inline-flex items-center gap-1 px-2 py-0.5 rounded font-semibold border text-[11px] mb-1 transition-all cursor-pointer hover:opacity-80 <?php echo $p['is_featured'] ? 'bg-sky-50 text-sky-700 border-sky-200' : 'bg-slate-50 text-slate-400 border-slate-200'; ?>">
+                                            <span>Featured</span>
+                                        </button><br>
+                                    <?php else: ?>
+                                        <?php if ($p['is_featured']): ?>
+                                            <span
+                                                class="inline-block px-2 py-0.5 rounded bg-sky-50 text-sky-700 font-semibold border border-sky-200 text-[11px] mb-1">Featured</span><br>
+                                        <?php endif; ?>
                                     <?php endif; ?>
-                                    <?php if ($p['is_bestseller']): ?>
-                                        <span
-                                            class="inline-block px-2 py-0.5 rounded bg-amber-50 text-amber-800 font-semibold border border-amber-200 text-[11px]">Bestseller</span>
+                                    <?php if ($is_main_admin): ?>
+                                        <button type="button" id="bestseller-btn-<?php echo $p['id']; ?>"
+                                            data-product-id="<?php echo $p['id']; ?>"
+                                            data-is-bestseller="<?php echo $p['is_bestseller'] ? '1' : '0'; ?>"
+                                            onclick="toggleProductBestseller('<?php echo $p['id']; ?>', this)"
+                                            title="Click to toggle Bestseller status"
+                                            class="inline-flex items-center gap-1 px-2 py-0.5 rounded font-semibold border text-[11px] transition-all cursor-pointer hover:opacity-80 <?php echo $p['is_bestseller'] ? 'bg-amber-50 text-amber-800 border-amber-200' : 'bg-slate-50 text-slate-400 border-slate-200'; ?>">
+                                            <span>Bestseller</span>
+                                        </button>
+                                    <?php else: ?>
+                                        <?php if ($p['is_bestseller']): ?>
+                                            <span
+                                                class="inline-block px-2 py-0.5 rounded bg-amber-50 text-amber-800 font-semibold border border-amber-200 text-[11px]">Bestseller</span>
+                                        <?php endif; ?>
                                     <?php endif; ?>
                                 </td>
                                 <td class="py-3 px-4 align-middle text-xs">
@@ -1803,6 +1825,94 @@ require_once 'admin_header.php';
             label.textContent = originalText;
             alert('Network error. Please check your connection and try again.');
             console.error('toggleProductStatus error:', err);
+        } finally {
+            btn.disabled = false;
+            btn.style.opacity = '';
+        }
+    }
+
+    // ── PRODUCT FEATURED TOGGLE ──────────────────────────────────────────────
+    async function toggleProductFeatured(productId, btn) {
+        const currentFeatured = parseInt(btn.dataset.isFeatured, 10);
+        const newFeatured = currentFeatured === 1 ? 0 : 1;
+
+        btn.disabled = true;
+        btn.style.opacity = '0.6';
+
+        try {
+            const response = await fetch('products.php?action=toggle_featured', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: productId, is_featured: newFeatured })
+            });
+
+            const result = await response.json();
+
+            if (response.ok && result.success) {
+                btn.dataset.isFeatured = String(newFeatured);
+
+                if (newFeatured === 1) {
+                    btn.className = 'inline-flex items-center gap-1 px-2 py-0.5 rounded font-semibold border text-[11px] mb-1 transition-all cursor-pointer hover:opacity-80 bg-sky-50 text-sky-700 border-sky-200';
+                } else {
+                    btn.className = 'inline-flex items-center gap-1 px-2 py-0.5 rounded font-semibold border text-[11px] mb-1 transition-all cursor-pointer hover:opacity-80 bg-slate-50 text-slate-400 border-slate-200';
+                }
+
+                const row = btn.closest('tr');
+                if (row) {
+                    row.style.transition = 'background 0.15s';
+                    row.style.background = newFeatured === 1 ? '#f0f9ff' : '#f8fafc';
+                    setTimeout(() => { row.style.background = ''; }, 1200);
+                }
+            } else {
+                alert('Error: ' + (result.message || 'Failed to update featured status.'));
+            }
+        } catch (err) {
+            alert('Network error. Please check your connection and try again.');
+            console.error('toggleProductFeatured error:', err);
+        } finally {
+            btn.disabled = false;
+            btn.style.opacity = '';
+        }
+    }
+
+    // ── PRODUCT BESTSELLER TOGGLE ─────────────────────────────────────────────
+    async function toggleProductBestseller(productId, btn) {
+        const currentBestseller = parseInt(btn.dataset.isBestseller, 10);
+        const newBestseller = currentBestseller === 1 ? 0 : 1;
+
+        btn.disabled = true;
+        btn.style.opacity = '0.6';
+
+        try {
+            const response = await fetch('products.php?action=toggle_bestseller', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: productId, is_bestseller: newBestseller })
+            });
+
+            const result = await response.json();
+
+            if (response.ok && result.success) {
+                btn.dataset.isBestseller = String(newBestseller);
+
+                if (newBestseller === 1) {
+                    btn.className = 'inline-flex items-center gap-1 px-2 py-0.5 rounded font-semibold border text-[11px] transition-all cursor-pointer hover:opacity-80 bg-amber-50 text-amber-800 border-amber-200';
+                } else {
+                    btn.className = 'inline-flex items-center gap-1 px-2 py-0.5 rounded font-semibold border text-[11px] transition-all cursor-pointer hover:opacity-80 bg-slate-50 text-slate-400 border-slate-200';
+                }
+
+                const row = btn.closest('tr');
+                if (row) {
+                    row.style.transition = 'background 0.15s';
+                    row.style.background = newBestseller === 1 ? '#fffbeb' : '#f8fafc';
+                    setTimeout(() => { row.style.background = ''; }, 1200);
+                }
+            } else {
+                alert('Error: ' + (result.message || 'Failed to update bestseller status.'));
+            }
+        } catch (err) {
+            alert('Network error. Please check your connection and try again.');
+            console.error('toggleProductBestseller error:', err);
         } finally {
             btn.disabled = false;
             btn.style.opacity = '';

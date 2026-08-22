@@ -16,7 +16,9 @@ export interface Product {
   hover_image?: string;
   images?: string[];
   features?: string[];
-  is_featured?: boolean;
+  is_featured?: boolean | number;
+  is_bestseller?: boolean | number;
+  is_active?: boolean | number;
   stock_status: 'in_stock' | 'out_of_stock';
 }
 

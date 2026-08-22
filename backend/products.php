@@ -160,6 +160,14 @@ switch ($action) {
         requireMainAdmin();
         toggleProductStatus($db);
         break;
+    case 'toggle_featured':
+        requireMainAdmin();
+        toggleProductFeatured($db);
+        break;
+    case 'toggle_bestseller':
+        requireMainAdmin();
+        toggleProductBestseller($db);
+        break;
     default:
         http_response_code(400);
         echo json_encode(["message" => "Invalid action"]);
@@ -248,20 +256,17 @@ function getProductBySlug($db)
     }
 }
 
-// 3. Fetch Featured Products
+// 3. Fetch Featured Products (Default limit: 10)
 function getFeaturedProducts($db)
 {
-    $query = "SELECT * FROM products WHERE is_active = 1 AND (is_bestseller = 1 OR is_featured = 1) LIMIT 6";
+    $limit = isset($_GET['limit']) ? max(1, (int)$_GET['limit']) : 10;
+    $query = "SELECT * FROM products WHERE is_active = 1 AND is_featured = 1 ORDER BY created_at DESC LIMIT " . $limit;
     $stmt = $db->prepare($query);
     $stmt->execute();
 
     $products = $stmt->fetchAll(PDO::FETCH_ASSOC);
     foreach ($products as &$p) {
-        if (!empty($p['features'])) {
-            $p['features'] = json_decode($p['features']);
-        } else {
-            $p['features'] = [];
-        }
+        $p['features'] = parseProductFeatures($p['features'] ?? null);
         if (!empty($p['images'])) {
             $p['images'] = json_decode($p['images']);
         } else {
@@ -750,5 +755,113 @@ function toggleProductStatus($db)
     } catch (Exception $e) {
         http_response_code(500);
         echo json_encode(["success" => false, "message" => "Failed to update status: " . $e->getMessage()]);
+    }
+}
+
+// 10. Toggle Product Featured Status (AJAX, main_admin only)
+function toggleProductFeatured($db)
+{
+    $data = json_decode(file_get_contents("php://input"));
+
+    if (empty($data->id)) {
+        http_response_code(400);
+        echo json_encode(["success" => false, "message" => "Product ID is required."]);
+        return;
+    }
+
+    if (!isset($data->is_featured) || !in_array((int)$data->is_featured, [0, 1], true)) {
+        http_response_code(400);
+        echo json_encode(["success" => false, "message" => "is_featured must be 0 or 1."]);
+        return;
+    }
+
+    try {
+        $id          = trim($data->id);
+        $is_featured = (int) $data->is_featured;
+
+        // Verify product exists
+        $checkStmt = $db->prepare("SELECT id, name FROM products WHERE id = :id LIMIT 1");
+        $checkStmt->bindParam(':id', $id);
+        $checkStmt->execute();
+        $product = $checkStmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$product) {
+            http_response_code(404);
+            echo json_encode(["success" => false, "message" => "Product not found."]);
+            return;
+        }
+
+        // Update only is_featured — no other fields touched
+        $stmt = $db->prepare("UPDATE products SET is_featured = :is_featured WHERE id = :id");
+        $stmt->bindParam(':is_featured', $is_featured, PDO::PARAM_INT);
+        $stmt->bindParam(':id', $id);
+
+        if ($stmt->execute()) {
+            $featuredLabel = $is_featured ? 'Featured' : 'Not Featured';
+            echo json_encode([
+                "success"     => true,
+                "is_featured" => $is_featured,
+                "message"     => "Product '" . htmlspecialchars($product['name']) . "' marked as $featuredLabel."
+            ]);
+        } else {
+            throw new Exception("SQL execution failed.");
+        }
+    } catch (Exception $e) {
+        http_response_code(500);
+        echo json_encode(["success" => false, "message" => "Failed to update featured status: " . $e->getMessage()]);
+    }
+}
+
+// 11. Toggle Product Bestseller Status (AJAX, main_admin only)
+function toggleProductBestseller($db)
+{
+    $data = json_decode(file_get_contents("php://input"));
+
+    if (empty($data->id)) {
+        http_response_code(400);
+        echo json_encode(["success" => false, "message" => "Product ID is required."]);
+        return;
+    }
+
+    if (!isset($data->is_bestseller) || !in_array((int)$data->is_bestseller, [0, 1], true)) {
+        http_response_code(400);
+        echo json_encode(["success" => false, "message" => "is_bestseller must be 0 or 1."]);
+        return;
+    }
+
+    try {
+        $id            = trim($data->id);
+        $is_bestseller = (int) $data->is_bestseller;
+
+        // Verify product exists
+        $checkStmt = $db->prepare("SELECT id, name FROM products WHERE id = :id LIMIT 1");
+        $checkStmt->bindParam(':id', $id);
+        $checkStmt->execute();
+        $product = $checkStmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$product) {
+            http_response_code(404);
+            echo json_encode(["success" => false, "message" => "Product not found."]);
+            return;
+        }
+
+        // Update only is_bestseller
+        $stmt = $db->prepare("UPDATE products SET is_bestseller = :is_bestseller WHERE id = :id");
+        $stmt->bindParam(':is_bestseller', $is_bestseller, PDO::PARAM_INT);
+        $stmt->bindParam(':id', $id);
+
+        if ($stmt->execute()) {
+            $bestsellerLabel = $is_bestseller ? 'Bestseller' : 'Not Bestseller';
+            echo json_encode([
+                "success"       => true,
+                "is_bestseller" => $is_bestseller,
+                "message"       => "Product '" . htmlspecialchars($product['name']) . "' marked as $bestsellerLabel."
+            ]);
+        } else {
+            throw new Exception("SQL execution failed.");
+        }
+    } catch (Exception $e) {
+        http_response_code(500);
+        echo json_encode(["success" => false, "message" => "Failed to update bestseller status: " . $e->getMessage()]);
     }
 }

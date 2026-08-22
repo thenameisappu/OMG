@@ -38,7 +38,7 @@ export const WishlistButton: React.FC<WishlistButtonProps> = ({
     return null;
   }
 
-  const isWishlisted = isInWishlist(product.id);
+  const isWishlisted = isInWishlist(String(product.id));
 
   const handleClick = async (e: React.MouseEvent) => {
     e.preventDefault();

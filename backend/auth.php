@@ -204,17 +204,35 @@ function login($db, $data)
                 return;
             }
 
+            // Generate new session token for Single Active Login enforcement
+            $sessionToken = bin2hex(random_bytes(32));
+
+            // Save active session token to database
+            $sessionUp = $db->prepare("UPDATE users SET current_session_id = :st WHERE id = :id");
+            $sessionUp->execute([':st' => $sessionToken, ':id' => $row['id']]);
+
             // Regenerate Session & Set Login
             session_regenerate_id(true);
             $_SESSION['user_id'] = $row['id'];
+            $_SESSION['session_token'] = $sessionToken;
             $_SESSION['user_last_activity'] = time();
+
+            // Fetch user profile data
+            $profStmt = $db->prepare("SELECT name, phone, address, city FROM user_profiles WHERE id = :id LIMIT 1");
+            $profStmt->execute([':id' => $row['id']]);
+            $profile = $profStmt->fetch(PDO::FETCH_ASSOC) ?: [];
 
             http_response_code(200);
             echo json_encode([
                 "message" => "Login successful.",
+                "token" => $sessionToken,
                 "user" => [
                     "id" => $row['id'],
-                    "email" => $row['email']
+                    "email" => $row['email'],
+                    "name" => $profile['name'] ?? null,
+                    "phone" => $profile['phone'] ?? null,
+                    "address" => $profile['address'] ?? null,
+                    "city" => $profile['city'] ?? null
                 ]
             ]);
         } else {
@@ -249,13 +267,17 @@ function verifyOtp($db, $data)
         $now = date('Y-m-d H:i:s');
 
         if ($row['otp_code'] === $otp && $row['otp_expiry'] >= $now) {
-            $updateQuery = "UPDATE users SET is_verified = 1, otp_code = NULL, otp_expiry = NULL WHERE id = :id";
+            $sessionToken = bin2hex(random_bytes(32));
+
+            $updateQuery = "UPDATE users SET is_verified = 1, current_session_id = :st, otp_code = NULL, otp_expiry = NULL WHERE id = :id";
             $updateStmt = $db->prepare($updateQuery);
+            $updateStmt->bindParam(":st", $sessionToken);
             $updateStmt->bindParam(":id", $row['id']);
 
             if ($updateStmt->execute()) {
                 session_regenerate_id(true);
                 $_SESSION['user_id'] = $row['id'];
+                $_SESSION['session_token'] = $sessionToken;
                 $_SESSION['user_last_activity'] = time();
 
                 // Send Welcome Email
@@ -263,9 +285,22 @@ function verifyOtp($db, $data)
                 $welcomeHtml = buildWelcomeEmailTemplate($userName);
                 sendEmail($email, "Welcome to OH MY GUDNESS!", $welcomeHtml);
 
+                // Fetch user profile
+                $profStmt = $db->prepare("SELECT name, phone, address, city FROM user_profiles WHERE id = :id LIMIT 1");
+                $profStmt->execute([':id' => $row['id']]);
+                $profile = $profStmt->fetch(PDO::FETCH_ASSOC) ?: [];
+
                 echo json_encode([
                     "message" => "Email verified successfully! Welcome to OH MY GUDNESS.",
-                    "user" => ["id" => $row['id'], "email" => $email]
+                    "token" => $sessionToken,
+                    "user" => [
+                        "id" => $row['id'],
+                        "email" => $email,
+                        "name" => $profile['name'] ?? null,
+                        "phone" => $profile['phone'] ?? null,
+                        "address" => $profile['address'] ?? null,
+                        "city" => $profile['city'] ?? null
+                    ]
                 ]);
             } else {
                 http_response_code(500);
@@ -495,17 +530,27 @@ function resetPassword($db, $data)
 
 function logout()
 {
+    global $db;
+    if (isset($_SESSION['user_id']) && $db) {
+        try {
+            $up = $db->prepare("UPDATE users SET current_session_id = NULL WHERE id = :id");
+            $up->execute([':id' => $_SESSION['user_id']]);
+        } catch (Exception $e) {}
+    }
     $_SESSION = array();
-    session_unset();
-    session_destroy();
+    @session_unset();
+    @session_destroy();
     echo json_encode(["message" => "Logged out successfully"]);
 }
 
 function getUser($db)
 {
-    if (isset($_SESSION['user_id'])) {
-        $userId = $_SESSION['user_id'];
-        $query = "SELECT id, email FROM users WHERE id = :id AND is_verified = 1";
+    $userId = authenticate(); // Validates session/Bearer token + single active session
+    if ($userId) {
+        $query = "SELECT u.id, u.email, p.name, p.phone, p.address, p.city 
+                  FROM users u 
+                  LEFT JOIN user_profiles p ON u.id = p.id 
+                  WHERE u.id = :id AND u.is_verified = 1";
         $stmt = $db->prepare($query);
         $stmt->bindParam(":id", $userId);
         $stmt->execute();
