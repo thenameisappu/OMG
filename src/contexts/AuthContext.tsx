@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import { createContext, useContext, useEffect, useState, useRef, ReactNode } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { authService, profileService } from '@/services/api';
 
