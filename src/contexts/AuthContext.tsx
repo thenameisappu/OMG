@@ -37,10 +37,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const handleSingleSessionLogout = (e: any) => {
       setUser(null);
-      authService.logout();
+      localStorage.removeItem('auth_token');
       toast({
         title: 'Session Expired',
-        description: e.detail?.message || 'You were logged out because your account was signed in on another device.',
+        description: e.detail?.message || 'Your account was logged in from another device. Please log in again.',
         variant: 'destructive',
       });
     };
@@ -50,6 +50,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       window.removeEventListener('omg_single_session_logout', handleSingleSessionLogout);
     };
   }, []);
+
+  // Periodic Single Active Session check when user is logged in
+  useEffect(() => {
+    if (!user) return;
+
+    // Check single session on tab focus
+    const onFocus = () => {
+      checkAuth();
+    };
+
+    window.addEventListener('focus', onFocus);
+
+    // Heartbeat check every 15 seconds to detect logins from other devices in near-realtime
+    const interval = setInterval(() => {
+      authService.getUser().catch(() => {});
+    }, 15000);
+
+    return () => {
+      window.removeEventListener('focus', onFocus);
+      clearInterval(interval);
+    };
+  }, [user]);
 
   // 24-Hour Inactivity Auto-Logout Monitoring
   useEffect(() => {
@@ -79,32 +101,45 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     // Periodic check every 60 seconds
-    const interval = setInterval(checkInactivity, 60000);
+    const checkInterval = setInterval(checkInactivity, 60000);
     checkInactivity();
 
     return () => {
       events.forEach(evt => window.removeEventListener(evt, updateActivity));
-      clearInterval(interval);
+      clearInterval(checkInterval);
     };
   }, [user]);
 
-  const checkAuth = async () => {
+  const checkAuth = async (): Promise<User | null> => {
     try {
+      const token = localStorage.getItem('auth_token');
+      if (!token) {
+        setUser(null);
+        setLoading(false);
+        return null;
+      }
+
       const { data, error } = await authService.getUser();
-      if (data && data.user) {
-        setUser({
+      if (data && data.user && data.user.id) {
+        const fetchedUser: User = {
           id: data.user.id,
           email: data.user.email,
           name: data.user.name,
           phone: data.user.phone,
           address: data.user.address,
           city: data.user.city,
-        });
+        };
+        setUser(fetchedUser);
+        return fetchedUser;
       } else {
         setUser(null);
+        localStorage.removeItem('auth_token');
+        return null;
       }
     } catch (error) {
       setUser(null);
+      localStorage.removeItem('auth_token');
+      return null;
     } finally {
       setLoading(false);
     }
@@ -132,26 +167,42 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const verifyOtp = async (email: string, otp: string) => {
     try {
       const res = await authService.verifyOtp(email, otp);
-      if (res && res.user) {
-        setUser({
+
+      let authenticatedUser: User | null = null;
+      if (res && res.token) {
+        localStorage.setItem('auth_token', res.token);
+      }
+
+      if (res && res.user && res.user.id) {
+        authenticatedUser = {
           id: res.user.id,
           email: res.user.email,
           name: res.user.name,
           phone: res.user.phone,
           address: res.user.address,
           city: res.user.city,
-        });
+        };
+        setUser(authenticatedUser);
       } else {
-        await checkAuth();
+        authenticatedUser = await checkAuth();
       }
+
+      if (!authenticatedUser || !authenticatedUser.id) {
+        setUser(null);
+        localStorage.removeItem('auth_token');
+        throw new Error('Verification succeeded but user session could not be established.');
+      }
+
       toast({
         title: 'Email verified!',
         description: 'Welcome to OMG Luxury Gifting.',
       });
     } catch (error: any) {
+      setUser(null);
+      localStorage.removeItem('auth_token');
       toast({
         title: 'Verification failed',
-        description: error.response?.data?.message || 'Invalid or expired OTP',
+        description: error.response?.data?.message || error.message || 'Invalid or expired OTP',
         variant: 'destructive',
       });
       throw error;
@@ -178,17 +229,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signIn = async (email: string, password: string) => {
     try {
       const res = await authService.login(email, password);
-      if (res && res.user) {
-        setUser({
+
+      let authenticatedUser: User | null = null;
+      if (res && res.token) {
+        localStorage.setItem('auth_token', res.token);
+      }
+
+      if (res && res.user && res.user.id) {
+        authenticatedUser = {
           id: res.user.id,
           email: res.user.email,
           name: res.user.name,
           phone: res.user.phone,
           address: res.user.address,
           city: res.user.city,
-        });
+        };
+        setUser(authenticatedUser);
       } else {
-        await checkAuth();
+        authenticatedUser = await checkAuth();
+      }
+
+      // CRITICAL: Ensure authenticatedUser is non-null before declaring success!
+      if (!authenticatedUser || !authenticatedUser.id) {
+        setUser(null);
+        localStorage.removeItem('auth_token');
+        throw new Error('Authentication succeeded but user session could not be established. Please try logging in again.');
       }
 
       toast({
@@ -196,13 +261,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         description: 'You have successfully signed in.',
       });
     } catch (error: any) {
+      setUser(null);
+      localStorage.removeItem('auth_token');
       if (error.response?.status === 403 && error.response?.data?.requires_verification) {
         // Pass the verification required status up
         throw error;
       }
+      const errorMsg = error.response?.data?.message || error.message || 'Invalid email or password.';
       toast({
         title: 'Sign in failed',
-        description: error.response?.data?.message || 'Invalid credentials',
+        description: errorMsg,
         variant: 'destructive',
       });
       throw error;

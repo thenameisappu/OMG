@@ -140,22 +140,28 @@ export default function Navbar() {
           ) : (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="text-foreground hover:text-secondary hover:bg-secondary/10 rounded-full h-9 w-9 md:h-10 md:w-10">
-                  <User className="h-4 w-4 md:h-5 md:w-5" />
+                <Button variant="ghost" className="text-foreground hover:text-secondary hover:bg-secondary/10 rounded-full h-9 md:h-10 px-2 md:px-3 flex items-center gap-2">
+                  <div className="relative">
+                    <User className="h-4 w-4 md:h-5 md:w-5 text-secondary" />
+                    <span className="absolute -bottom-0.5 -right-0.5 h-2 w-2 rounded-full bg-emerald-500 ring-2 ring-white" />
+                  </div>
+                  <span className="hidden md:inline-block text-xs font-bold text-primary max-w-[110px] truncate">
+                    {user?.name ? user.name.split(' ')[0] : user?.email?.split('@')[0]}
+                  </span>
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-52 p-2">
+              <DropdownMenuContent align="end" className="w-56 p-2">
                 <div className="px-3 py-2 text-xs font-semibold text-muted-foreground border-b border-border mb-1">
                   Logged in as <br />
                   <span className="text-sm font-bold text-primary truncate block">
                     {user?.name && user.name.trim() !== '' ? user.name : user?.email}
                   </span>
                 </div>
-                <DropdownMenuItem className="cursor-pointer py-2.5">
-                  <Link to="/profile" className="w-full font-medium">My Profile</Link>
+                <DropdownMenuItem className="cursor-pointer py-2.5" asChild>
+                  <Link to="/profile" className="w-full font-medium flex items-center">My Profile</Link>
                 </DropdownMenuItem>
-                <DropdownMenuItem className="cursor-pointer py-2.5">
-                  <Link to="/orders" className="w-full font-medium">My Orders</Link>
+                <DropdownMenuItem className="cursor-pointer py-2.5" asChild>
+                  <Link to="/orders" className="w-full font-medium flex items-center">My Orders</Link>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem className="text-destructive cursor-pointer py-2.5" onClick={handleLogout}>
