@@ -197,6 +197,13 @@ export const productService = {
         const response = await api.get(`/products.php?action=search&search=${term}`);
         return { data: response.data, error: null };
     },
+    submitRating: async (productId: string, rating: number): Promise<any> => {
+        const response = await api.post('/products.php?action=submit_rating', {
+            product_id: productId,
+            rating,
+        });
+        return response.data;
+    },
 };
 
 // Order Services

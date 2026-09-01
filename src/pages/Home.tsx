@@ -130,6 +130,11 @@ export default function Home() {
                   Plan a Surprise
                 </Button>
               </Link>
+              <Link to="/about" className="w-full sm:w-auto">
+                <Button size="lg" variant="outline" className="w-full sm:w-auto h-14 px-8 text-base font-bold text-white border-secondary/60 bg-black/30 backdrop-blur-md hover:bg-secondary hover:text-primary transition-all rounded-full">
+                  About Us
+                </Button>
+              </Link>
             </div>
 
             {/* Micro Feature Badges */}

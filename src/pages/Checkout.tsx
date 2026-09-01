@@ -3,13 +3,10 @@ import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { useNavigate } from 'react-router-dom';
 import {
-  CreditCard,
   Truck,
   Calendar,
   CheckCircle2,
   ArrowLeft,
-  Wallet,
-  HandCoins,
   Moon
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -73,12 +70,14 @@ export default function Checkout() {
       name: user?.name || '',
       email: user?.email || '',
       phone: user?.phone || '',
+      houseNumber: '',
+      street: '',
       address: user?.address || '',
-      city: user?.city || '',
+      city: 'Bengaluru',
+      pincode: '',
       deliveryOption: isAfter1PM ? 'scheduled' : 'same-day',
       deliveryDate: isAfter1PM ? tomorrowStr : today,
       deliveryTime: 'morning',
-      paymentMethod: 'card',
     },
   });
 
@@ -101,7 +100,7 @@ export default function Checkout() {
       form.setValue('email', user.email || '');
       form.setValue('phone', user.phone || '');
       form.setValue('address', user.address || '');
-      form.setValue('city', user.city || '');
+      form.setValue('city', 'Bengaluru');
     }
   }, [user, form]);
 
@@ -141,11 +140,11 @@ export default function Checkout() {
         customer_name: data.name,
         customer_email: data.email,
         customer_phone: data.phone,
-        delivery_address: `${data.address}, ${data.city}`, // Combine address and city if needed, or just address
+        delivery_address: `${data.houseNumber}, ${data.street}, ${data.address}, ${data.city} - ${data.pincode}`,
         delivery_option: data.deliveryOption,
         delivery_date: data.deliveryDate || null,
         delivery_time: data.deliveryTime,
-        payment_method: data.paymentMethod,
+        payment_method: 'pending',
         items: cart.map(item => ({
           product_id: item.id,
           quantity: item.quantity,
@@ -283,22 +282,74 @@ export default function Checkout() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <FormField
                     control={form.control}
-                    name="address"
+                    name="houseNumber"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Delivery Address</FormLabel>
-                        <FormControl><Input placeholder="Street Address" {...field} className="h-12" required /></FormControl>
+                        <FormLabel>House / Flat Number</FormLabel>
+                        <FormControl><Input placeholder="e.g. Flat 302 or House 18" {...field} className="h-12" required /></FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
                   <FormField
                     control={form.control}
+                    name="street"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Street</FormLabel>
+                        <FormControl><Input placeholder="Street name" {...field} className="h-12" required /></FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+                <FormField
+                  control={form.control}
+                  name="address"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Address / Area</FormLabel>
+                      <FormControl><Input placeholder="Area, landmark, or locality" {...field} className="h-12" required /></FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <FormField
+                    control={form.control}
                     name="city"
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>City</FormLabel>
-                        <FormControl><Input placeholder="City" {...field} className="h-12" required /></FormControl>
+                        <FormControl><Input value="Bengaluru" readOnly {...field} className="h-12 bg-muted/30" /></FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="pincode"
+                    rules={{
+                      required: 'Bengaluru pincode is required',
+                      pattern: {
+                        value: /^560\d{3}$/,
+                        message: 'Enter a valid Bengaluru pincode starting with 560',
+                      },
+                    }}
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Pincode</FormLabel>
+                        <FormControl>
+                          <Input
+                            placeholder="e.g. 560001"
+                            inputMode="numeric"
+                            maxLength={6}
+                            {...field}
+                            onChange={(event) => field.onChange(event.target.value.replace(/\D/g, '').slice(0, 6))}
+                            className="h-12"
+                            required
+                          />
+                        </FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
@@ -442,44 +493,6 @@ export default function Checkout() {
                 )}
               </section>
 
-              {/* Payment Method */}
-              <section className="space-y-6">
-                <div className="flex items-center gap-3 mb-6">
-                  <div className="h-8 w-8 rounded-full bg-primary text-white flex items-center justify-center font-bold">3</div>
-                  <h3 className="text-xl font-bold text-primary">Payment Method</h3>
-                </div>
-                <FormField
-                  control={form.control}
-                  name="paymentMethod"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormControl>
-                        <RadioGroup
-                          onValueChange={field.onChange}
-                          defaultValue={field.value}
-                          className="grid grid-cols-1 md:grid-cols-3 gap-4"
-                        >
-                          <Label className={`flex flex-col items-center gap-2 p-6 rounded-xl border-2 cursor-pointer transition-all ${field.value === 'card' ? 'border-secondary bg-secondary/5' : 'border-muted'}`}>
-                            <RadioGroupItem value="card" className="sr-only" />
-                            <CreditCard className="h-8 w-8 text-primary" />
-                            <span className="font-bold text-sm">Card</span>
-                          </Label>
-                          <Label className={`flex flex-col items-center gap-2 p-6 rounded-xl border-2 cursor-pointer transition-all ${field.value === 'wallet' ? 'border-secondary bg-secondary/5' : 'border-muted'}`}>
-                            <RadioGroupItem value="wallet" className="sr-only" />
-                            <Wallet className="h-8 w-8 text-primary" />
-                            <span className="font-bold text-sm">Wallet</span>
-                          </Label>
-                          <Label className={`flex flex-col items-center gap-2 p-6 rounded-xl border-2 cursor-pointer transition-all ${field.value === 'cod' ? 'border-secondary bg-secondary/5' : 'border-muted'}`}>
-                            <RadioGroupItem value="cod" className="sr-only" />
-                            <HandCoins className="h-8 w-8 text-primary" />
-                            <span className="font-bold text-sm">COD</span>
-                          </Label>
-                        </RadioGroup>
-                      </FormControl>
-                    </FormItem>
-                  )}
-                />
-              </section>
             </div>
 
             {/* Sidebar Summary */}

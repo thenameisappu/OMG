@@ -63,6 +63,7 @@ export default function Login() {
       console.error('Login error:', error);
       if (error.response?.status === 403 && error.response?.data?.requires_verification) {
         setSignupData((prev) => ({ ...prev, email: loginData.email }));
+        if (error.response.data.dev_otp) setOtpCode(error.response.data.dev_otp);
         setOtpStep(true);
         setCooldown(60);
       }
@@ -85,7 +86,8 @@ export default function Login() {
 
     setLoading(true);
     try {
-      await signUp(signupData.email, signupData.password, signupData.name);
+      const response = await signUp(signupData.email, signupData.password, signupData.name);
+      if (response?.dev_otp) setOtpCode(response.dev_otp);
       setOtpStep(true);
       setCooldown(60);
       toast({
@@ -129,7 +131,8 @@ export default function Login() {
     if (cooldown > 0) return;
     setResending(true);
     try {
-      await resendOtp(signupData.email);
+      const response = await resendOtp(signupData.email);
+      if (response?.dev_otp) setOtpCode(response.dev_otp);
       setCooldown(60);
       toast({
         title: 'New Code Sent ✨',

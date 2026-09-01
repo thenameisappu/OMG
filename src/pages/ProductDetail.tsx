@@ -28,7 +28,7 @@ import { useCart } from '@/contexts/CartContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { getProductBySlug } from '@/db/api';
-import { surpriseService } from '@/services/api';
+import { productService, surpriseService } from '@/services/api';
 import { WishlistButton } from '@/components/common/WishlistButton';
 
 export default function ProductDetail() {
@@ -47,6 +47,8 @@ export default function ProductDetail() {
   const [pincode, setPincode] = useState('');
   const [pincodeLoading, setPincodeLoading] = useState(false);
   const [pincodeStatus, setPincodeStatus] = useState<{ valid: boolean; message: string; detail?: string } | null>(null);
+  const [selectedRating, setSelectedRating] = useState(0);
+  const [ratingSubmitting, setRatingSubmitting] = useState(false);
 
   useEffect(() => {
     if (slug) {
@@ -107,6 +109,23 @@ export default function ProductDetail() {
     }
   };
 
+  const submitRating = async () => {
+    if (!isAuthenticated || !selectedRating || !product) {
+      toast({ title: 'Please sign in to rate this product.', variant: 'destructive' });
+      return;
+    }
+    setRatingSubmitting(true);
+    try {
+      const result = await productService.submitRating(product.id, selectedRating);
+      setProduct((current: any) => ({ ...current, rating: result.rating, rating_count: result.rating_count }));
+      toast({ title: 'Rating saved', description: 'Thank you for rating this product.' });
+    } catch (error: any) {
+      toast({ title: 'Could not save rating', description: error.response?.data?.message || 'Please try again.', variant: 'destructive' });
+    } finally {
+      setRatingSubmitting(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="bg-white min-h-screen flex flex-col justify-center items-center py-32">
@@ -127,6 +146,10 @@ export default function ProductDetail() {
       </div>
     );
   }
+
+  const isFlowerOrBouquet =
+    product.category?.toLowerCase() === 'flower-arrangements' ||
+    /flower|bouquet/i.test(product.name || '');
 
   const handleAddToCart = () => {
     addToCart(product, quantity);
@@ -302,11 +325,31 @@ export default function ProductDetail() {
               <div className="flex items-center text-amber-500 font-bold">
                 {[1, 2, 3, 4, 5].map(i => <Star key={i} className="h-4 w-4 fill-current" />)}
               </div>
-              <span className="font-bold text-primary text-sm">{product.rating || 4.9}</span>
+              <span className="font-bold text-primary text-sm">{Number(product.rating || 4.9).toFixed(1)}</span>
               <Separator orientation="vertical" className="h-3.5" />
-              <span className="text-xs sm:text-sm text-muted-foreground font-normal">{product.reviews_count || 48} Verified Reviews</span>
+              <span className="text-xs sm:text-sm text-muted-foreground font-normal">{product.rating_count || product.reviews_count || 0} Ratings</span>
               <Separator orientation="vertical" className="h-3.5" />
               <span className="text-xs sm:text-sm text-emerald-600 font-bold">In Stock & Ready for Delivery</span>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-3 text-sm">
+              <span className="font-semibold text-primary">Rate this product:</span>
+              <div className="flex items-center" role="radiogroup" aria-label="Rate this product">
+                {[1, 2, 3, 4, 5].map((value) => (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() => setSelectedRating(value)}
+                    className="p-0.5"
+                    aria-label={`${value} star${value > 1 ? 's' : ''}`}
+                  >
+                    <Star className={`h-5 w-5 ${value <= selectedRating ? 'fill-amber-400 text-amber-400' : 'text-neutral-300'}`} />
+                  </button>
+                ))}
+              </div>
+              <Button type="button" size="sm" variant="outline" onClick={submitRating} disabled={ratingSubmitting || !selectedRating}>
+                {ratingSubmitting ? 'Saving...' : 'Submit Rating'}
+              </Button>
             </div>
 
             {/* Price Card */}
@@ -479,10 +522,32 @@ export default function ProductDetail() {
                 })()}
               </TabsContent>
               <TabsContent value="shipping" className="pt-3 text-xs sm:text-sm text-muted-foreground leading-relaxed font-normal">
-                Same-day express delivery across Bangalore for orders placed before 2:00 PM. Transported in specialized temperature-regulated vehicles.
+                {isFlowerOrBouquet ? (
+                  <ul className="space-y-2 list-disc pl-5">
+                    <li>Flowers are a product of nature and slight variations in color may occur.</li>
+                    <li>Flowers are seasonal. The final product may vary slightly in shape, design, or bloom stage: bud, semi-bloom, or full bloom.</li>
+                    <li>On the rare occasion a bloom is unavailable, we&apos;ll replace it with one of equal or higher value, maintaining the arrangement&apos;s style and color harmony.</li>
+                    <li>Because flowers are perishable, we&apos;re able to make only one delivery attempt, and orders cannot be redirected to a different address once they&apos;re on their way.</li>
+                    <li>This product is hand-delivered.</li>
+                  </ul>
+                ) : (
+                  'Same-day express delivery across Bangalore for orders placed before 2:00 PM. Transported in specialized temperature-regulated vehicles.'
+                )}
               </TabsContent>
               <TabsContent value="care" className="pt-3 text-xs sm:text-sm text-muted-foreground leading-relaxed font-normal">
-                Trim stems at a 45° angle, place in fresh cool water with flower food, and keep away from direct sunlight and air conditioners.
+                {isFlowerOrBouquet ? (
+                  <ul className="space-y-2 list-disc pl-5">
+                    <li>When your flowers arrive, simply cut the stems and put them in water.</li>
+                    <li>Cut the stems at 45 degrees, about 1-2 inches from the bottom.</li>
+                    <li>Remove the leaves below the waterline.</li>
+                    <li>Check the water level every day and add more if necessary.</li>
+                    <li>Don&apos;t place flowers in direct sunlight or near any other source of excessive heat.</li>
+                    <li>All flowers benefit from a daily mist of water.</li>
+                    <li>Enjoy your flowers!</li>
+                  </ul>
+                ) : (
+                  'Follow the care instructions provided with your product.'
+                )}
               </TabsContent>
             </Tabs>
           </div>
