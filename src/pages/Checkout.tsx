@@ -332,9 +332,16 @@ export default function Checkout() {
                     name="pincode"
                     rules={{
                       required: 'Pincode is required',
-                      pattern: {
-                        value: /^560\d{3}$/,
-                        message: ' Sorry, we are currently not delivering to your pincode. We currently deliver only within Bengaluru.',
+                      validate: (value) => {
+                        // Only validate when the full 6 digits are entered
+                        if (value.length < 6) {
+                          return true; // Don't show error while typing
+                        }
+                        // Check if it starts with 560 (Bengaluru)
+                        if (!value.match(/^560\d{3}$/)) {
+                          return 'Sorry, we are currently not delivering to your pincode. We currently deliver only within Bengaluru.';
+                        }
+                        return true;
                       },
                     }}
                     render={({ field }) => (
