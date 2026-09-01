@@ -1,0 +1,55 @@
+services:
+  database:
+    image: mysql:8.4
+    container_name: omg-database
+    environment:
+      MYSQL_DATABASE: omg_db
+      MYSQL_ROOT_PASSWORD: omg_root_password
+      MYSQL_USER: omg_user
+      MYSQL_PASSWORD: omg_password
+    volumes:
+      - omg-mysql-data:/var/lib/mysql
+      - ./backend/db_schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+      - ./backend/seed_products.sql:/docker-entrypoint-initdb.d/02-products.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -u root -p$$MYSQL_ROOT_PASSWORD --silent"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    image: omg-backend:latest
+    container_name: omg-backend
+    environment:
+      APP_ENV: development
+      DB_HOST: database
+      DB_NAME: omg_db
+      DB_USER: omg_user
+      DB_PASS: omg_password
+      ALLOWED_ORIGINS: http://localhost:8080,http://localhost:5173
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./uploads:/var/www/html/uploads
+    depends_on:
+      database:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        VITE_API_BASE_URL: http://localhost:8000
+    image: omg-frontend:latest
+    container_name: omg-frontend
+    ports:
+      - "8080:80"
+    depends_on:
+      - backend
+
+volumes:
+  omg-mysql-data:

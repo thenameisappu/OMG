@@ -36,12 +36,27 @@ CREATE TABLE IF NOT EXISTS `products` (
     `is_featured` BOOLEAN DEFAULT FALSE,
     `is_bestseller` BOOLEAN DEFAULT FALSE,
     `reviews_count` INT DEFAULT 0,
+    `rating` DECIMAL(2,1) DEFAULT NULL,
+    `rating_total` DECIMAL(10,1) DEFAULT 0,
+    `rating_count` INT DEFAULT 0,
     `stock_status` ENUM('in_stock', 'out_of_stock') DEFAULT 'in_stock',
     `stock_quantity` INT DEFAULT 0,
     `is_active` TINYINT(1) DEFAULT 1,
     `sku` VARCHAR(100) DEFAULT NULL,
     `images` LONGTEXT DEFAULT NULL,
     `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS `product_ratings` (
+    `id` BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    `product_id` CHAR(36) NOT NULL,
+    `user_id` CHAR(36) NOT NULL,
+    `rating` DECIMAL(2,1) NOT NULL,
+    `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY `unique_product_user_rating` (`product_id`, `user_id`),
+    FOREIGN KEY (`product_id`) REFERENCES `products`(`id`) ON DELETE CASCADE,
+    FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- 4. Orders Table
@@ -101,13 +116,6 @@ CREATE TABLE IF NOT EXISTS `admin_users` (
     `otp_expiry` DATETIME DEFAULT NULL,
     `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-
--- Safely add missing columns to admin_users if importing into an existing database
-ALTER TABLE `admin_users` ADD COLUMN `name` VARCHAR(255) AFTER `username`;
-ALTER TABLE `admin_users` ADD COLUMN `email` VARCHAR(191) UNIQUE AFTER `password`;
-ALTER TABLE `admin_users` ADD COLUMN `is_main_admin` TINYINT(1) DEFAULT 0 AFTER `email`;
-ALTER TABLE `admin_users` ADD COLUMN `otp_code` VARCHAR(6) AFTER `is_main_admin`;
-ALTER TABLE `admin_users` ADD COLUMN `otp_expiry` DATETIME AFTER `otp_code`;
 
 -- 8. Inquiries Table (Surprise / Bespoke Service requests)
 CREATE TABLE IF NOT EXISTS `inquiries` (
