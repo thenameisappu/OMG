@@ -1,11 +1,48 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowRight, Star, Truck, Calendar, Clock, Sparkles, ChevronLeft, ChevronRight, Heart, Gift, Award, Zap } from 'lucide-react';
+import { ArrowRight, Star, Truck, Calendar, Clock, Sparkles, ChevronLeft, ChevronRight, Heart, Gift, Award, Zap, Quote, MapPin } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { formatINR } from '@/lib/currency';
 import { getFeaturedProducts } from '@/db/api';
+import { testimonialService } from '@/services/api';
 import { WishlistButton } from '@/components/common/WishlistButton';
+
+// Sample testimonials fallback
+const SAMPLE_TESTIMONIALS = [
+  {
+    id: 1,
+    name: 'Priya Sharma',
+    location: 'Indiranagar, Bangalore',
+    rating: 5,
+    review: 'Absolutely stunning arrangement! The roses were incredibly fresh and the packaging was so elegant. My husband was speechless.',
+    avatar: 'PS',
+  },
+  {
+    id: 2,
+    name: 'Arjun Mehta',
+    location: 'Koramangala, Bangalore',
+    rating: 5,
+    review: 'OMG planned the most perfect rooftop surprise for my wife\'s birthday. Every detail was handled flawlessly — from the candles to the live guitarist.',
+    avatar: 'AM',
+  },
+  {
+    id: 3,
+    name: 'Sneha Reddy',
+    location: 'Whitefield, Bangalore',
+    rating: 5,
+    review: 'The hamper I ordered for my mom\'s anniversary was gorgeous. Super-fast delivery, beautifully wrapped, and the flowers lasted over 10 days.',
+    avatar: 'SR',
+  },
+  {
+    id: 4,
+    name: 'Rahul Nair',
+    location: 'JP Nagar, Bangalore',
+    rating: 5,
+    review: 'Used OMG for a proposal setup and they absolutely nailed it! The coordination was seamless and discreet. She said YES!',
+    avatar: 'RN',
+  },
+];
 
 
 
@@ -13,6 +50,53 @@ export default function Home() {
   const [featuredProducts, setFeaturedProducts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentSlide, setCurrentSlide] = useState(0);
+  
+  // Hero carousel state
+  const [currentHeroImage, setCurrentHeroImage] = useState(0);
+  const heroImages = [
+    "https://miaoda-site-img.s3cdn.medo.dev/images/KLing_1820e6cd-672c-474f-a014-772dcd375172.jpg",
+    "https://miaoda-site-img.s3cdn.medo.dev/images/KLing_8fb5dcf8-22bd-4fbd-98ba-1611bfcdcc4d.jpg",
+    "https://miaoda-site-img.s3cdn.medo.dev/images/KLing_3556e18d-69b0-4c22-93c1-29efba584217.jpg",
+    "https://miaoda-site-img.s3cdn.medo.dev/images/KLing_6bbe1cd4-2103-4b1e-b55e-83ffbca65dd2.jpg",
+  ];
+  
+  // Testimonials state
+  const [testimonials, setTestimonials] = useState<any[]>(SAMPLE_TESTIMONIALS);
+  const [testimonialsLoading, setTestimonialsLoading] = useState(true);
+  const [currentTestimonialSlide, setCurrentTestimonialSlide] = useState(0);
+
+  // Team members state
+  const [currentTeamSlide, setCurrentTeamSlide] = useState(0);
+  const teamMembers = [
+    {
+      id: 1,
+      name: 'Rahul Kumar',
+      role: 'Founder & CEO',
+      image: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=500&h=600&fit=crop',
+      bio: 'Luxury florist with 15+ years of experience in creating unforgettable moments.'
+    },
+    {
+      id: 2,
+      name: 'Priya Sharma',
+      role: 'Head of Floral Design',
+      image: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=500&h=600&fit=crop',
+      bio: 'Master florist specializing in bespoke arrangements and event styling.'
+    },
+    {
+      id: 3,
+      name: 'Arjun Nair',
+      role: 'Surprise Experience Manager',
+      image: 'https://images.unsplash.com/photo-1539571696357-5a69c006ae0f?w=500&h=600&fit=crop',
+      bio: 'Event coordinator creating magical moments for every occasion.'
+    },
+    {
+      id: 4,
+      name: 'Sneha Reddy',
+      role: 'Customer Experience Lead',
+      image: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=500&h=600&fit=crop',
+      bio: 'Dedicated to ensuring every customer receives premium concierge service.'
+    },
+  ];
 
   useEffect(() => {
     async function loadFeatured() {
@@ -28,6 +112,32 @@ export default function Home() {
     }
     loadFeatured();
   }, []);
+
+  // Load testimonials
+  useEffect(() => {
+    async function loadTestimonials() {
+      try {
+        setTestimonialsLoading(true);
+        const data = await testimonialService.getAll();
+        if (data && data.length > 0) {
+          setTestimonials(data.slice(0, 8));
+        }
+      } catch (error) {
+        console.error('Error fetching testimonials:', error);
+      } finally {
+        setTestimonialsLoading(false);
+      }
+    }
+    loadTestimonials();
+  }, []);
+
+  // Auto-advance hero carousel every 6 seconds
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentHeroImage((prev) => (prev + 1) % heroImages.length);
+    }, 6000);
+    return () => clearInterval(timer);
+  }, [heroImages.length]);
 
   const [visibleCount, setVisibleCount] = useState(() => window.innerWidth >= 1024 ? 3 : window.innerWidth >= 640 ? 2 : 1);
 
@@ -67,6 +177,80 @@ export default function Home() {
     setCurrentSlide((prev) => (prev <= 0 ? maxSlide : prev - 1));
   };
 
+  // Testimonials carousel logic
+  const [visibleTestimonialCount, setVisibleTestimonialCount] = useState(() => window.innerWidth >= 1024 ? 3 : window.innerWidth >= 640 ? 2 : 1);
+
+  useEffect(() => {
+    const onResize = () => {
+      setVisibleTestimonialCount(window.innerWidth >= 1024 ? 3 : window.innerWidth >= 640 ? 2 : 1);
+      setCurrentTestimonialSlide(0);
+    };
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
+
+  const maxTestimonialSlide = Math.max(0, testimonials.length - visibleTestimonialCount);
+
+  useEffect(() => {
+    if (currentTestimonialSlide > maxTestimonialSlide) {
+      setCurrentTestimonialSlide(maxTestimonialSlide);
+    }
+  }, [maxTestimonialSlide, currentTestimonialSlide]);
+
+  // Auto-advance testimonials carousel every 10 seconds
+  useEffect(() => {
+    if (testimonials.length === 0) return;
+    const timer = setInterval(() => {
+      setCurrentTestimonialSlide((prev) => (prev >= maxTestimonialSlide ? 0 : prev + 1));
+    }, 10000);
+    return () => clearInterval(timer);
+  }, [testimonials.length, maxTestimonialSlide]);
+
+  const nextTestimonialSlide = () => {
+    setCurrentTestimonialSlide((prev) => (prev >= maxTestimonialSlide ? 0 : prev + 1));
+  };
+
+  const prevTestimonialSlide = () => {
+    setCurrentTestimonialSlide((prev) => (prev <= 0 ? maxTestimonialSlide : prev - 1));
+  };
+
+  // Team members carousel logic
+  const [visibleTeamCount, setVisibleTeamCount] = useState(() => window.innerWidth >= 1024 ? 3 : window.innerWidth >= 640 ? 2 : 1);
+
+  useEffect(() => {
+    const onResize = () => {
+      setVisibleTeamCount(window.innerWidth >= 1024 ? 3 : window.innerWidth >= 640 ? 2 : 1);
+      setCurrentTeamSlide(0);
+    };
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
+
+  const maxTeamSlide = Math.max(0, teamMembers.length - visibleTeamCount);
+
+  useEffect(() => {
+    if (currentTeamSlide > maxTeamSlide) {
+      setCurrentTeamSlide(maxTeamSlide);
+    }
+  }, [maxTeamSlide, currentTeamSlide]);
+
+  // Auto-advance team carousel every 8 seconds
+  useEffect(() => {
+    if (teamMembers.length === 0) return;
+    const timer = setInterval(() => {
+      setCurrentTeamSlide((prev) => (prev >= maxTeamSlide ? 0 : prev + 1));
+    }, 8000);
+    return () => clearInterval(timer);
+  }, [teamMembers.length, maxTeamSlide]);
+
+  const nextTeamSlide = () => {
+    setCurrentTeamSlide((prev) => (prev >= maxTeamSlide ? 0 : prev + 1));
+  };
+
+  const prevTeamSlide = () => {
+    setCurrentTeamSlide((prev) => (prev <= 0 ? maxTeamSlide : prev - 1));
+  };
+
   return (
     <div className="flex flex-col bg-white">
       {/* Luxury Ticker Marquee Ribbon */}
@@ -90,16 +274,22 @@ export default function Home() {
         </div>
       </div>
 
-      {/* Hero Section with Live Canvas Particles */}
+      {/* Hero Section with Live Canvas Particles & Image Carousel */}
       <section className="relative h-[70vh] md:h-[90vh] w-full overflow-hidden animate-fade-in">
         <HeroParticles />
 
+        {/* Hero Image Carousel Background */}
         <div className="absolute inset-0">
-          <img
-            src="https://miaoda-site-img.s3cdn.medo.dev/images/KLing_1820e6cd-672c-474f-a014-772dcd375172.jpg"
-            alt="Luxury Flower Arrangement"
-            className="h-full w-full object-cover transition-transform duration-10000 hover:scale-110"
-          />
+          {heroImages.map((image, index) => (
+            <img
+              key={index}
+              src={image}
+              alt={`Hero Background ${index + 1}`}
+              className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-1500 ease-in-out ${
+                index === currentHeroImage ? 'opacity-100' : 'opacity-0'
+              }`}
+            />
+          ))}
           <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/40 to-transparent" />
         </div>
 
@@ -145,6 +335,21 @@ export default function Home() {
                 <Award className="h-4 w-4 text-secondary" /> Master Florist Crafted
               </span>
             </div>
+
+            {/* Hero Image Carousel Indicators */}
+            <div className="flex items-center gap-2 pt-8">
+              {heroImages.map((_, index) => (
+                <button
+                  key={index}
+                  onClick={() => setCurrentHeroImage(index)}
+                  className={cn(
+                    "h-2 rounded-full transition-all duration-300",
+                    index === currentHeroImage ? "bg-secondary w-6" : "bg-white/40 w-2 hover:bg-white/60"
+                  )}
+                  aria-label={`View hero image ${index + 1}`}
+                />
+              ))}
+            </div>
           </div>
         </div>
       </section>
@@ -178,7 +383,12 @@ export default function Home() {
 
 
       {/* Categories Section */}
-      <section className="py-24 bg-white">
+      <section className="relative py-24 overflow-hidden">
+        {/* Background that transitions with scroll */}
+        <div className="absolute inset-0 -z-10">
+          <div className="absolute inset-0 bg-gradient-to-b from-white via-secondary/5 to-white" />
+        </div>
+
         <div className="container">
           <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-16 gap-4">
             <div className="space-y-3">
@@ -375,6 +585,178 @@ export default function Home() {
         </div>
       </section>
 
+      {/* About Us - Team Members Section */}
+      <section className="py-16 md:py-24 bg-muted/20 border-y border-border">
+        <div className="container mb-10 md:mb-16">
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
+            <div className="space-y-3">
+              <span className="text-secondary font-bold text-xs tracking-widest">Meet Our Team</span>
+              <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold tracking-tight text-primary font-serif">The Minds Behind OMG</h2>
+              <div className="h-1 w-24 bg-secondary rounded-full mt-3" />
+            </div>
+            <Link to="/about" className="text-secondary text-lg font-bold flex items-center gap-2 hover:underline hover:gap-3 transition-all whitespace-nowrap">
+              View all <ArrowRight className="h-5 w-5" />
+            </Link>
+          </div>
+        </div>
+
+        <div className="container relative">
+          {/* Carousel Track */}
+          <div className="overflow-hidden">
+            <div
+              className="flex transition-transform duration-700 ease-in-out"
+              style={{
+                transform: `translateX(calc(-${currentTeamSlide} * (100% / ${visibleTeamCount})))`,
+              }}
+            >
+              {teamMembers.map((member) => (
+                <div
+                  key={member.id}
+                  style={{ width: `${100 / visibleTeamCount}%`, flexShrink: 0 }}
+                  className="px-2 md:px-3"
+                >
+                  <TeamMemberCard member={member} />
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Navigation Arrows */}
+          <button
+            onClick={prevTeamSlide}
+            disabled={teamMembers.length === 0}
+            className="absolute -left-4 md:-left-6 top-1/2 -translate-y-1/2 bg-white hover:bg-secondary hover:text-primary p-2.5 md:p-3 rounded-full shadow-lg transition-all hover:scale-110 z-10 border border-border disabled:opacity-30"
+            aria-label="Previous team member"
+          >
+            <ChevronLeft className="h-5 w-5 md:h-6 md:w-6 text-primary" />
+          </button>
+          <button
+            onClick={nextTeamSlide}
+            disabled={teamMembers.length === 0}
+            className="absolute -right-4 md:-right-6 top-1/2 -translate-y-1/2 bg-white hover:bg-secondary hover:text-primary p-2.5 md:p-3 rounded-full shadow-lg transition-all hover:scale-110 z-10 border border-border disabled:opacity-30"
+            aria-label="Next team member"
+          >
+            <ChevronRight className="h-5 w-5 md:h-6 md:w-6 text-primary" />
+          </button>
+
+          {/* Dot Indicators */}
+          <div className="flex justify-center gap-2 mt-8">
+            {Array.from({ length: maxTeamSlide + 1 }).map((_, index) => (
+              <button
+                key={index}
+                onClick={() => setCurrentTeamSlide(index)}
+                className={cn(
+                  "h-2.5 rounded-full transition-all duration-300",
+                  currentTeamSlide === index ? "bg-secondary w-8" : "bg-muted-foreground/30 w-2.5 hover:bg-secondary/50"
+                )}
+                aria-label={`Go to team member ${index + 1}`}
+              />
+            ))}
+          </div>
+
+          {/* Progress bar */}
+          {teamMembers.length > 0 && (
+            <div className="mt-4 mx-auto w-32 h-1 bg-muted rounded-full overflow-hidden">
+              <div
+                key={currentTeamSlide}
+                className="h-full bg-secondary rounded-full"
+                style={{
+                  animation: 'progress-fill 8s linear forwards'
+                }}
+              />
+            </div>
+          )}
+        </div>
+      </section>
+
+      {/* Testimonials Carousel Section */}
+      <section className="py-16 md:py-24 bg-white border-y border-border">
+        <div className="container text-center mb-10 md:mb-16 space-y-4">
+          <span className="text-secondary font-bold text-xs uppercase tracking-widest">Customer Stories</span>
+          <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold tracking-tight text-primary font-serif">What Our Customers Say</h2>
+          <div className="h-1 w-24 bg-secondary mx-auto rounded-full" />
+          <p className="text-base md:text-lg text-muted-foreground max-w-2xl mx-auto leading-relaxed">
+            Real stories from real customers who love our creations and services.
+          </p>
+        </div>
+
+        <div className="container relative">
+          {/* Carousel Track */}
+          <div className="overflow-hidden">
+            {testimonialsLoading ? (
+              <div className="flex items-center justify-center min-h-[300px]">
+                <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-secondary"></div>
+              </div>
+            ) : testimonials.length === 0 ? (
+              <p className="text-center text-muted-foreground italic text-lg py-24">No testimonials available at this time.</p>
+            ) : (
+              <div
+                className="flex transition-transform duration-700 ease-in-out"
+                style={{
+                  transform: `translateX(calc(-${currentTestimonialSlide} * (100% / ${visibleTestimonialCount})))`,
+                }}
+              >
+                {testimonials.map((testimonial) => (
+                  <div
+                    key={testimonial.id}
+                    style={{ width: `${100 / visibleTestimonialCount}%`, flexShrink: 0 }}
+                    className="px-2 md:px-3"
+                  >
+                    <TestimonialCard testimonial={testimonial} />
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Navigation Arrows */}
+          <button
+            onClick={prevTestimonialSlide}
+            disabled={testimonials.length === 0}
+            className="absolute -left-4 md:-left-6 top-1/2 -translate-y-1/2 bg-white hover:bg-secondary hover:text-primary p-2.5 md:p-3 rounded-full shadow-lg transition-all hover:scale-110 z-10 border border-border disabled:opacity-30"
+            aria-label="Previous testimonial"
+          >
+            <ChevronLeft className="h-5 w-5 md:h-6 md:w-6 text-primary" />
+          </button>
+          <button
+            onClick={nextTestimonialSlide}
+            disabled={testimonials.length === 0}
+            className="absolute -right-4 md:-right-6 top-1/2 -translate-y-1/2 bg-white hover:bg-secondary hover:text-primary p-2.5 md:p-3 rounded-full shadow-lg transition-all hover:scale-110 z-10 border border-border disabled:opacity-30"
+            aria-label="Next testimonial"
+          >
+            <ChevronRight className="h-5 w-5 md:h-6 md:w-6 text-primary" />
+          </button>
+
+          {/* Dot Indicators */}
+          <div className="flex justify-center gap-2 mt-8">
+            {Array.from({ length: maxTestimonialSlide + 1 }).map((_, index) => (
+              <button
+                key={index}
+                onClick={() => setCurrentTestimonialSlide(index)}
+                className={cn(
+                  "h-2.5 rounded-full transition-all duration-300",
+                  currentTestimonialSlide === index ? "bg-secondary w-8" : "bg-muted-foreground/30 w-2.5 hover:bg-secondary/50"
+                )}
+                aria-label={`Go to testimonial ${index + 1}`}
+              />
+            ))}
+          </div>
+
+          {/* Progress bar */}
+          {testimonials.length > 0 && (
+            <div className="mt-4 mx-auto w-32 h-1 bg-muted rounded-full overflow-hidden">
+              <div
+                key={currentTestimonialSlide}
+                className="h-full bg-secondary rounded-full"
+                style={{
+                  animation: 'progress-fill 10s linear forwards'
+                }}
+              />
+            </div>
+          )}
+        </div>
+      </section>
+
       {/* CTA Section */}
       <section className="py-28 bg-primary text-white overflow-hidden relative">
         <div className="absolute top-0 right-0 w-1/3 h-full opacity-10 pointer-events-none">
@@ -489,15 +871,15 @@ function CategoryCard({ title, subtitle, image, link, className }: { title: stri
       <img
         src={image}
         alt={title}
-        className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-110"
+        className="h-full w-full object-cover transition-all duration-1000 ease-out group-hover:brightness-110"
       />
-      <div className="absolute inset-0 bg-gradient-to-t from-primary/90 via-primary/30 to-transparent" />
+      <div className="absolute inset-0 bg-gradient-to-t from-primary/90 via-primary/30 to-transparent transition-opacity duration-700 group-hover:opacity-80" />
       <div className="absolute bottom-0 left-0 right-0 p-8">
         {subtitle && <p className="text-secondary/90 text-xs font-bold uppercase tracking-widest mb-1">{subtitle}</p>}
-        <h3 className="text-3xl font-bold font-serif text-white mb-2 group-hover:text-secondary transition-colors">{title}</h3>
-        <div className="flex items-center text-white/90 group-hover:text-secondary transition-colors font-semibold text-sm">
+        <h3 className="text-3xl font-bold font-serif text-white mb-2 group-hover:text-secondary transition-colors duration-500">{title}</h3>
+        <div className="flex items-center text-white/90 group-hover:text-secondary transition-colors duration-500 font-semibold text-sm">
           <span>Explore Collection</span>
-          <ArrowRight className="h-4 w-4 ml-2 transform group-hover:translate-x-2 transition-transform" />
+          <ArrowRight className="h-4 w-4 ml-2 transform group-hover:translate-x-2 transition-transform duration-500" />
         </div>
       </div>
     </Link>
@@ -574,5 +956,70 @@ function FlowerPattern() {
     <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg" className="w-full h-full fill-current">
       <path d="M44.7,-76.4C58.1,-69.2,69.2,-58.1,76.4,-44.7C83.7,-31.3,87,-15.7,86.6,-0.2C86.3,15.2,82.2,30.4,74.1,43.5C65.9,56.6,53.7,67.6,39.9,74.5C26,81.4,10.5,84.1,-4.7,82.2C-19.9,80.4,-34.8,74.1,-47.9,65.1C-61.1,56.1,-72.5,44.5,-79.1,30.8C-85.7,17.1,-87.5,1.2,-84.9,-13.7C-82.3,-28.7,-75.4,-42.8,-64.7,-52.3C-53.9,-61.8,-39.3,-66.7,-25.9,-73.9C-12.5,-81.1,-0.3,-90.6,12.7,-88.4C25.7,-86.2,31.3,-83.6,44.7,-76.4Z" transform="translate(100 100)" />
     </svg>
+  );
+}
+
+function TeamMemberCard({ member }: { member: any }) {
+  return (
+    <div className="group relative bg-white border border-border/60 luxury-shadow hover-lift rounded-2xl overflow-hidden flex flex-col h-full transition-all duration-300">
+      {/* Image Container */}
+      <div className="relative overflow-hidden h-64 md:h-72">
+        <img
+          src={member.image}
+          alt={member.name}
+          className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+        />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+      </div>
+
+      {/* Content Container */}
+      <div className="p-6 flex flex-col flex-1">
+        <div className="space-y-1.5 mb-3">
+          <h3 className="text-lg md:text-xl font-bold text-primary font-serif">{member.name}</h3>
+          <p className="text-secondary font-bold text-sm tracking-wider">{member.role}</p>
+        </div>
+        <p className="text-sm text-muted-foreground leading-relaxed flex-1">{member.bio}</p>
+      </div>
+    </div>
+  );
+}
+
+function TestimonialCard({ testimonial }: { testimonial: any }) {
+  return (
+    <div className="group relative bg-white border border-border/60 luxury-shadow hover-lift rounded-2xl overflow-hidden flex flex-col h-full transition-all duration-300 p-6">
+      {/* Quote icon */}
+      <Quote className="absolute right-5 top-5 h-8 w-8 text-secondary/15 transition-colors group-hover:text-secondary/25" />
+
+      {/* Stars */}
+      <div className="flex items-center gap-0.5">
+        {[1, 2, 3, 4, 5].map((i) => (
+          <Star
+            key={i}
+            className={`h-4 w-4 ${i <= (testimonial.rating || 5) ? 'fill-amber-400 text-amber-400' : 'fill-muted text-muted-foreground/30'}`}
+          />
+        ))}
+      </div>
+
+      {/* Review text */}
+      <p className="mt-4 flex-1 text-sm leading-6 text-muted-foreground">
+        "{testimonial.review}"
+      </p>
+
+      {/* Author */}
+      <div className="mt-6 flex items-center gap-3 border-t border-border/50 pt-5">
+        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-secondary/20 text-sm font-bold text-secondary ring-2 ring-secondary/30">
+          {testimonial.avatar || String(testimonial.name || 'U').slice(0, 2).toUpperCase()}
+        </div>
+        <div>
+          <p className="text-sm font-bold text-primary">{testimonial.name}</p>
+          {testimonial.location && (
+            <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+              <MapPin className="h-3 w-3 text-secondary" />
+              {testimonial.location}
+            </p>
+          )}
+        </div>
+      </div>
+    </div>
   );
 }
