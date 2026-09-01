@@ -17,7 +17,8 @@ import {
   Check,
   Clock,
   Sparkles,
-  Loader2
+  Loader2,
+  X
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -31,6 +32,16 @@ import { getProductBySlug } from '@/db/api';
 import { productService, surpriseService } from '@/services/api';
 import { WishlistButton } from '@/components/common/WishlistButton';
 
+
+function getProductRating(product: any): string {
+  if (product.rating && Number(product.rating) > 0) {
+    return Number(product.rating).toFixed(1);
+  }
+  const seed = String(product.id || product.slug || '').split('').reduce((acc: number, c: string) => acc + c.charCodeAt(0), 0);
+  const steps = [4.7, 4.8, 4.9, 5.0];
+  return steps[seed % steps.length].toFixed(1);
+}
+
 export default function ProductDetail() {
   const { slug } = useParams();
   const navigate = useNavigate();
@@ -40,6 +51,7 @@ export default function ProductDetail() {
   const { toast } = useToast();
   const [quantity, setQuantity] = useState(1);
   const [activeImage, setActiveImage] = useState(0);
+  const [isLightboxOpen, setIsLightboxOpen] = useState(false);
   const [product, setProduct] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
@@ -79,10 +91,20 @@ export default function ProductDetail() {
     if (!cleanPin || cleanPin.length !== 6) {
       setPincodeStatus({
         valid: false,
-        message: '❌ Sorry, we currently deliver only within Bengaluru.'
+        message: 'Please enter a valid 6-digit pincode.'
       });
       return;
     }
+
+    // Bengaluru pincodes always start with 560
+    if (!cleanPin.startsWith('560')) {
+      setPincodeStatus({
+        valid: false,
+        message: '😔 Sorry, we are currently not delivering to your pincode. We currently deliver only within Bengaluru.'
+      });
+      return;
+    }
+
     setPincodeLoading(true);
     setPincodeStatus(null);
     try {
@@ -91,18 +113,18 @@ export default function ProductDetail() {
         setPincodeStatus({
           valid: true,
           message: '✅ Delivery Available',
-          detail: 'Same-day delivery is available for your location.'
+          detail: res.area_name ? `Same-day delivery available to ${res.area_name}.` : 'Same-day delivery is available for your location.'
         });
       } else {
         setPincodeStatus({
           valid: false,
-          message: '❌ Sorry, we currently deliver only within Bengaluru.'
+          message: '😔 Sorry, we are currently not delivering to your pincode. We currently deliver only within Bengaluru.'
         });
       }
     } catch (e) {
       setPincodeStatus({
         valid: false,
-        message: '❌ Sorry, we currently deliver only within Bengaluru.'
+        message: '😔 Sorry, we are currently not delivering to your pincode. We currently deliver only within Bengaluru.'
       });
     } finally {
       setPincodeLoading(false);
@@ -235,7 +257,8 @@ export default function ProductDetail() {
               <img
                 src={images[activeImage] || images[0]}
                 alt={product.name}
-                className="h-full w-full object-cover transition-all duration-500 group-hover:scale-102"
+                className="h-full w-full object-cover transition-all duration-500 group-hover:scale-102 cursor-pointer"
+                onClick={() => setIsLightboxOpen(true)}
                 onError={(e) => {
                   const target = e.currentTarget as HTMLImageElement;
                   if (product.image && target.src !== product.image) {
@@ -325,7 +348,7 @@ export default function ProductDetail() {
               <div className="flex items-center text-amber-500 font-bold">
                 {[1, 2, 3, 4, 5].map(i => <Star key={i} className="h-4 w-4 fill-current" />)}
               </div>
-              <span className="font-bold text-primary text-sm">{Number(product.rating || 4.9).toFixed(1)}</span>
+              <span className="font-bold text-primary text-sm">{getProductRating(product)}</span>
               <Separator orientation="vertical" className="h-3.5" />
               <span className="text-xs sm:text-sm text-muted-foreground font-normal">{product.rating_count || product.reviews_count || 0} Ratings</span>
               <Separator orientation="vertical" className="h-3.5" />
@@ -508,12 +531,9 @@ export default function ProductDetail() {
                   return (
                     <>
                       {featuresList.length > 0 && (
-                        <ul className="space-y-1.5 list-none pl-0">
+                        <ul className="space-y-2 list-disc pl-5">
                           {featuresList.map((feature, idx) => (
-                            <li key={idx} className="flex items-start gap-2 text-muted-foreground text-xs sm:text-sm">
-                              <span className="text-secondary font-bold text-base leading-none">•</span>
-                              <span>{feature}</span>
-                            </li>
+                            <li key={idx}>{feature}</li>
                           ))}
                         </ul>
                       )}
@@ -553,6 +573,25 @@ export default function ProductDetail() {
           </div>
         </div>
       </div>
+
+      {/* Full Screen Image Lightbox */}
+      {isLightboxOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 p-4 sm:p-8 animate-in fade-in duration-200" onClick={() => setIsLightboxOpen(false)}>
+          <button
+            onClick={() => setIsLightboxOpen(false)}
+            className="absolute top-4 right-4 sm:top-8 sm:right-8 p-2 bg-white/10 hover:bg-white/20 text-white rounded-full transition-colors z-[101]"
+            aria-label="Close fullscreen image"
+          >
+            <X className="h-6 w-6 sm:h-8 sm:w-8" />
+          </button>
+          <img
+            src={images[activeImage] || images[0]}
+            alt={product.name}
+            className="max-w-full max-h-full object-contain select-none"
+            onClick={(e) => e.stopPropagation()}
+          />
+        </div>
+      )}
     </div>
   );
 }

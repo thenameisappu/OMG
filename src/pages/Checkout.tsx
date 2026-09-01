@@ -66,6 +66,7 @@ export default function Checkout() {
   };
 
   const form = useForm({
+    mode: 'onChange',
     defaultValues: {
       name: user?.name || '',
       email: user?.email || '',
@@ -330,10 +331,10 @@ export default function Checkout() {
                     control={form.control}
                     name="pincode"
                     rules={{
-                      required: 'Bengaluru pincode is required',
+                      required: 'Pincode is required',
                       pattern: {
                         value: /^560\d{3}$/,
-                        message: 'Enter a valid Bengaluru pincode starting with 560',
+                        message: ' Sorry, we are currently not delivering to your pincode. We currently deliver only within Bengaluru.',
                       },
                     }}
                     render={({ field }) => (

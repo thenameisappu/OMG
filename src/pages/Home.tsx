@@ -120,9 +120,8 @@ export default function Home() {
 
             <div className="flex flex-col sm:flex-row flex-wrap gap-4 pt-4">
               <Link to="/products" className="w-full sm:w-auto">
-                <Button size="lg" variant="secondary" className="w-full sm:w-auto h-14 px-8 text-base font-bold hover-lift shadow-xl rounded-full">
-                  Shop Collection's
-                  <ArrowRight className="ml-2 h-5 w-5" />
+                <Button size="lg" variant="outline" className="w-full sm:w-auto h-14 px-8 text-base font-bold text-white border-secondary/60 bg-black/30 backdrop-blur-md hover:bg-secondary hover:text-primary transition-all rounded-full">
+                  Shop Collection
                 </Button>
               </Link>
               <Link to="/surprise-services" className="w-full sm:w-auto">
@@ -505,6 +504,17 @@ function CategoryCard({ title, subtitle, image, link, className }: { title: stri
   );
 }
 
+function getProductRating(product: any): string {
+  // If the product has a real DB rating, use it
+  if (product.rating && Number(product.rating) > 0) {
+    return Number(product.rating).toFixed(1);
+  }
+  // Otherwise derive a stable pseudo-random rating (4.7–5.0) from the product id
+  const seed = String(product.id || product.slug || '').split('').reduce((acc, c) => acc + c.charCodeAt(0), 0);
+  const steps = [4.7, 4.8, 4.9, 5.0];
+  return steps[seed % steps.length].toFixed(1);
+}
+
 function ProductCard({ product }: { product: any }) {
   return (
     <div
@@ -540,7 +550,7 @@ function ProductCard({ product }: { product: any }) {
           </Link>
           <div className="flex items-center text-amber-500 flex-shrink-0">
             <Star className="h-3.5 w-3.5 fill-current" />
-            <span className="text-xs font-bold ml-1 text-muted-foreground">4.9</span>
+            <span className="text-xs font-bold ml-1 text-muted-foreground">{getProductRating(product)}</span>
           </div>
         </div>
         <p className="text-xs text-muted-foreground line-clamp-2 mb-4 flex-1 leading-relaxed">

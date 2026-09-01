@@ -297,3 +297,21 @@ export const surpriseService = {
     }
 };
 
+// Testimonials Service
+export const testimonialService = {
+    getAll: async (): Promise<any[]> => {
+        try {
+            const response = await api.get('/testimonials.php?action=get_all');
+            if (response.data?.success && Array.isArray(response.data.testimonials) && response.data.testimonials.length > 0) {
+                return response.data.testimonials;
+            }
+            return [];
+        } catch {
+            return [];
+        }
+    },
+    submit: async (data: { name: string; review: string; rating: number; location?: string }): Promise<any> => {
+        const response = await api.post('/testimonials.php', data);
+        return response.data;
+    }
+};

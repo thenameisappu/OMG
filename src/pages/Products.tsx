@@ -397,6 +397,15 @@ export default function Products() {
   );
 }
 
+function getProductRating(product: any): string {
+  if (product.rating && Number(product.rating) > 0) {
+    return Number(product.rating).toFixed(1);
+  }
+  const seed = String(product.id || product.slug || '').split('').reduce((acc: number, c: string) => acc + c.charCodeAt(0), 0);
+  const steps = [4.7, 4.8, 4.9, 5.0];
+  return steps[seed % steps.length].toFixed(1);
+}
+
 function ProductCard({ product }: { product: any }) {
   const { addToCart } = useCart();
   const { toast } = useToast();
@@ -465,7 +474,7 @@ function ProductCard({ product }: { product: any }) {
           </span>
           <div className="flex items-center gap-0.5 text-amber-500">
             <Star className="h-3 w-3 fill-current" />
-            <span className="text-[11px] font-bold text-muted-foreground">4.9</span>
+            <span className="text-[11px] font-bold text-muted-foreground">{getProductRating(product)}</span>
           </div>
         </div>
 
