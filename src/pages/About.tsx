@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Flower2, Gift, HeartHandshake, Sparkles, Star, Quote, MapPin } from 'lucide-react';
 import { testimonialService } from '@/services/api';
+import { TeamShowcase } from '@/components/TeamShowcase';
 
 const values = [
   {
@@ -20,36 +21,7 @@ const values = [
   },
 ];
 
-const teamMembers = [
-  {
-    id: 1,
-    name: 'Rahul Kumar',
-    role: 'Founder & CEO',
-    image: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=500&h=600&fit=crop',
-    bio: 'Luxury florist with 15+ years of experience in creating unforgettable moments.'
-  },
-  {
-    id: 2,
-    name: 'Priya Sharma',
-    role: 'Head of Floral Design',
-    image: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=500&h=600&fit=crop',
-    bio: 'Master florist specializing in bespoke arrangements and event styling.'
-  },
-  {
-    id: 3,
-    name: 'Arjun Nair',
-    role: 'Surprise Experience Manager',
-    image: 'https://images.unsplash.com/photo-1539571696357-5a69c006ae0f?w=500&h=600&fit=crop',
-    bio: 'Event coordinator creating magical moments for every occasion.'
-  },
-  {
-    id: 4,
-    name: 'Sneha Reddy',
-    role: 'Customer Experience Lead',
-    image: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=500&h=600&fit=crop',
-    bio: 'Dedicated to ensuring every customer receives premium concierge service.'
-  },
-];
+
 
 const processSteps = [
   'Discover the collection',
@@ -178,37 +150,18 @@ export default function About() {
         </div>
       </section>
 
-      {/* Our Team */}
-      <section className="container mx-auto max-w-5xl px-6 py-20 md:py-28">
-        <div className="mb-14 text-center md:text-left">
-          <p className="text-xs font-bold uppercase tracking-[0.2em] text-secondary">Meet the team</p>
-          <h2 className="mt-3 font-serif text-3xl font-bold text-primary md:text-4xl">The Minds Behind OMG</h2>
+      {/* Our Team - Executive Spotlight */}
+      <section className="container mx-auto max-w-6xl px-6 py-20 md:py-28">
+        <div className="mb-12 text-center md:text-left">
+          <p className="text-xs font-bold uppercase tracking-[0.25em] text-secondary">Leadership &amp; Floral Artisans</p>
+          <h2 className="mt-3 font-serif text-3xl font-bold text-primary md:text-5xl">The Minds Behind OMG</h2>
           <div className="mt-4 h-1 w-24 bg-secondary rounded-full" />
+          <p className="mt-3 text-sm text-muted-foreground max-w-xl">
+            Meet the master florists, experience architects, and concierge specialists dedicated to making your celebrations unforgettable.
+          </p>
         </div>
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-          {teamMembers.map((member) => (
-            <article key={member.id} className="group relative bg-white border border-border/60 luxury-shadow rounded-2xl overflow-hidden flex flex-col transition-all duration-300">
-              {/* Image Container */}
-              <div className="relative overflow-hidden h-64">
-                <img
-                  src={member.image}
-                  alt={member.name}
-                  className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-              </div>
-
-              {/* Content Container */}
-              <div className="p-5 flex flex-col flex-1">
-                <div className="space-y-1 mb-3">
-                  <h3 className="text-lg font-bold text-primary font-serif">{member.name}</h3>
-                  <p className="text-secondary font-bold text-xs tracking-wider uppercase">{member.role}</p>
-                </div>
-                <p className="text-xs text-muted-foreground leading-relaxed flex-1">{member.bio}</p>
-              </div>
-            </article>
-          ))}
-        </div>
+        
+        <TeamShowcase autoPlay={false} />
       </section>
 
       {/* Values */}

@@ -5,8 +5,8 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { formatINR } from '@/lib/currency';
 import { getFeaturedProducts } from '@/db/api';
-import { testimonialService } from '@/services/api';
 import { WishlistButton } from '@/components/common/WishlistButton';
+import { TeamShowcase } from '@/components/TeamShowcase';
 
 // Sample testimonials fallback
 const SAMPLE_TESTIMONIALS = [
@@ -65,38 +65,7 @@ export default function Home() {
   const [testimonialsLoading, setTestimonialsLoading] = useState(true);
   const [currentTestimonialSlide, setCurrentTestimonialSlide] = useState(0);
 
-  // Team members state
-  const [currentTeamSlide, setCurrentTeamSlide] = useState(0);
-  const teamMembers = [
-    {
-      id: 1,
-      name: 'Rahul Kumar',
-      role: 'Founder & CEO',
-      image: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=500&h=600&fit=crop',
-      bio: 'Luxury florist with 15+ years of experience in creating unforgettable moments.'
-    },
-    {
-      id: 2,
-      name: 'Priya Sharma',
-      role: 'Head of Floral Design',
-      image: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=500&h=600&fit=crop',
-      bio: 'Master florist specializing in bespoke arrangements and event styling.'
-    },
-    {
-      id: 3,
-      name: 'Arjun Nair',
-      role: 'Surprise Experience Manager',
-      image: 'https://images.unsplash.com/photo-1539571696357-5a69c006ae0f?w=500&h=600&fit=crop',
-      bio: 'Event coordinator creating magical moments for every occasion.'
-    },
-    {
-      id: 4,
-      name: 'Sneha Reddy',
-      role: 'Customer Experience Lead',
-      image: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=500&h=600&fit=crop',
-      bio: 'Dedicated to ensuring every customer receives premium concierge service.'
-    },
-  ];
+
 
   useEffect(() => {
     async function loadFeatured() {
@@ -214,42 +183,7 @@ export default function Home() {
     setCurrentTestimonialSlide((prev) => (prev <= 0 ? maxTestimonialSlide : prev - 1));
   };
 
-  // Team members carousel logic
-  const [visibleTeamCount, setVisibleTeamCount] = useState(() => window.innerWidth >= 1024 ? 3 : window.innerWidth >= 640 ? 2 : 1);
 
-  useEffect(() => {
-    const onResize = () => {
-      setVisibleTeamCount(window.innerWidth >= 1024 ? 3 : window.innerWidth >= 640 ? 2 : 1);
-      setCurrentTeamSlide(0);
-    };
-    window.addEventListener('resize', onResize);
-    return () => window.removeEventListener('resize', onResize);
-  }, []);
-
-  const maxTeamSlide = Math.max(0, teamMembers.length - visibleTeamCount);
-
-  useEffect(() => {
-    if (currentTeamSlide > maxTeamSlide) {
-      setCurrentTeamSlide(maxTeamSlide);
-    }
-  }, [maxTeamSlide, currentTeamSlide]);
-
-  // Auto-advance team carousel every 8 seconds
-  useEffect(() => {
-    if (teamMembers.length === 0) return;
-    const timer = setInterval(() => {
-      setCurrentTeamSlide((prev) => (prev >= maxTeamSlide ? 0 : prev + 1));
-    }, 8000);
-    return () => clearInterval(timer);
-  }, [teamMembers.length, maxTeamSlide]);
-
-  const nextTeamSlide = () => {
-    setCurrentTeamSlide((prev) => (prev >= maxTeamSlide ? 0 : prev + 1));
-  };
-
-  const prevTeamSlide = () => {
-    setCurrentTeamSlide((prev) => (prev <= 0 ? maxTeamSlide : prev - 1));
-  };
 
   return (
     <div className="flex flex-col bg-white">
@@ -585,87 +519,23 @@ export default function Home() {
         </div>
       </section>
 
-      {/* About Us - Team Members Section */}
-      <section className="py-16 md:py-24 bg-muted/20 border-y border-border">
-        <div className="container mb-10 md:mb-16">
+      {/* About Us - Executive Team Spotlight Section */}
+      <section className="py-16 md:py-24 bg-[#FAF6F0]/70 dark:bg-muted/10 border-y border-[#EADBCE] dark:border-border relative overflow-hidden">
+        <div className="container mb-8 md:mb-12">
           <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
-            <div className="space-y-3">
-              <span className="text-secondary font-bold text-xs tracking-widest">Meet Our Team</span>
+            <div className="space-y-2">
+              <span className="text-secondary font-bold text-xs uppercase tracking-[0.25em]">Our Leadership &amp; Artisans</span>
               <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold tracking-tight text-primary font-serif">The Minds Behind OMG</h2>
-              <div className="h-1 w-24 bg-secondary rounded-full mt-3" />
+              <div className="h-1 w-24 bg-secondary rounded-full mt-2" />
             </div>
-            <Link to="/about" className="text-secondary text-lg font-bold flex items-center gap-2 hover:underline hover:gap-3 transition-all whitespace-nowrap">
-              View all <ArrowRight className="h-5 w-5" />
+            <Link to="/about" className="text-secondary text-base md:text-lg font-bold flex items-center gap-2 hover:underline hover:gap-3 transition-all whitespace-nowrap">
+              Explore Our Story <ArrowRight className="h-5 w-5" />
             </Link>
           </div>
         </div>
 
-        <div className="container relative">
-          {/* Carousel Track */}
-          <div className="overflow-hidden">
-            <div
-              className="flex transition-transform duration-700 ease-in-out"
-              style={{
-                transform: `translateX(calc(-${currentTeamSlide} * (100% / ${visibleTeamCount})))`,
-              }}
-            >
-              {teamMembers.map((member) => (
-                <div
-                  key={member.id}
-                  style={{ width: `${100 / visibleTeamCount}%`, flexShrink: 0 }}
-                  className="px-2 md:px-3"
-                >
-                  <TeamMemberCard member={member} />
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Navigation Arrows */}
-          <button
-            onClick={prevTeamSlide}
-            disabled={teamMembers.length === 0}
-            className="absolute -left-4 md:-left-6 top-1/2 -translate-y-1/2 bg-white hover:bg-secondary hover:text-primary p-2.5 md:p-3 rounded-full shadow-lg transition-all hover:scale-110 z-10 border border-border disabled:opacity-30"
-            aria-label="Previous team member"
-          >
-            <ChevronLeft className="h-5 w-5 md:h-6 md:w-6 text-primary" />
-          </button>
-          <button
-            onClick={nextTeamSlide}
-            disabled={teamMembers.length === 0}
-            className="absolute -right-4 md:-right-6 top-1/2 -translate-y-1/2 bg-white hover:bg-secondary hover:text-primary p-2.5 md:p-3 rounded-full shadow-lg transition-all hover:scale-110 z-10 border border-border disabled:opacity-30"
-            aria-label="Next team member"
-          >
-            <ChevronRight className="h-5 w-5 md:h-6 md:w-6 text-primary" />
-          </button>
-
-          {/* Dot Indicators */}
-          <div className="flex justify-center gap-2 mt-8">
-            {Array.from({ length: maxTeamSlide + 1 }).map((_, index) => (
-              <button
-                key={index}
-                onClick={() => setCurrentTeamSlide(index)}
-                className={cn(
-                  "h-2.5 rounded-full transition-all duration-300",
-                  currentTeamSlide === index ? "bg-secondary w-8" : "bg-muted-foreground/30 w-2.5 hover:bg-secondary/50"
-                )}
-                aria-label={`Go to team member ${index + 1}`}
-              />
-            ))}
-          </div>
-
-          {/* Progress bar */}
-          {teamMembers.length > 0 && (
-            <div className="mt-4 mx-auto w-32 h-1 bg-muted rounded-full overflow-hidden">
-              <div
-                key={currentTeamSlide}
-                className="h-full bg-secondary rounded-full"
-                style={{
-                  animation: 'progress-fill 8s linear forwards'
-                }}
-              />
-            </div>
-          )}
+        <div className="container">
+          <TeamShowcase autoPlay={true} />
         </div>
       </section>
 
@@ -956,31 +826,6 @@ function FlowerPattern() {
     <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg" className="w-full h-full fill-current">
       <path d="M44.7,-76.4C58.1,-69.2,69.2,-58.1,76.4,-44.7C83.7,-31.3,87,-15.7,86.6,-0.2C86.3,15.2,82.2,30.4,74.1,43.5C65.9,56.6,53.7,67.6,39.9,74.5C26,81.4,10.5,84.1,-4.7,82.2C-19.9,80.4,-34.8,74.1,-47.9,65.1C-61.1,56.1,-72.5,44.5,-79.1,30.8C-85.7,17.1,-87.5,1.2,-84.9,-13.7C-82.3,-28.7,-75.4,-42.8,-64.7,-52.3C-53.9,-61.8,-39.3,-66.7,-25.9,-73.9C-12.5,-81.1,-0.3,-90.6,12.7,-88.4C25.7,-86.2,31.3,-83.6,44.7,-76.4Z" transform="translate(100 100)" />
     </svg>
-  );
-}
-
-function TeamMemberCard({ member }: { member: any }) {
-  return (
-    <div className="group relative bg-white border border-border/60 luxury-shadow hover-lift rounded-2xl overflow-hidden flex flex-col h-full transition-all duration-300">
-      {/* Image Container */}
-      <div className="relative overflow-hidden h-64 md:h-72">
-        <img
-          src={member.image}
-          alt={member.name}
-          className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-        />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-      </div>
-
-      {/* Content Container */}
-      <div className="p-6 flex flex-col flex-1">
-        <div className="space-y-1.5 mb-3">
-          <h3 className="text-lg md:text-xl font-bold text-primary font-serif">{member.name}</h3>
-          <p className="text-secondary font-bold text-sm tracking-wider">{member.role}</p>
-        </div>
-        <p className="text-sm text-muted-foreground leading-relaxed flex-1">{member.bio}</p>
-      </div>
-    </div>
   );
 }
 
