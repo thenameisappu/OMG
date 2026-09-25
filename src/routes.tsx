@@ -4,6 +4,7 @@ import ProductDetail from './pages/ProductDetail';
 import Cart from './pages/Cart';
 import Checkout from './pages/Checkout';
 import SurpriseServices from './pages/SurpriseServices';
+import Subscriptions from './pages/Subscriptions';
 import Wishlist from './pages/Wishlist';
 import Login from './pages/Login';
 import VerifyOtp from './pages/VerifyOtp';
@@ -54,6 +55,11 @@ const routes: RouteConfig[] = [
     name: 'Surprise Services',
     path: '/surprise-services',
     element: <SurpriseServices />
+  },
+  {
+    name: 'Subscriptions',
+    path: '/subscriptions',
+    element: <Subscriptions />
   },
   {
     name: 'Wishlist',

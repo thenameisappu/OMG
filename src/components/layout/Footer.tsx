@@ -110,6 +110,7 @@ export default function Footer() {
             <li><Link to="/products?category=gift-hampers" className="hover:text-secondary transition-colors">Oh My Love's</Link></li>
             <li><Link to="/products?category=signature-collection" className="hover:text-secondary transition-colors">Oh My Signature's</Link></li>
             <li><Link to="/products?category=occasions" className="hover:text-secondary transition-colors">Oh My Moment's</Link></li>
+            <li><Link to="/subscriptions" className="hover:text-secondary transition-colors flex items-center gap-1.5">🌸 Floral Subscriptions</Link></li>
 
           </ul>
         </div>

@@ -120,6 +120,19 @@ function createOrder($db, $userId, $data)
                 if ($product['stock_status'] === 'out_of_stock' || (int)$product['stock_quantity'] < $item->quantity) {
                     throw new Exception("Product '" . $product['name'] . "' has insufficient stock available (Requested: " . $item->quantity . ", Available: " . $product['stock_quantity'] . ").");
                 }
+            } else if (strpos((string)$item->product_id, 'exp-') === 0 || strpos((string)$item->product_id, 'surprise-') === 0) {
+                // Auto-register experience item in products table so foreign key constraints & order records succeed seamlessly
+                $expName = !empty($item->name) ? $item->name : "Bespoke Experience Reservation";
+                $expSlug = 'exp-' . strtolower(preg_replace('/[^a-z0-9]+/i', '-', $expName)) . '-' . substr(md5($item->product_id), 0, 6);
+                $expPrice = (float)$item->unit_price;
+                $insProduct = $db->prepare("INSERT IGNORE INTO products (id, name, slug, description, price, category, is_active, stock_status, stock_quantity) VALUES (:id, :name, :slug, :desc, :price, 'occasions', 1, 'in_stock', 999)");
+                $insProduct->execute([
+                    ':id' => $item->product_id,
+                    ':name' => $expName,
+                    ':slug' => $expSlug,
+                    ':desc' => 'Bespoke Experience Reservation with on-site coordination & styling',
+                    ':price' => $expPrice
+                ]);
             } else {
                 throw new Exception("Product ID " . $item->product_id . " not found.");
             }

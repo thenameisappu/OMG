@@ -179,3 +179,51 @@ CREATE TABLE IF NOT EXISTS `surprise_upgrades` (
     `is_active` TINYINT(1) DEFAULT 1,
     `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 13. Subscription Plans Table (Monthly / Quarterly / Yearly tiers)
+CREATE TABLE IF NOT EXISTS `subscription_plans` (
+    `id` INT AUTO_INCREMENT PRIMARY KEY,
+    `name` VARCHAR(255) NOT NULL,
+    `slug` VARCHAR(100) UNIQUE NOT NULL,
+    `tagline` VARCHAR(255),
+    `description` TEXT,
+    `frequency` ENUM('monthly', 'quarterly', 'yearly') NOT NULL,
+    `deliveries_per_year` INT NOT NULL DEFAULT 12,
+    `price_per_delivery` DECIMAL(10,2) NOT NULL,
+    `total_price` DECIMAL(10,2) NOT NULL,
+    `savings_percent` INT DEFAULT 0,
+    `features` LONGTEXT,
+    `is_popular` TINYINT(1) DEFAULT 0,
+    `is_active` TINYINT(1) DEFAULT 1,
+    `display_order` INT DEFAULT 0,
+    `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Seed default subscription plans
+INSERT IGNORE INTO `subscription_plans`
+  (`name`, `slug`, `tagline`, `description`, `frequency`, `deliveries_per_year`, `price_per_delivery`, `total_price`, `savings_percent`, `features`, `is_popular`, `display_order`)
+VALUES
+  ('Monthly Bloom', 'monthly-bloom', 'Fresh joy, every month', 'Receive a curated luxury floral arrangement or hamper delivered to your loved one once a month, timed perfectly around your chosen occasion date.', 'monthly', 12, 999.00, 11988.00, 0, '["1 curated delivery per month","Occasion-timed delivery","Handpicked seasonal blooms","Premium packaging & ribbon","Digital occasion reminder","Free delivery within Bangalore"]', 0, 1),
+  ('Quarterly Celebration', 'quarterly-celebration', 'Four grand moments a year', 'Let us surprise your loved one four times a year with an exclusive curated hamper or luxury arrangement for each season of your special bond.', 'quarterly', 4, 1799.00, 7196.00, 20, '["1 premium delivery every quarter","Larger luxury arrangements","Seasonal exclusive hampers","Personalized message card","Photo delivery confirmation","Free priority delivery"]', 1, 2),
+  ('Annual Romance', 'annual-romance', 'The grandest single gesture', 'One extraordinary, over-the-top floral creation or premium hamper set once a year on your most special occasion — crafted as a true masterpiece.', 'yearly', 1, 3999.00, 3999.00, 33, '["1 grand annual delivery","Bespoke signature arrangement","Complimentary add-on upgrade","Dedicated florist consultation","Premium keepsake packaging","Express same-day delivery option"]', 0, 3);
+
+-- 14. Customer Subscriptions Table (user subscription records)
+CREATE TABLE IF NOT EXISTS `subscriptions` (
+    `id` CHAR(36) PRIMARY KEY,
+    `user_id` CHAR(36) NOT NULL,
+    `plan_id` INT NOT NULL,
+    `occasion_type` VARCHAR(100) NOT NULL,
+    `occasion_date` DATE NOT NULL,
+    `recipient_name` VARCHAR(255),
+    `recipient_phone` VARCHAR(30),
+    `delivery_address` TEXT,
+    `city` VARCHAR(100) DEFAULT 'Bangalore',
+    `status` ENUM('active', 'paused', 'cancelled', 'expired') DEFAULT 'active',
+    `next_delivery_date` DATE,
+    `total_deliveries` INT DEFAULT 0,
+    `notes` TEXT,
+    `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE,
+    FOREIGN KEY (`plan_id`) REFERENCES `subscription_plans`(`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

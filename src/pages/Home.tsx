@@ -1,10 +1,11 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowRight, Star, Truck, Calendar, Clock, Sparkles, ChevronLeft, ChevronRight, Heart, Gift, Award, Zap, Quote, MapPin } from 'lucide-react';
+import { ArrowRight, Star, Truck, Calendar, Clock, Sparkles, ChevronLeft, ChevronRight, Heart, Gift, Award, Zap, Quote, MapPin, Flame } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { formatINR } from '@/lib/currency';
-import { getFeaturedProducts } from '@/db/api';
+import { getProducts } from '@/db/api';
+import { testimonialService } from '@/services/api';
 import { WishlistButton } from '@/components/common/WishlistButton';
 import { TeamShowcase } from '@/components/TeamShowcase';
 
@@ -44,12 +45,86 @@ const SAMPLE_TESTIMONIALS = [
   },
 ];
 
+/**
+ * Partitions products into 3 strictly non-overlapping groups:
+ * 1. newlyLaunched: newest items by created_at DESC (if a new product is added, it comes here first)
+ * 2. featured: products marked is_featured (strictly excluding items already in newlyLaunched)
+ * 3. bestSellers: products marked is_bestseller or top picks (strictly excluding items in newlyLaunched or featured)
+ * Guarantees zero duplicate products across all 3 sections.
+ */
+function partitionHomeProducts(products: any[]) {
+  if (!Array.isArray(products) || products.length === 0) {
+    return { newlyLaunched: [], featured: [], bestSellers: [] };
+  }
 
+  const usedIds = new Set<string>();
+  const newlyLaunched: any[] = [];
+  const featured: any[] = [];
+  const bestSellers: any[] = [];
+
+  const total = products.length;
+  // Target up to 10 per section when enough products exist; otherwise distribute fairly
+  const targetPerSection = total >= 24 ? 10 : Math.max(1, Math.floor(total / 3));
+  const maxPerSection = 10;
+
+  // 1. Newly Launched: newest products first (API returns ordered by created_at DESC)
+  for (const p of products) {
+    if (newlyLaunched.length >= targetPerSection) break;
+    const pId = String(p.id);
+    if (!usedIds.has(pId)) {
+      newlyLaunched.push(p);
+      usedIds.add(pId);
+    }
+  }
+
+  // 2. Featured Arrangements: products marked is_featured
+  for (const p of products) {
+    if (featured.length >= targetPerSection) break;
+    const pId = String(p.id);
+    if (!usedIds.has(pId) && (p.is_featured === true || Number(p.is_featured) === 1)) {
+      featured.push(p);
+      usedIds.add(pId);
+    }
+  }
+  // Backfill featured from unused products if below target
+  if (featured.length < targetPerSection) {
+    for (const p of products) {
+      if (featured.length >= targetPerSection) break;
+      const pId = String(p.id);
+      if (!usedIds.has(pId)) {
+        featured.push(p);
+        usedIds.add(pId);
+      }
+    }
+  }
+
+  // 3. Shop by Best Sellers: products marked is_bestseller
+  for (const p of products) {
+    if (bestSellers.length >= maxPerSection) break;
+    const pId = String(p.id);
+    if (!usedIds.has(pId) && (p.is_bestseller === true || Number(p.is_bestseller) === 1)) {
+      bestSellers.push(p);
+      usedIds.add(pId);
+    }
+  }
+  // Backfill bestSellers with remaining unused products up to max 10
+  for (const p of products) {
+    if (bestSellers.length >= maxPerSection) break;
+    const pId = String(p.id);
+    if (!usedIds.has(pId)) {
+      bestSellers.push(p);
+      usedIds.add(pId);
+    }
+  }
+
+  return { newlyLaunched, featured, bestSellers };
+}
 
 export default function Home() {
+  const [newlyLaunchedProducts, setNewlyLaunchedProducts] = useState<any[]>([]);
   const [featuredProducts, setFeaturedProducts] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [currentSlide, setCurrentSlide] = useState(0);
+  const [bestSellerProducts, setBestSellerProducts] = useState<any[]>([]);
+  const [productsLoading, setProductsLoading] = useState(true);
   
   // Hero carousel state
   const [currentHeroImage, setCurrentHeroImage] = useState(0);
@@ -65,21 +140,23 @@ export default function Home() {
   const [testimonialsLoading, setTestimonialsLoading] = useState(true);
   const [currentTestimonialSlide, setCurrentTestimonialSlide] = useState(0);
 
-
-
+  // Fetch and partition all products without duplicate items across sections
   useEffect(() => {
-    async function loadFeatured() {
+    async function loadProductsData() {
       try {
-        setLoading(true);
-        const data = await getFeaturedProducts();
-        setFeaturedProducts(Array.isArray(data) ? data.slice(0, 10) : []);
+        setProductsLoading(true);
+        const data = await getProducts();
+        const partitioned = partitionHomeProducts(Array.isArray(data) ? data : []);
+        setNewlyLaunchedProducts(partitioned.newlyLaunched);
+        setFeaturedProducts(partitioned.featured);
+        setBestSellerProducts(partitioned.bestSellers);
       } catch (error) {
-        console.error('Error fetching featured products:', error);
+        console.error('Error fetching home products:', error);
       } finally {
-        setLoading(false);
+        setProductsLoading(false);
       }
     }
-    loadFeatured();
+    loadProductsData();
   }, []);
 
   // Load testimonials
@@ -107,44 +184,6 @@ export default function Home() {
     }, 6000);
     return () => clearInterval(timer);
   }, [heroImages.length]);
-
-  const [visibleCount, setVisibleCount] = useState(() => window.innerWidth >= 1024 ? 3 : window.innerWidth >= 640 ? 2 : 1);
-
-  // Update visible count on resize
-  useEffect(() => {
-    const onResize = () => {
-      setVisibleCount(window.innerWidth >= 1024 ? 3 : window.innerWidth >= 640 ? 2 : 1);
-      setCurrentSlide(0);
-    };
-    window.addEventListener('resize', onResize);
-    return () => window.removeEventListener('resize', onResize);
-  }, []);
-
-  const maxSlide = Math.max(0, featuredProducts.length - visibleCount);
-
-  // Reset/clamp current slide if maxSlide changes
-  useEffect(() => {
-    if (currentSlide > maxSlide) {
-      setCurrentSlide(maxSlide);
-    }
-  }, [maxSlide, currentSlide]);
-
-  // Auto-advance carousel every 10 seconds
-  useEffect(() => {
-    if (featuredProducts.length === 0) return;
-    const timer = setInterval(() => {
-      setCurrentSlide((prev) => (prev >= maxSlide ? 0 : prev + 1));
-    }, 10000);
-    return () => clearInterval(timer);
-  }, [featuredProducts.length, maxSlide]);
-
-  const nextSlide = () => {
-    setCurrentSlide((prev) => (prev >= maxSlide ? 0 : prev + 1));
-  };
-
-  const prevSlide = () => {
-    setCurrentSlide((prev) => (prev <= 0 ? maxSlide : prev - 1));
-  };
 
   // Testimonials carousel logic
   const [visibleTestimonialCount, setVisibleTestimonialCount] = useState(() => window.innerWidth >= 1024 ? 3 : window.innerWidth >= 640 ? 2 : 1);
@@ -314,8 +353,6 @@ export default function Home() {
         </div>
       </section>
 
-
-
       {/* Categories Section */}
       <section className="relative py-24 overflow-hidden">
         {/* Background that transitions with scroll */}
@@ -364,93 +401,53 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Featured Products Carousel — 3 per row, slides 1 at a time */}
-      <section className="py-16 md:py-24 bg-muted/30 border-y border-border">
-        <div className="container text-center mb-10 md:mb-16 space-y-4">
-          <span className="text-secondary font-bold text-xs uppercase tracking-widest">Masterpiece Selection</span>
-          <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold tracking-tight text-primary font-serif">Featured Arrangements</h2>
-          <div className="h-1 w-24 bg-secondary mx-auto rounded-full" />
-          <p className="text-base md:text-lg text-muted-foreground max-w-2xl mx-auto leading-relaxed">
-            Our florists' top seasonal picks, designed to bring immediate joy and awe.
-          </p>
-        </div>
+      {/* 1. Newly Launched Section (Fresh Arrivals - newly added products come here first) */}
+      <ProductSectionCarousel
+        id="newly-launched"
+        tagline="Fresh Arrivals & Latest Creations"
+        taglineIcon={<Sparkles className="h-3.5 w-3.5 text-secondary" />}
+        title="Newly Launched"
+        description="Explore our newest handcrafted floral bouquets, curated hampers, and freshly released luxury arrangements."
+        products={newlyLaunchedProducts}
+        loading={productsLoading}
+        emptyMessage="No new launches available at this time."
+        badgeType="new"
+        bgColor="bg-white"
+        autoAdvanceInterval={9000}
+        viewAllLink="/products"
+      />
 
-        <div className="container relative">
-          {/* Carousel Track */}
-          <div className="overflow-hidden">
-            {loading ? (
-              <div className="flex items-center justify-center min-h-[360px]">
-                <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-secondary"></div>
-              </div>
-            ) : featuredProducts.length === 0 ? (
-              <p className="text-center text-muted-foreground italic text-lg py-24">No featured arrangements available at this time.</p>
-            ) : (
-              <div
-                className="flex transition-transform duration-700 ease-in-out"
-                style={{
-                  transform: `translateX(calc(-${currentSlide} * (100% / ${visibleCount})))`,
-                }}
-              >
-                {featuredProducts.map((product) => (
-                  <div
-                    key={product.id}
-                    style={{ width: `${100 / visibleCount}%`, flexShrink: 0 }}
-                    className="px-2 md:px-3"
-                  >
-                    <ProductCard product={product} />
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
+      {/* 2. Featured Arrangements Section (Masterpiece Selection) */}
+      <ProductSectionCarousel
+        id="featured-arrangements"
+        tagline="Masterpiece Selection"
+        taglineIcon={<Award className="h-3.5 w-3.5 text-secondary" />}
+        title="Featured Arrangements"
+        description="Our florists' top seasonal picks, hand-tied with passion and designed to bring immediate joy and awe."
+        products={featuredProducts}
+        loading={productsLoading}
+        emptyMessage="No featured arrangements available at this time."
+        badgeType="featured"
+        bgColor="bg-muted/30"
+        autoAdvanceInterval={10000}
+        viewAllLink="/products"
+      />
 
-          {/* Navigation Arrows */}
-          <button
-            onClick={prevSlide}
-            disabled={featuredProducts.length === 0}
-            className="absolute -left-4 md:-left-6 top-1/2 -translate-y-1/2 bg-white hover:bg-secondary hover:text-primary p-2.5 md:p-3 rounded-full shadow-lg transition-all hover:scale-110 z-10 border border-border disabled:opacity-30"
-            aria-label="Previous slide"
-          >
-            <ChevronLeft className="h-5 w-5 md:h-6 md:w-6 text-primary" />
-          </button>
-          <button
-            onClick={nextSlide}
-            disabled={featuredProducts.length === 0}
-            className="absolute -right-4 md:-right-6 top-1/2 -translate-y-1/2 bg-white hover:bg-secondary hover:text-primary p-2.5 md:p-3 rounded-full shadow-lg transition-all hover:scale-110 z-10 border border-border disabled:opacity-30"
-            aria-label="Next slide"
-          >
-            <ChevronRight className="h-5 w-5 md:h-6 md:w-6 text-primary" />
-          </button>
-
-          {/* Dot Indicators — one per navigable position */}
-          <div className="flex justify-center gap-2 mt-8">
-            {Array.from({ length: maxSlide + 1 }).map((_, index) => (
-              <button
-                key={index}
-                onClick={() => setCurrentSlide(index)}
-                className={cn(
-                  "h-2.5 rounded-full transition-all duration-300",
-                  currentSlide === index ? "bg-secondary w-8" : "bg-muted-foreground/30 w-2.5 hover:bg-secondary/50"
-                )}
-                aria-label={`Go to position ${index + 1}`}
-              />
-            ))}
-          </div>
-
-          {/* 10-second auto-advance progress bar */}
-          {featuredProducts.length > 0 && (
-            <div className="mt-4 mx-auto w-32 h-1 bg-muted rounded-full overflow-hidden">
-              <div
-                key={currentSlide}
-                className="h-full bg-secondary rounded-full"
-                style={{
-                  animation: 'progress-fill 10s linear forwards'
-                }}
-              />
-            </div>
-          )}
-        </div>
-      </section>
+      {/* 3. Shop by Best Sellers Section (Client Favorites & Top Trending - 10 products) */}
+      <ProductSectionCarousel
+        id="shop-by-best-sellers"
+        tagline="Client Favorites & Top Rated"
+        taglineIcon={<Flame className="h-3.5 w-3.5 text-secondary" />}
+        title="Shop by Best Sellers"
+        description="Our all-time top celebrated creations and trending arrangements, curated and adored across Bangalore."
+        products={bestSellerProducts}
+        loading={productsLoading}
+        emptyMessage="No best seller products available at this time."
+        badgeType="bestseller"
+        bgColor="bg-[#FAF6F0]/60 dark:bg-muted/10"
+        autoAdvanceInterval={11000}
+        viewAllLink="/products"
+      />
 
       {/* Gallery Section */}
       <section className="py-24 bg-white">
@@ -627,6 +624,88 @@ export default function Home() {
         </div>
       </section>
 
+      {/* Subscription Banner Section */}
+      <section className="py-20 md:py-28 relative overflow-hidden bg-[#0A0A0F]">
+        {/* Ambient blobs */}
+        <div className="absolute inset-0 pointer-events-none">
+          <div className="absolute top-[-10%] left-[5%] w-[500px] h-[500px] rounded-full bg-rose-600/15 blur-[140px]" />
+          <div className="absolute bottom-[-10%] right-[5%] w-[450px] h-[450px] rounded-full bg-amber-500/10 blur-[130px]" />
+        </div>
+        <div className="container relative z-10 max-w-6xl px-4">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 items-center">
+            {/* Left: text */}
+            <div className="space-y-6">
+              <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-rose-500/40 bg-rose-500/10 text-rose-300 text-xs font-bold uppercase tracking-widest">
+                <Sparkles className="h-3.5 w-3.5 text-rose-400" />
+                New · Floral Subscriptions
+              </div>
+              <h2 className="text-3xl md:text-5xl font-bold font-serif text-white leading-tight">
+                Never Miss a<br />
+                <span className="bg-gradient-to-r from-rose-400 via-pink-400 to-amber-400 bg-clip-text text-transparent italic">
+                  Special Occasion
+                </span>
+              </h2>
+              <p className="text-white/60 text-lg leading-relaxed">
+                Subscribe to a monthly, quarterly, or annual floral delivery plan — timed around your loved one's birthday, anniversary, or any occasion that matters most.
+              </p>
+              <div className="flex flex-col sm:flex-row gap-4 pt-2">
+                <Link to="/subscriptions">
+                  <Button
+                    size="lg"
+                    className="h-14 px-10 rounded-full bg-gradient-to-r from-rose-500 to-pink-600 text-white font-bold text-base hover:brightness-110 shadow-lg shadow-rose-500/25 hover:scale-105 transition-all"
+                  >
+                    Explore Subscription Plans
+                    <ArrowRight className="ml-2 h-5 w-5" />
+                  </Button>
+                </Link>
+              </div>
+              {/* Mini perks */}
+              <div className="flex flex-wrap gap-4 pt-2">
+                {['Monthly Bloom — ₹999/mo', 'Quarterly Celebration — Save 20%', 'Annual Romance — Save 33%'].map((perk) => (
+                  <span key={perk} className="inline-flex items-center gap-1.5 text-xs text-white/50">
+                    <Star className="h-3 w-3 text-rose-400 fill-rose-400" />
+                    {perk}
+                  </span>
+                ))}
+              </div>
+            </div>
+
+            {/* Right: plan preview cards */}
+            <div className="grid grid-cols-1 gap-4">
+              {[
+                { name: 'Monthly Bloom', freq: 'Every Month', price: '₹999', color: 'from-emerald-500/20 to-teal-500/10', border: 'border-emerald-500/20', badge: null },
+                { name: 'Quarterly Celebration', freq: 'Every 3 Months', price: '₹1,799', color: 'from-amber-500/20 to-orange-500/10', border: 'border-amber-400/40', badge: 'Most Popular' },
+                { name: 'Annual Romance', freq: 'Once a Year', price: '₹3,999', color: 'from-rose-500/20 to-pink-500/10', border: 'border-rose-500/20', badge: 'Best Value' },
+              ].map((plan) => (
+                <Link key={plan.name} to="/subscriptions" className={`group bg-gradient-to-r ${plan.color} border ${plan.border} rounded-2xl p-4 flex items-center justify-between hover:scale-[1.01] hover:brightness-110 transition-all`}>
+                  <div className="flex items-center gap-3">
+                    <div className="p-2.5 rounded-xl bg-white/10">
+                      <Gift className="h-5 w-5 text-white/70" />
+                    </div>
+                    <div>
+                      <p className="font-bold text-white text-sm">{plan.name}</p>
+                      <p className="text-xs text-white/50">{plan.freq}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    {plan.badge && (
+                      <span className="text-[10px] bg-amber-400/20 text-amber-300 border border-amber-400/30 px-2 py-0.5 rounded-full font-bold hidden sm:block">
+                        {plan.badge}
+                      </span>
+                    )}
+                    <div className="text-right">
+                      <p className="font-extrabold text-white">{plan.price}</p>
+                      <p className="text-[10px] text-white/40">/ delivery</p>
+                    </div>
+                    <ArrowRight className="h-4 w-4 text-white/30 group-hover:text-white/70 transition-colors" />
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* CTA Section */}
       <section className="py-28 bg-primary text-white overflow-hidden relative">
         <div className="absolute top-0 right-0 w-1/3 h-full opacity-10 pointer-events-none">
@@ -767,7 +846,180 @@ function getProductRating(product: any): string {
   return steps[seed % steps.length].toFixed(1);
 }
 
-function ProductCard({ product }: { product: any }) {
+interface ProductSectionCarouselProps {
+  id?: string;
+  tagline: string;
+  taglineIcon?: React.ReactNode;
+  title: string;
+  description: string;
+  products: any[];
+  loading: boolean;
+  emptyMessage: string;
+  badgeType: 'new' | 'featured' | 'bestseller';
+  bgColor?: string;
+  autoAdvanceInterval?: number;
+  viewAllLink?: string;
+}
+
+function ProductSectionCarousel({
+  id,
+  tagline,
+  taglineIcon,
+  title,
+  description,
+  products,
+  loading,
+  emptyMessage,
+  badgeType,
+  bgColor = "bg-white",
+  autoAdvanceInterval = 10000,
+  viewAllLink = "/products"
+}: ProductSectionCarouselProps) {
+  const [currentSlide, setCurrentSlide] = useState(0);
+  const [visibleCount, setVisibleCount] = useState(() => 
+    typeof window !== 'undefined' ? (window.innerWidth >= 1024 ? 3 : window.innerWidth >= 640 ? 2 : 1) : 3
+  );
+
+  useEffect(() => {
+    const onResize = () => {
+      setVisibleCount(window.innerWidth >= 1024 ? 3 : window.innerWidth >= 640 ? 2 : 1);
+      setCurrentSlide(0);
+    };
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
+
+  const maxSlide = Math.max(0, products.length - visibleCount);
+
+  useEffect(() => {
+    if (currentSlide > maxSlide) {
+      setCurrentSlide(maxSlide);
+    }
+  }, [maxSlide, currentSlide]);
+
+  useEffect(() => {
+    if (products.length <= visibleCount) return;
+    const timer = setInterval(() => {
+      setCurrentSlide((prev) => (prev >= maxSlide ? 0 : prev + 1));
+    }, autoAdvanceInterval);
+    return () => clearInterval(timer);
+  }, [products.length, maxSlide, visibleCount, autoAdvanceInterval]);
+
+  const nextSlide = () => {
+    setCurrentSlide((prev) => (prev >= maxSlide ? 0 : prev + 1));
+  };
+
+  const prevSlide = () => {
+    setCurrentSlide((prev) => (prev <= 0 ? maxSlide : prev - 1));
+  };
+
+  return (
+    <section id={id} className={cn("py-16 md:py-24 border-y border-border/60 transition-colors", bgColor)}>
+      <div className="container text-center mb-10 md:mb-16 space-y-4">
+        <div className="inline-flex items-center justify-center gap-1.5 text-secondary font-bold text-xs uppercase tracking-widest">
+          {taglineIcon}
+          <span>{tagline}</span>
+        </div>
+        <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold tracking-tight text-primary font-serif">{title}</h2>
+        <div className="h-1 w-24 bg-secondary mx-auto rounded-full" />
+        <p className="text-base md:text-lg text-muted-foreground max-w-2xl mx-auto leading-relaxed">
+          {description}
+        </p>
+      </div>
+
+      <div className="container relative">
+        {/* Carousel Track */}
+        <div className="overflow-hidden">
+          {loading ? (
+            <div className="flex items-center justify-center min-h-[360px]">
+              <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-secondary"></div>
+            </div>
+          ) : products.length === 0 ? (
+            <p className="text-center text-muted-foreground italic text-lg py-20">{emptyMessage}</p>
+          ) : (
+            <div
+              className="flex transition-transform duration-700 ease-in-out"
+              style={{
+                transform: `translateX(calc(-${currentSlide} * (100% / ${visibleCount})))`,
+              }}
+            >
+              {products.map((product) => (
+                <div
+                  key={product.id}
+                  style={{ width: `${100 / visibleCount}%`, flexShrink: 0 }}
+                  className="px-2 md:px-3"
+                >
+                  <ProductCard product={product} badgeType={badgeType} />
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Navigation Arrows */}
+        {products.length > visibleCount && (
+          <>
+            <button
+              onClick={prevSlide}
+              className="absolute -left-4 md:-left-6 top-1/2 -translate-y-1/2 bg-white/95 hover:bg-secondary hover:text-primary p-2.5 md:p-3 rounded-full shadow-lg transition-all hover:scale-110 z-10 border border-border"
+              aria-label={`Previous ${title} slide`}
+            >
+              <ChevronLeft className="h-5 w-5 md:h-6 md:w-6 text-primary" />
+            </button>
+            <button
+              onClick={nextSlide}
+              className="absolute -right-4 md:-right-6 top-1/2 -translate-y-1/2 bg-white/95 hover:bg-secondary hover:text-primary p-2.5 md:p-3 rounded-full shadow-lg transition-all hover:scale-110 z-10 border border-border"
+              aria-label={`Next ${title} slide`}
+            >
+              <ChevronRight className="h-5 w-5 md:h-6 md:w-6 text-primary" />
+            </button>
+
+            {/* Dot Indicators */}
+            <div className="flex justify-center gap-2 mt-8">
+              {Array.from({ length: maxSlide + 1 }).map((_, index) => (
+                <button
+                  key={index}
+                  onClick={() => setCurrentSlide(index)}
+                  className={cn(
+                    "h-2.5 rounded-full transition-all duration-300",
+                    currentSlide === index ? "bg-secondary w-8" : "bg-muted-foreground/30 w-2.5 hover:bg-secondary/50"
+                  )}
+                  aria-label={`Go to slide ${index + 1}`}
+                />
+              ))}
+            </div>
+
+            {/* Auto-advance progress bar */}
+            <div className="mt-4 mx-auto w-32 h-1 bg-muted rounded-full overflow-hidden">
+              <div
+                key={currentSlide}
+                className="h-full bg-secondary rounded-full"
+                style={{
+                  animation: `progress-fill ${autoAdvanceInterval / 1000}s linear forwards`
+                }}
+              />
+            </div>
+          </>
+        )}
+
+        {/* View All Collection Link */}
+        {products.length > 0 && viewAllLink && (
+          <div className="text-center mt-8">
+            <Link
+              to={viewAllLink}
+              className="inline-flex items-center gap-2 text-xs md:text-sm font-bold uppercase tracking-widest text-secondary hover:text-primary transition-colors"
+            >
+              <span>Explore All {title}</span>
+              <ArrowRight className="h-4 w-4" />
+            </Link>
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}
+
+function ProductCard({ product, badgeType }: { product: any; badgeType?: 'new' | 'featured' | 'bestseller' }) {
   return (
     <div
       className="group relative bg-white border border-border/60 luxury-shadow hover-lift rounded-2xl overflow-hidden flex flex-col h-full transition-all duration-300"
@@ -779,14 +1031,22 @@ function ProductCard({ product }: { product: any }) {
           alt={product.name}
           className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-110"
         />
-        {/* Best Seller Badge */}
-        {(product.is_bestseller === true || Number(product.is_bestseller) === 1) && (
-          <div className="absolute top-2.5 left-2.5 z-20">
-            <span className="inline-flex items-center gap-1 bg-amber-500/90 backdrop-blur-md text-white text-[10px] uppercase font-bold tracking-wider px-2.5 py-1 rounded-full shadow-md">
-              <Sparkles className="h-3 w-3" /> Best Seller
+        {/* Badges */}
+        <div className="absolute top-2.5 left-2.5 z-20 flex flex-col gap-1">
+          {badgeType === 'new' ? (
+            <span className="inline-flex items-center gap-1 bg-emerald-600/95 backdrop-blur-md text-white text-[10px] uppercase font-bold tracking-wider px-2.5 py-1 rounded-full shadow-md">
+              <Sparkles className="h-3 w-3" /> New Launch
             </span>
-          </div>
-        )}
+          ) : badgeType === 'bestseller' || (product.is_bestseller === true || Number(product.is_bestseller) === 1) ? (
+            <span className="inline-flex items-center gap-1 bg-amber-500/95 backdrop-blur-md text-white text-[10px] uppercase font-bold tracking-wider px-2.5 py-1 rounded-full shadow-md">
+              <Flame className="h-3 w-3" /> Best Seller
+            </span>
+          ) : badgeType === 'featured' || (product.is_featured === true || Number(product.is_featured) === 1) ? (
+            <span className="inline-flex items-center gap-1 bg-primary text-secondary text-[10px] uppercase font-bold tracking-wider px-2.5 py-1 rounded-full shadow-md border border-secondary/30">
+              <Award className="h-3 w-3" /> Featured
+            </span>
+          ) : null}
+        </div>
         {/* Wishlist Button */}
         <WishlistButton
           product={product}

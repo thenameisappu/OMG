@@ -315,3 +315,31 @@ export const testimonialService = {
         return response.data;
     }
 };
+
+// Subscription Services
+export const subscriptionService = {
+    getPlans: async (): Promise<any[]> => {
+        try {
+            const response = await api.get('/subscriptions.php?action=get_plans');
+            return response.data?.plans || [];
+        } catch {
+            return [];
+        }
+    },
+    create: async (subscriptionData: any): Promise<any> => {
+        const response = await api.post('/subscriptions.php?action=create_subscription', subscriptionData);
+        return response.data;
+    },
+    getAll: async (): Promise<any[]> => {
+        try {
+            const response = await api.get('/subscriptions.php?action=get_subscriptions');
+            return response.data?.subscriptions || [];
+        } catch {
+            return [];
+        }
+    },
+    cancel: async (subscriptionId: string): Promise<any> => {
+        const response = await api.post('/subscriptions.php?action=cancel_subscription', { subscription_id: subscriptionId });
+        return response.data;
+    },
+};

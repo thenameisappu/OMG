@@ -1,7 +1,30 @@
 import { formatINR } from "@/lib/currency";
 import { useState, useMemo, useEffect } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
-import { Star, ChevronRight, SlidersHorizontal, MessageSquare, Users, CalendarDays, Sparkles, Heart, Eye, ShoppingBag } from 'lucide-react';
+import {
+  Star,
+  ChevronRight,
+  SlidersHorizontal,
+  MessageSquare,
+  Users,
+  CalendarDays,
+  Sparkles,
+  Heart,
+  Eye,
+  ShoppingBag,
+  ArrowRight,
+  CheckCircle2,
+  ShieldCheck,
+  PhoneCall,
+  Music,
+  Camera,
+  Gift,
+  Moon,
+  Flame,
+  X,
+  Clock,
+  Check
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -29,6 +52,81 @@ const categories = [
   { name: "Oh My Customisation's", slug: 'custom-orders' },
 ];
 
+const MOMENT_SERVICES_DATA = [
+  {
+    id: 'proposal',
+    title: 'Proposal Planning & Surprise',
+    subtitle: 'Romantic Milestone & Secret "YES!" Moments',
+    tag: 'MOST CELEBRATED',
+    icon: Heart,
+    image: 'https://miaoda-site-img.s3cdn.medo.dev/images/KLing_0d1f5bf9-c3e6-4678-b943-f496a294145d.jpg',
+    desc: 'Intimate candlelit walkways, grand floral arches, "MARRY ME" illumination, and secret on-site orchestration for that breathtaking, cinematic "YES" moment.',
+    highlights: ['50+ Pure Wax Pillar Candles', 'Bespoke Fresh Rose Archway', 'Secret Coordinator & Timing Cue', 'Complimentary Champagne Setup'],
+    itinerary: '1. Secret Itinerary Design → 2. Hidden Venue Transformation → 3. The Grand Reveal & Emotion',
+    priceEstimate: 'From ₹14,999'
+  },
+  {
+    id: 'midnight',
+    title: 'Midnight Surprises',
+    subtitle: 'Doorstep Magic at the Stroke of 00:00',
+    tag: 'POPULAR CHOICE',
+    icon: Moon,
+    image: 'https://miaoda-site-img.s3cdn.medo.dev/images/KLing_71ed4da9-9ce1-4430-b4a5-15e4fbfc8ba3.jpg',
+    desc: 'Coordinated doorstep delivery at precisely 00:00 midnight with live acoustic guitarist serenade, balloon ceiling transformations, fresh blooms, and luxury gourmet treats.',
+    highlights: ['Guaranteed 00:00 Sharp Delivery', 'Live Acoustic Guitarist/Singer', 'Helium Balloon Ceiling Bouquet', 'Luxury Cake & Bloom Pairing'],
+    itinerary: '1. Secret Delivery Route → 2. Midnight Doorbell & Live Serenade → 3. Midnight Unwrapping',
+    priceEstimate: 'From ₹7,999'
+  },
+  {
+    id: 'event-styling',
+    title: 'Event Styling & Decor',
+    subtitle: 'Bespoke Floral & Venue Architecture',
+    tag: 'SIGNATURE CRAFT',
+    icon: Sparkles,
+    image: 'https://miaoda-site-img.s3cdn.medo.dev/images/KLing_14558096-74be-4c1a-a8a2-e0334e6050d9.jpg',
+    desc: 'Complete high-fashion floral and decor transformation for private dinner parties, luxury anniversaries, intimate terrace gatherings, and milestone galas.',
+    highlights: ['Full Room Floral Canopy', 'Architectural Table Centrepieces', 'Mood Lighting & Warm Ambience', 'Custom Color Palette Styling'],
+    itinerary: '1. Venue Inspection & Moodboard → 2. Floral Production → 3. On-Site Complete Styling',
+    priceEstimate: 'From ₹19,999'
+  },
+  {
+    id: 'moments-captured',
+    title: 'Moments Captured (4K Cinema)',
+    subtitle: 'Discreet Photography & Cinematic Film',
+    tag: 'KEEPSAKE MEMORY',
+    icon: Camera,
+    image: 'https://images.unsplash.com/photo-1537633552985-df8429e8048b?w=800&q=80',
+    desc: 'High-end discreet cinematography and editorial photography to capture the genuine shock, tears of joy, and intimate candid reactions forever.',
+    highlights: ['Professional 4K Cinematographer', 'Discreet Candid Photography', 'Color-Graded Cinematic Reel', 'High-Res Digital Album in 48h'],
+    itinerary: '1. Hidden Camera Positioning → 2. Multi-Angle Surprise Capture → 3. Edited 4K Teaser & Photos',
+    priceEstimate: 'From ₹4,999'
+  },
+  {
+    id: 'live-musicians',
+    title: 'Live Musicians & Serenades',
+    subtitle: 'Strings, Saxophone & Acoustic Vocals',
+    tag: 'EMOTIONAL TOUCH',
+    icon: Music,
+    image: 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=800&q=80',
+    desc: 'Talented cellists, saxophonists, violin duos, or acoustic vocalists performing your loved one\'s favorite love ballad as they walk into the surprise.',
+    highlights: ['Handpicked Master Musicians', 'Custom Song Repertoire', 'Wireless Sound Equipment', 'Seamless Hidden Entry'],
+    itinerary: '1. Song Selection → 2. Soundcheck & Rehearsal → 3. Live Surprise Performance',
+    priceEstimate: 'From ₹3,999'
+  },
+  {
+    id: 'bespoke-gifting',
+    title: 'Bespoke Gifting Atelier',
+    subtitle: 'Customized Keepsakes & Luxury Hampers',
+    tag: 'ULTRA LUXURY',
+    icon: Gift,
+    image: 'https://miaoda-site-img.s3cdn.medo.dev/images/KLing_c023c54c-4d4a-425e-aee3-ef5a6118cf40.jpg',
+    desc: 'Handmade velvet keepsakes, engraved crystal flutes, artisan European chocolates, and rare botanical blooms curated exclusively for your milestone.',
+    highlights: ['Custom Engraving & Leather Tags', 'Handmade Velvet Presentation Box', 'Artisan Gourmet Pairings', 'Personalized Calligraphy Letter'],
+    itinerary: '1. Taste & Preference Curation → 2. Artisan Packaging → 3. White-Glove Hand Delivery',
+    priceEstimate: 'From ₹3,499'
+  }
+];
+
 export default function Products() {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -38,6 +136,7 @@ export default function Products() {
   const [sortBy, setSortBy] = useState('featured');
   const [products, setProducts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [activeExperienceModal, setActiveExperienceModal] = useState<any | null>(null);
 
   useEffect(() => {
     async function loadProducts() {
@@ -292,40 +391,239 @@ export default function Products() {
         )}
       </div>
 
-      {/* Bespoke Services — shown for Oh My Moment's */}
+      {/* Bespoke Services — shown for Oh My Moment's (Occasions) */}
       {currentCategory === 'occasions' && (
-        <section className="pt-4 pb-24 bg-muted/20 border-t border-border mt-12">
-          <div className="container text-center mb-16 space-y-3">
-            <span className="text-secondary font-bold text-xs uppercase tracking-widest">Bespoke Concierge</span>
-            <h2 className="text-4xl font-bold font-serif text-primary">Moment Services</h2>
-            <div className="h-1 w-20 bg-secondary mx-auto rounded-full" />
-            <p className="text-muted-foreground max-w-xl mx-auto text-sm">
-              We handle every secret detail so you can focus on the emotion of the moment.
+        <section className="pt-8 pb-24 bg-gradient-to-b from-transparent via-[#FAF6F0]/60 to-transparent border-t border-border mt-12">
+          <div className="container text-center mb-16 space-y-4">
+            <div className="inline-flex items-center justify-center gap-2 px-4 py-1.5 rounded-full border border-secondary/40 bg-secondary/10 text-secondary text-xs font-bold uppercase tracking-widest">
+              <Sparkles className="h-3.5 w-3.5" />
+              <span>Bespoke Concierge & Event Architecture</span>
+            </div>
+            <h2 className="text-4xl md:text-5xl lg:text-6xl font-bold font-serif text-primary tracking-tight">
+              Moment <span className="text-secondary italic">Services</span>
+            </h2>
+            <div className="h-1 w-24 bg-secondary mx-auto rounded-full" />
+            <p className="text-muted-foreground max-w-2xl mx-auto text-base md:text-lg leading-relaxed">
+              Explore our curated portfolio of secret proposals, midnight doorstep reveals, grand event styling, and live performances designed for life's unforgettable chapters.
             </p>
           </div>
-          <div className="container grid grid-cols-1 md:grid-cols-3 gap-8">
-            {[
-              { icon: '🤍', title: 'Proposal Planning & Surprise', desc: "Intimate settings, romantic floral walkways, and the perfect ambiance for that 'Yes'.", eventType: 'Proposal Planning & Surprise' },
-              { icon: '✨', title: 'Midnight Surprises', desc: 'Coordinated doorstep deliveries at midnight with acoustic serenades and decor.', eventType: 'Midnight Surprises' },
-              { icon: '📍', title: 'Event Styling', desc: 'Complete floral and decor transformation for gala dinners, weddings, and private parties.', eventType: 'Event Styling' },
-              { icon: '📷', title: 'Moments Captured', desc: 'Professional photography and videography to document every surprised expression.', eventType: 'Moments Captured' },
-              { icon: '🎵', title: 'Live Musicians', desc: 'Strings, saxophonists, or vocalists to provide the perfect soundtrack to your surprise.', eventType: 'Live Musicians' },
-              { icon: '🎁', title: 'Bespoke Gifting', desc: 'Custom-made luxury hampers featuring rare finds and personalized treasures.', eventType: 'Bespoke Gifting' },
-            ].map((s) => (
-              <Link
-                key={s.title}
-                to={`/surprise-services?eventType=${encodeURIComponent(s.eventType)}`}
-                className="bg-white rounded-2xl luxury-shadow p-8 flex flex-col items-center text-center hover:-translate-y-2 hover:shadow-xl transition-all duration-300 border border-border group"
-              >
-                <span className="text-4xl mb-4">{s.icon}</span>
-                <h3 className="text-lg font-bold text-primary mb-2 font-serif">{s.title}</h3>
-                <p className="text-muted-foreground text-xs leading-relaxed mb-6">{s.desc}</p>
-                <span className="mt-auto text-xs font-bold text-secondary border border-secondary/40 rounded-full px-5 py-2 group-hover:bg-secondary group-hover:text-primary transition-all">
-                  Book This Service →
-                </span>
-              </Link>
-            ))}
+
+          {/* 6 Viewable Luxury Experience Cards */}
+          <div className="container grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
+            {MOMENT_SERVICES_DATA.map((service) => {
+              const ServiceIcon = service.icon;
+              return (
+                <div
+                  key={service.id}
+                  onClick={() => setActiveExperienceModal(service)}
+                  className="group relative bg-white dark:bg-card rounded-3xl overflow-hidden border border-border/80 luxury-shadow hover-lift cursor-pointer flex flex-col transition-all duration-500 hover:border-secondary/60 hover:shadow-2xl"
+                >
+                  {/* Photo Header */}
+                  <div className="relative aspect-[16/10] overflow-hidden bg-muted/20">
+                    <img
+                      src={service.image}
+                      alt={service.title}
+                      className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/35 to-transparent" />
+                    
+                    {/* Tag badge */}
+                    <div className="absolute top-3.5 left-3.5 z-10">
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-black/60 backdrop-blur-md border border-white/20 text-white text-[10px] uppercase font-bold tracking-widest">
+                        <ServiceIcon className="h-3 w-3 text-secondary" />
+                        {service.tag}
+                      </span>
+                    </div>
+
+                    {/* Price Tag */}
+                    <div className="absolute top-3.5 right-3.5 z-10">
+                      <span className="inline-flex items-center px-3 py-1 rounded-full bg-secondary/90 text-primary text-xs font-extrabold shadow-md">
+                        {service.priceEstimate}
+                      </span>
+                    </div>
+
+                    {/* Title inside photo overlay */}
+                    <div className="absolute bottom-3 left-4 right-4 text-white">
+                      <h3 className="text-xl font-bold font-serif leading-snug group-hover:text-secondary transition-colors">
+                        {service.title}
+                      </h3>
+                      <p className="text-xs text-white/80 line-clamp-1 mt-0.5 font-light">
+                        {service.subtitle}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Body Details */}
+                  <div className="p-6 flex flex-col flex-1 justify-between gap-4">
+                    <p className="text-xs text-muted-foreground leading-relaxed line-clamp-2">
+                      {service.desc}
+                    </p>
+
+                    {/* Inclusions pill tags */}
+                    <div className="space-y-1.5 pt-2 border-t border-border/60">
+                      <p className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Signature Inclusions:</p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {service.highlights.slice(0, 2).map((h, i) => (
+                          <span key={i} className="text-[11px] font-medium bg-muted/50 text-foreground px-2.5 py-1 rounded-md border border-border/50">
+                            ✦ {h}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Interactive "View Experience" Action */}
+                    <div className="pt-3 border-t border-border/50 flex items-center justify-between text-xs font-bold text-secondary group-hover:text-primary transition-colors">
+                      <span className="flex items-center gap-1.5">
+                        <Eye className="h-4 w-4" /> View Experience Details
+                      </span>
+                      <ArrowRight className="h-4 w-4 transform group-hover:translate-x-1.5 transition-transform" />
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
           </div>
+
+          {/* ONE Grand, Unified "Book The Service" Master Call-to-Action Section */}
+          <div className="container mt-16">
+            <div className="relative rounded-3xl overflow-hidden bg-primary text-white border border-secondary/30 luxury-shadow p-8 md:p-12 lg:p-16">
+              <div className="absolute top-0 right-0 w-96 h-96 bg-secondary/10 rounded-full blur-3xl pointer-events-none" />
+              <div className="relative z-10 grid lg:grid-cols-12 gap-8 items-center">
+                <div className="lg:col-span-8 space-y-4">
+                  <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-secondary/40 bg-secondary/20 text-secondary text-xs font-bold uppercase tracking-widest">
+                    <Sparkles className="h-3.5 w-3.5" />
+                    <span>Bespoke Concierge Booking</span>
+                  </div>
+                  <h3 className="text-3xl md:text-5xl font-bold font-serif leading-tight">
+                    Ready to Orchestrate an <span className="text-secondary italic">Unforgettable Moment?</span>
+                  </h3>
+                  <p className="text-white/80 text-sm md:text-base max-w-2xl leading-relaxed font-light">
+                    Select your base experience, choose live musicians, photography, or floral upgrades, and reserve instantly online with guaranteed date confirmation and on-site coordination across Bangalore.
+                  </p>
+                  <div className="flex flex-wrap items-center gap-6 pt-2 text-xs md:text-sm text-white/90">
+                    <span className="flex items-center gap-2"><CheckCircle2 className="h-4 w-4 text-secondary" /> 100% Secret & Discreet</span>
+                    <span className="flex items-center gap-2"><CheckCircle2 className="h-4 w-4 text-secondary" /> 1,200+ Executed Surprises</span>
+                    <span className="flex items-center gap-2"><CheckCircle2 className="h-4 w-4 text-secondary" /> Master Florist Styling</span>
+                  </div>
+                </div>
+
+                <div className="lg:col-span-4 flex flex-col gap-3.5 w-full">
+                  <Link to="/surprise-services">
+                    <Button size="lg" className="w-full h-14 rounded-full bg-secondary text-primary hover:bg-secondary/90 font-bold text-base shadow-xl gold-glow hover-lift">
+                      <Sparkles className="mr-2 h-5 w-5" />
+                      Book &amp; Customize Experience
+                    </Button>
+                  </Link>
+                  <a href="tel:+918147736396">
+                    <Button size="lg" variant="outline" className="w-full h-14 rounded-full border-secondary/60 text-white bg-black/40 hover:bg-white/10 font-bold text-base backdrop-blur-md">
+                      <PhoneCall className="mr-2 h-5 w-5 text-secondary" />
+                      Speak to Concierge
+                    </Button>
+                  </a>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Interactive Experience Detail Modal */}
+          {activeExperienceModal && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-fade-in">
+              <div className="bg-white dark:bg-card w-full max-w-3xl rounded-3xl overflow-hidden luxury-shadow border border-border flex flex-col max-h-[90vh] animate-scale-in">
+                {/* Modal Header & Photo */}
+                <div className="relative aspect-[16/8] sm:aspect-[16/7] overflow-hidden bg-black">
+                  <img
+                    src={activeExperienceModal.image}
+                    alt={activeExperienceModal.title}
+                    className="w-full h-full object-cover"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent" />
+                  
+                  {/* Close button */}
+                  <button
+                    onClick={() => setActiveExperienceModal(null)}
+                    className="absolute top-4 right-4 h-9 w-9 rounded-full bg-black/60 text-white hover:bg-black flex items-center justify-center transition-colors z-20"
+                    aria-label="Close modal"
+                  >
+                    <X className="h-5 w-5" />
+                  </button>
+
+                  <div className="absolute bottom-4 left-6 right-6 text-white">
+                    <div className="flex items-center gap-2 mb-1.5">
+                      <span className="text-[10px] font-bold uppercase tracking-widest bg-secondary text-primary px-2.5 py-0.5 rounded-full">
+                        {activeExperienceModal.tag}
+                      </span>
+                      <span className="text-xs font-bold text-secondary">
+                        {activeExperienceModal.priceEstimate}
+                      </span>
+                    </div>
+                    <h3 className="text-2xl sm:text-3xl font-bold font-serif leading-tight">
+                      {activeExperienceModal.title}
+                    </h3>
+                  </div>
+                </div>
+
+                {/* Modal Body */}
+                <div className="p-6 sm:p-8 space-y-6 overflow-y-auto">
+                  <div>
+                    <h4 className="text-xs font-bold uppercase tracking-widest text-secondary mb-2">Experience Overview</h4>
+                    <p className="text-sm text-muted-foreground leading-relaxed">
+                      {activeExperienceModal.desc}
+                    </p>
+                  </div>
+
+                  {/* Highlights Grid */}
+                  <div>
+                    <h4 className="text-xs font-bold uppercase tracking-widest text-secondary mb-3">What's Included</h4>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                      {activeExperienceModal.highlights.map((item: string, idx: number) => (
+                        <div key={idx} className="flex items-start gap-2.5 p-3 rounded-xl bg-muted/40 border border-border/50 text-xs font-medium">
+                          <Check className="h-4 w-4 text-emerald-600 shrink-0 mt-0.5" />
+                          <span>{item}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Itinerary */}
+                  <div>
+                    <h4 className="text-xs font-bold uppercase tracking-widest text-secondary mb-2">Execution Itinerary</h4>
+                    <p className="text-xs font-medium text-foreground/90 bg-[#FAF6F0] dark:bg-muted/20 p-3.5 rounded-xl border border-secondary/20">
+                      {activeExperienceModal.itinerary}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Modal Footer Actions */}
+                <div className="p-6 border-t border-border/60 bg-muted/20 flex flex-col sm:flex-row gap-3 items-center justify-between">
+                  <div>
+                    <span className="text-xs text-muted-foreground">Estimated Investment:</span>
+                    <p className="text-lg font-bold text-primary">{activeExperienceModal.priceEstimate}</p>
+                  </div>
+                  <div className="flex gap-2.5 w-full sm:w-auto">
+                    <Button
+                      variant="outline"
+                      onClick={() => setActiveExperienceModal(null)}
+                      className="flex-1 sm:flex-initial rounded-full h-11 px-6 text-xs font-bold"
+                    >
+                      Close
+                    </Button>
+                    <Link
+                      to={`/surprise-services?eventType=${encodeURIComponent(activeExperienceModal.title)}`}
+                      className="flex-1 sm:flex-initial"
+                    >
+                      <Button
+                        variant="secondary"
+                        className="w-full rounded-full h-11 px-8 text-xs font-bold shadow-md gold-glow"
+                      >
+                        <Sparkles className="mr-1.5 h-4 w-4" />
+                        Customize &amp; Book Experience
+                      </Button>
+                    </Link>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </section>
       )}
 

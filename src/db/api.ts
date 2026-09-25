@@ -33,7 +33,7 @@ export async function getProductBySlug(slug: string) {
 }
 
 /**
- * Fetch featured/bestseller products
+ * Fetch featured products
  */
 export async function getFeaturedProducts() {
   try {
@@ -42,6 +42,32 @@ export async function getFeaturedProducts() {
     return data || [];
   } catch (error) {
     console.error('Error fetching featured products:', error);
+    throw error;
+  }
+}
+
+/**
+ * Fetch bestseller products
+ */
+export async function getBestsellerProducts() {
+  try {
+    const products = await getProducts();
+    return (products || []).filter((p: any) => p.is_bestseller === true || Number(p.is_bestseller) === 1);
+  } catch (error) {
+    console.error('Error fetching bestseller products:', error);
+    throw error;
+  }
+}
+
+/**
+ * Fetch newly launched products
+ */
+export async function getNewlyLaunchedProducts(limit: number = 10) {
+  try {
+    const products = await getProducts();
+    return (products || []).slice(0, limit);
+  } catch (error) {
+    console.error('Error fetching newly launched products:', error);
     throw error;
   }
 }
