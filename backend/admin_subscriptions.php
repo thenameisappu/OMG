@@ -1,33 +1,30 @@
 <?php
 /**
-<<<<<<< HEAD
- * admin_subscriptions.php — Complete, Real, End-to-End Subscription Management System
+ * admin_subscriptions.php — OMG Floral Store Subscription Management System
  *
- * Sections:
- *   1. [ Overview ]    — Real statistics, breakdown by plan, recent subscriptions, upcoming deliveries
- *   2. [ Plans ]       — Subscription plans CRUD, reordering, duplicate, safe deactivation,
- *                        and image processing reusing the Product image pipeline.
- *   3. [ Subscribers ] — Complete customer subscriptions table with search, dynamic filters,
- *                        sorting, pagination, detail modal, edit modal, status management, and CSV export.
- *
- * Security & Reliability:
- *   - Admin session authentication required.
- *   - Prepared PDO statements everywhere.
- *   - Dual image storage (OMG_PRIMARY_DIR + OMG_SECONDARY_DIR) with 1000x1000 square GD crop.
- *   - Safe plan deletion protection (prevents deleting plans that have subscribers).
-=======
- * admin_subscriptions.php — Subscription Plans Image Management (Admin Panel)
- *
- * Reuses the EXISTING Product image pipeline:
- *   - cropToSquare1000()
- *   - generateProductImageFilename()
- *   - handleFileUpload() (via reuse pattern)
- *   - deleteLocalImage()
- *   - OMG_PRIMARY_DIR / OMG_SECONDARY_DIR / OMG_IMG_URL_PATH
- *   - Admin session authentication
- *
- * DOES NOT create any new image-processing system.
->>>>>>> b34855a241af95ea619ff4cb20e5c1044d14eec8
+ * Fully integrated Admin Panel for Subscriptions:
+ *   1. Subscription Plans Section
+ *      - Header with "+ Add Subscription Plan" button
+ *      - Responsive Table: Order (# with Up/Down), Image (1000x1000 GD crop),
+ *        Subscription Plan (Name, Tagline, Slug, Popular badge), Frequency,
+ *        Price / Delivery, Subscribers count column (COUNT(subscriptions.id)),
+ *        Status toggle (Active/Disabled), and Actions (Edit Image, Edit Plan, View, Duplicate, Safe Delete)
+ *   2. Subscription Overview Section
+ *      - Real metrics: Total Subscribers, Active, Paused, Cancelled, Expired, Most Subscribed Plan
+ *      - Upcoming Deliveries & Recent Subscriptions quick cards
+ *   3. Subscribers Section (Immediately Below Plans)
+ *      - Search by Customer name, email, phone, recipient, subscription ID
+ *      - Multi-field filters: Status, Plan, Frequency, Occasion, City, Date ranges (Created & Next Delivery)
+ *      - Sorting by Customer, Plan, Price/Value, Next Delivery, Status, Created Date
+ *      - Responsive table with 13 columns
+ *      - Real-time status actions: Pause, Resume, Cancel, Expire
+ *      - Server-side pagination and CSV export
+ *   4. Modals
+ *      - Add / Edit Subscription Plan (All 14 fields with Product image upload pipeline)
+ *      - Dedicated Image Cropper (1000×1000 square GD crop with dual storage)
+ *      - View Plan Details
+ *      - View Subscriber Details (Customer, Subscription, Occasion, Recipient, Delivery, Notes)
+ *      - Edit Subscriber
  */
 
 require_once 'config.php';
@@ -44,7 +41,6 @@ if (!isset($_SESSION['admin_logged_in']) || $_SESSION['admin_logged_in'] !== tru
 $database = new Database();
 $db = $database->getConnection();
 
-<<<<<<< HEAD
 if (!$db) {
     die("Database connection failed. Please check server configuration.");
 }
@@ -115,25 +111,6 @@ try {
 }
 
 // ── REUSE PRODUCT IMAGE FUNCTIONS ───────────────────────────────────────────
-=======
-$is_main_admin = ($_SESSION['admin_username'] ?? '') === 'main_admin';
-
-// ── AUTO-MIGRATE: Add `image` column to subscription_plans if missing ────────
-try {
-    $cols = $db->query("SHOW COLUMNS FROM `subscription_plans`")->fetchAll(PDO::FETCH_COLUMN);
-    if (!in_array('image', $cols)) {
-        $db->exec("ALTER TABLE `subscription_plans` ADD COLUMN `image` VARCHAR(255) DEFAULT NULL AFTER `features`");
-        error_log('[OMG Admin] Added `image` column to subscription_plans table.');
-    }
-} catch (Exception $e) {
-    error_log('[OMG Admin] Could not add image column to subscription_plans: ' . $e->getMessage());
-}
-
-// ── REUSE PRODUCT IMAGE FUNCTIONS ───────────────────────────────────────────
-// These functions are defined with if(!function_exists()) guards in admin_products.php.
-// We define them here too under the same guard pattern so they work independently.
-
->>>>>>> b34855a241af95ea619ff4cb20e5c1044d14eec8
 if (!function_exists('deleteLocalImage')) {
     function deleteLocalImage(string $imagePath): void
     {
@@ -153,7 +130,6 @@ if (!function_exists('deleteLocalImage')) {
         }
     }
 }
-
 
 if (!function_exists('cropToSquare1000')) {
     function cropToSquare1000(string $tmpName, string $destPath): bool 
@@ -226,49 +202,27 @@ if (!function_exists('generateProductImageFilename')) {
     }
 }
 
-<<<<<<< HEAD
-=======
-/**
- * handleSubscriptionImageUpload()
- *
- * Reuses the existing Product image pipeline for Subscription plan images.
- * Uses the same validation, cropToSquare1000, filename strategy, and
- * dual-storage (OMG_PRIMARY_DIR + OMG_SECONDARY_DIR / uploads cache).
- */
->>>>>>> b34855a241af95ea619ff4cb20e5c1044d14eec8
 function handleSubscriptionImageUpload(string $fileKey, string $planName = '', string $existingUrl = ''): string
 {
     if (!isset($_FILES[$fileKey]) || $_FILES[$fileKey]['error'] !== UPLOAD_ERR_OK) {
         return $existingUrl;
     }
 
-    $file    = $_FILES[$fileKey];
-    $size    = $file['size'];
-    $tmpName = $file['tmp_name'];
+    $file     = $_FILES[$fileKey];
+    $size     = $file['size'];
+    $tmpName  = $file['tmp_name'];
     $origName = $file['name'];
 
-<<<<<<< HEAD
-=======
-    // 5 MB limit (same as Products)
->>>>>>> b34855a241af95ea619ff4cb20e5c1044d14eec8
     if ($size > 5 * 1024 * 1024) {
         throw new Exception('File is too large. Maximum allowed size is 5 MB.');
     }
 
-<<<<<<< HEAD
-=======
-    // MIME validation (same as Products)
->>>>>>> b34855a241af95ea619ff4cb20e5c1044d14eec8
     $mimeType = (new finfo(FILEINFO_MIME_TYPE))->file($tmpName);
     $allowedMimes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
     if (!in_array($mimeType, $allowedMimes, true)) {
         throw new Exception('Invalid file type. Only JPG, JPEG, PNG, and WEBP are allowed.');
     }
 
-<<<<<<< HEAD
-=======
-    // Extension validation (same as Products)
->>>>>>> b34855a241af95ea619ff4cb20e5c1044d14eec8
     $ext = strtolower(pathinfo($origName, PATHINFO_EXTENSION));
     $allowedExts = ['jpg', 'jpeg', 'png', 'webp'];
     if (!in_array($ext, $allowedExts, true)) {
@@ -279,26 +233,15 @@ function handleSubscriptionImageUpload(string $fileKey, string $planName = '', s
     $secondaryDir = OMG_SECONDARY_DIR;
 
     if (!is_dir($primaryDir) && !mkdir($primaryDir, 0755, true)) {
-<<<<<<< HEAD
         throw new Exception('Permanent image directory could not be created.');
     }
     if (!is_writable($primaryDir)) {
         throw new Exception('Permanent image directory is not writable.');
-=======
-        throw new Exception('Permanent image directory could not be created. Check server permissions.');
-    }
-    if (!is_writable($primaryDir)) {
-        throw new Exception('Permanent image directory is not writable. Check server permissions.');
->>>>>>> b34855a241af95ea619ff4cb20e5c1044d14eec8
     }
     if (!is_dir($secondaryDir)) {
         @mkdir($secondaryDir, 0755, true);
     }
 
-<<<<<<< HEAD
-=======
-    // Slug-based filename (same as Products)
->>>>>>> b34855a241af95ea619ff4cb20e5c1044d14eec8
     $targetFilename = generateProductImageFilename(
         !empty($planName) ? $planName : 'subscription',
         'main',
@@ -308,7 +251,6 @@ function handleSubscriptionImageUpload(string $fileKey, string $planName = '', s
     $primaryTarget   = $primaryDir   . $targetFilename;
     $secondaryTarget = $secondaryDir . $targetFilename;
 
-<<<<<<< HEAD
     if (!cropToSquare1000($tmpName, $primaryTarget)) {
         throw new Exception('Failed to crop and save the uploaded image.');
     }
@@ -317,19 +259,6 @@ function handleSubscriptionImageUpload(string $fileKey, string $planName = '', s
         error_log('[OMG Upload] copy() to backend/uploads/ failed: ' . $targetFilename);
     }
 
-=======
-    // Crop and save (same as Products)
-    if (!cropToSquare1000($tmpName, $primaryTarget)) {
-        throw new Exception('Failed to process and save the uploaded image.');
-    }
-
-    // Cache copy (same as Products)
-    if (is_writable($secondaryDir) && !copy($primaryTarget, $secondaryTarget)) {
-        error_log('[OMG Upload] copy() to backend/uploads/ failed for subscription image: ' . $targetFilename);
-    }
-
-    // Delete old image (only if it was a locally stored image, not a CDN URL)
->>>>>>> b34855a241af95ea619ff4cb20e5c1044d14eec8
     if (!empty($existingUrl) && strpos($existingUrl, OMG_IMG_URL_PATH) !== false) {
         $oldFilename = basename($existingUrl);
         if ($oldFilename !== $targetFilename) {
@@ -337,10 +266,6 @@ function handleSubscriptionImageUpload(string $fileKey, string $planName = '', s
         }
     }
 
-<<<<<<< HEAD
-=======
-    // Build URL (same pattern as Products using OMG_IMG_URL_PATH)
->>>>>>> b34855a241af95ea619ff4cb20e5c1044d14eec8
     $protocol = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on') ? 'https' : 'http';
     return $protocol . '://' . $_SERVER['HTTP_HOST'] . OMG_IMG_URL_PATH . $targetFilename;
 }
@@ -348,7 +273,6 @@ function handleSubscriptionImageUpload(string $fileKey, string $planName = '', s
 $message = '';
 $error   = '';
 
-<<<<<<< HEAD
 // ── EXPORT CSV ACTION (Streams real subscriber data) ─────────────────────────
 if (isset($_GET['action']) && $_GET['action'] === 'export_csv') {
     header('Content-Type: text/csv; charset=utf-8');
@@ -365,6 +289,8 @@ if (isset($_GET['action']) && $_GET['action'] === 'export_csv') {
         'Customer Phone',
         'Plan Name',
         'Frequency',
+        'Price Per Delivery (INR)',
+        'Total Plan Price (INR)',
         'Occasion Type',
         'Occasion Date',
         'Recipient Name',
@@ -375,68 +301,68 @@ if (isset($_GET['action']) && $_GET['action'] === 'export_csv') {
         'Next Delivery Date',
         'Total Deliveries',
         'Notes',
-        'Created At',
-        'Updated At'
+        'Created Date'
     ]);
 
-    $sql = "SELECT 
-                s.id,
-                COALESCE(up.name, s.recipient_name, 'Customer') AS customer_name,
-                u.email AS customer_email,
-                COALESCE(up.phone, s.recipient_phone, '') AS customer_phone,
-                sp.name AS plan_name,
-                sp.frequency AS plan_frequency,
-                s.occasion_type,
-                s.occasion_date,
-                s.recipient_name,
-                s.recipient_phone,
-                s.delivery_address,
-                s.city,
-                s.status,
-                s.next_delivery_date,
-                s.total_deliveries,
-                s.notes,
-                s.created_at,
-                s.updated_at
-            FROM subscriptions s
-            LEFT JOIN users u ON s.user_id = u.id
-            LEFT JOIN user_profiles up ON s.user_id = up.id
-            LEFT JOIN subscription_plans sp ON s.plan_id = sp.id
-            ORDER BY s.created_at DESC";
+    $csvStmt = $db->query("SELECT 
+        s.id,
+        COALESCE(up.name, s.recipient_name, 'Customer') AS customer_name,
+        COALESCE(u.email, '') AS customer_email,
+        COALESCE(up.phone, s.recipient_phone, '') AS customer_phone,
+        COALESCE(sp.name, 'Custom Plan') AS plan_name,
+        COALESCE(sp.frequency, 'monthly') AS plan_frequency,
+        COALESCE(sp.price_per_delivery, 0) AS plan_price_per_delivery,
+        COALESCE(sp.total_price, 0) AS plan_total_price,
+        s.occasion_type,
+        s.occasion_date,
+        s.recipient_name,
+        s.recipient_phone,
+        s.delivery_address,
+        s.city,
+        s.status,
+        s.next_delivery_date,
+        s.total_deliveries,
+        s.notes,
+        s.created_at
+    FROM subscriptions s
+    LEFT JOIN users u ON s.user_id = u.id
+    LEFT JOIN user_profiles up ON s.user_id = up.id
+    LEFT JOIN subscription_plans sp ON s.plan_id = sp.id
+    ORDER BY s.created_at DESC");
 
-    $stmt = $db->query($sql);
-    while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+    while ($row = $csvStmt->fetch(PDO::FETCH_ASSOC)) {
         fputcsv($out, [
             $row['id'],
             $row['customer_name'],
             $row['customer_email'],
             $row['customer_phone'],
-            $row['plan_name'] ?? 'Custom Plan',
-            ucfirst($row['plan_frequency'] ?? ''),
+            $row['plan_name'],
+            ucfirst($row['plan_frequency']),
+            $row['plan_price_per_delivery'],
+            $row['plan_total_price'],
             $row['occasion_type'],
             $row['occasion_date'],
             $row['recipient_name'],
             $row['recipient_phone'],
-            str_replace(["\r", "\n"], ' ', $row['delivery_address'] ?? ''),
+            $row['delivery_address'],
             $row['city'],
-            strtoupper($row['status']),
-            $row['next_delivery_date'],
+            ucfirst($row['status']),
+            $row['next_delivery_date'] ?: 'Not scheduled',
             $row['total_deliveries'],
-            str_replace(["\r", "\n"], ' ', $row['notes'] ?? ''),
-            $row['created_at'],
-            $row['updated_at']
+            $row['notes'],
+            $row['created_at']
         ]);
     }
     fclose($out);
     exit();
 }
 
-// ── HANDLE POST ACTIONS ─────────────────────────────────────────────────────
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
-    $action = $_POST['action'];
+// ── PROCESS POST REQUESTS (Plans CRUD, Image Upload, Status Changes) ─────────
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $action = $_POST['action'] ?? '';
 
     try {
-        // 1. SAVE NEW PLAN
+        // 1. CREATE SUBSCRIPTION PLAN
         if ($action === 'create_plan') {
             $name               = trim($_POST['name'] ?? '');
             $slug               = trim($_POST['slug'] ?? '');
@@ -456,13 +382,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             if (empty($name)) {
                 throw new Exception('Plan Name is required.');
             }
-            if ($price_per_delivery <= 0) {
-                throw new Exception('Price per delivery must be greater than 0.');
-            }
             if (empty($slug)) {
                 $slug = slugify($name);
-            } else {
-                $slug = slugify($slug);
             }
 
             // Ensure unique slug
@@ -537,15 +458,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             $featureLines = array_values(array_filter(array_map('trim', explode("\n", $features_raw))));
             $features_json = json_encode($featureLines);
 
+            // Fetch current plan image
+            $currImgStmt = $db->prepare("SELECT image FROM subscription_plans WHERE id = ?");
+            $currImgStmt->execute([$id]);
+            $currentImg = (string)$currImgStmt->fetchColumn();
+
+            $newImage = $currentImg;
+            if (isset($_POST['remove_image']) && $_POST['remove_image'] === '1') {
+                if (!empty($currentImg) && strpos($currentImg, OMG_IMG_URL_PATH) !== false) {
+                    deleteLocalImage($currentImg);
+                }
+                $newImage = null;
+            } elseif (isset($_FILES['plan_image']) && $_FILES['plan_image']['error'] === UPLOAD_ERR_OK) {
+                $newImage = handleSubscriptionImageUpload('plan_image', $name, $currentImg);
+            }
+
             $stmt = $db->prepare("UPDATE subscription_plans SET 
                 name = ?, slug = ?, tagline = ?, description = ?, frequency = ?, 
                 deliveries_per_year = ?, price_per_delivery = ?, total_price = ?, 
-                savings_percent = ?, features = ?, is_popular = ?, is_active = ?, display_order = ?
+                savings_percent = ?, features = ?, image = ?, is_popular = ?, is_active = ?, display_order = ?
                 WHERE id = ?");
             $stmt->execute([
                 $name, $slug, $tagline, $description, $frequency,
                 $deliveries_per_yr, $price_per_delivery, $total_price,
-                $savings_percent, $features_json, $is_popular, $is_active,
+                $savings_percent, $features_json, $newImage, $is_popular, $is_active,
                 $display_order, $id
             ]);
 
@@ -569,7 +505,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 if (!empty($existingImage) && strpos($existingImage, OMG_IMG_URL_PATH) !== false) {
                     deleteLocalImage($existingImage);
                 }
-                $newImage = '';
+                $newImage = null;
             } elseif (isset($_FILES['plan_image']) && $_FILES['plan_image']['error'] === UPLOAD_ERR_OK) {
                 $newImage = handleSubscriptionImageUpload('plan_image', $plan['name'], $existingImage);
             } elseif (!empty($_POST['image_url'])) {
@@ -578,9 +514,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 $newImage = $existingImage;
             }
 
-            $stmt = $db->prepare("UPDATE subscription_plans SET image = ? WHERE id = ?");
-            $stmt->execute([$newImage, $planId]);
-            $message = "Plan image updated successfully!";
+            $up = $db->prepare("UPDATE subscription_plans SET image = ? WHERE id = ?");
+            $up->execute([$newImage, $planId]);
+
+            $message = "Cover image for plan '{$plan['name']}' updated successfully!";
         }
 
         // 4. DUPLICATE PLAN
@@ -685,24 +622,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             $newStatus = trim($_POST['status'] ?? '');
             $allowedStatuses = ['active', 'paused', 'cancelled', 'expired'];
 
-            if (!$subId || !in_array($newStatus, $allowedStatuses, true)) {
-                throw new Exception("Invalid subscription ID or status.");
+            if (!in_array($newStatus, $allowedStatuses, true)) {
+                throw new Exception("Invalid status '{$newStatus}'. Allowed: " . implode(', ', $allowedStatuses));
             }
 
-            $stmt = $db->prepare("UPDATE subscriptions SET status = ? WHERE id = ?");
-            $stmt->execute([$newStatus, $subId]);
+            $upSub = $db->prepare("UPDATE subscriptions SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?");
+            $upSub->execute([$newStatus, $subId]);
 
-            $message = "Subscription status changed to '" . strtoupper($newStatus) . "'.";
+            $message = "Subscription status updated to " . strtoupper($newStatus) . " successfully.";
         }
 
-        // 10. EDIT SUBSCRIBER DETAILS
+        // 10. EDIT SUBSCRIBER RECORD (Recipient, Delivery, Occasion, Notes, Status)
         elseif ($action === 'edit_subscriber') {
             $subId          = trim($_POST['subscription_id'] ?? '');
             $planId         = (int)($_POST['plan_id'] ?? 0);
-            $occasionType   = trim($_POST['occasion_type'] ?? '');
-            $occasionDate   = trim($_POST['occasion_date'] ?? '');
             $recipientName  = trim($_POST['recipient_name'] ?? '');
             $recipientPhone = trim($_POST['recipient_phone'] ?? '');
+            $occasionType   = trim($_POST['occasion_type'] ?? '');
+            $occasionDate   = trim($_POST['occasion_date'] ?? '');
             $deliveryAddr   = trim($_POST['delivery_address'] ?? '');
             $city           = trim($_POST['city'] ?? 'Bangalore');
             $status         = trim($_POST['status'] ?? 'active');
@@ -710,19 +647,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             $totalDeliv     = (int)($_POST['total_deliveries'] ?? 0);
             $notes          = trim($_POST['notes'] ?? '');
 
-            if (!$subId || !$planId || !$occasionType || !$occasionDate) {
-                throw new Exception("Subscription ID, Plan, Occasion Type, and Occasion Date are required.");
+            if (empty($subId)) {
+                throw new Exception("Subscription ID is required.");
             }
 
-            $stmt = $db->prepare("UPDATE subscriptions SET 
-                plan_id = ?, occasion_type = ?, occasion_date = ?, 
-                recipient_name = ?, recipient_phone = ?, delivery_address = ?, 
-                city = ?, status = ?, next_delivery_date = ?, 
-                total_deliveries = ?, notes = ?
+            $upStmt = $db->prepare("UPDATE subscriptions SET 
+                plan_id = ?, recipient_name = ?, recipient_phone = ?, occasion_type = ?,
+                occasion_date = ?, delivery_address = ?, city = ?, status = ?,
+                next_delivery_date = ?, total_deliveries = ?, notes = ?, updated_at = CURRENT_TIMESTAMP
                 WHERE id = ?");
-            $stmt->execute([
-                $planId, $occasionType, $occasionDate,
-                $recipientName, $recipientPhone, $deliveryAddr,
+            $upStmt->execute([
+                $planId, $recipientName, $recipientPhone, $occasionType, $occasionDate, $deliveryAddr,
                 $city, $status, !empty($nextDelivery) ? $nextDelivery : null,
                 $totalDeliv, $notes, $subId
             ]);
@@ -733,12 +668,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     } catch (Exception $e) {
         $error = $e->getMessage();
     }
-}
-
-// ── DETERMINE ACTIVE SUB-TAB ────────────────────────────────────────────────
-$currentSubTab = $_GET['sub'] ?? 'overview';
-if (!in_array($currentSubTab, ['overview', 'plans', 'subscribers'], true)) {
-    $currentSubTab = 'overview';
 }
 
 // ── QUERY 1: ALL PLANS WITH SUBSCRIBER COUNTS ──────────────────────────────
@@ -766,20 +695,21 @@ $stats = [
     'paused'            => 0,
     'cancelled'         => 0,
     'expired'           => 0,
-    'most_popular_plan' => 'N/A'
+    'most_popular_plan' => 'None',
+    'upcoming_deliveries_count' => 0
 ];
 
 try {
-    $stStmt = $db->query("SELECT 
-        COUNT(*) AS total,
-        SUM(CASE WHEN status = 'active' THEN 1 ELSE 0 END) AS active_cnt,
-        SUM(CASE WHEN status = 'paused' THEN 1 ELSE 0 END) AS paused_cnt,
-        SUM(CASE WHEN status = 'cancelled' THEN 1 ELSE 0 END) AS cancelled_cnt,
-        SUM(CASE WHEN status = 'expired' THEN 1 ELSE 0 END) AS expired_cnt
+    $subStatsStmt = $db->query("SELECT 
+        COUNT(*) as total_cnt,
+        SUM(CASE WHEN status = 'active' THEN 1 ELSE 0 END) as active_cnt,
+        SUM(CASE WHEN status = 'paused' THEN 1 ELSE 0 END) as paused_cnt,
+        SUM(CASE WHEN status = 'cancelled' THEN 1 ELSE 0 END) as cancelled_cnt,
+        SUM(CASE WHEN status = 'expired' THEN 1 ELSE 0 END) as expired_cnt
         FROM subscriptions");
-    $rawSt = $stStmt->fetch(PDO::FETCH_ASSOC);
+    $rawSt = $subStatsStmt->fetch(PDO::FETCH_ASSOC);
     if ($rawSt) {
-        $stats['total_subscribers'] = (int)($rawSt['total'] ?? 0);
+        $stats['total_subscribers'] = (int)($rawSt['total_cnt'] ?? 0);
         $stats['active']            = (int)($rawSt['active_cnt'] ?? 0);
         $stats['paused']            = (int)($rawSt['paused_cnt'] ?? 0);
         $stats['cancelled']         = (int)($rawSt['cancelled_cnt'] ?? 0);
@@ -796,6 +726,10 @@ try {
     if ($popPlan) {
         $stats['most_popular_plan'] = $popPlan['name'] . ' (' . $popPlan['cnt'] . ')';
     }
+
+    // Upcoming deliveries count (status = active AND next_delivery_date >= CURRENT_DATE)
+    $upCntStmt = $db->query("SELECT COUNT(*) FROM subscriptions WHERE status = 'active' AND next_delivery_date >= CURRENT_DATE");
+    $stats['upcoming_deliveries_count'] = (int)$upCntStmt->fetchColumn();
 } catch (Exception $e) {
     error_log("[OMG Admin] Overview stats error: " . $e->getMessage());
 }
@@ -817,6 +751,7 @@ try {
         LEFT JOIN subscription_plans sp ON s.plan_id = sp.id
         WHERE s.next_delivery_date IS NOT NULL 
           AND s.status = 'active'
+          AND s.next_delivery_date >= CURRENT_DATE
         ORDER BY s.next_delivery_date ASC
         LIMIT 6");
     $upcomingDeliveries = $upStmt->fetchAll(PDO::FETCH_ASSOC);
@@ -850,140 +785,164 @@ try {
 $subscribers = [];
 $totalSubscriberRecords = 0;
 $totalPages = 1;
-$perPage = 15;
+$perPage = max(5, min(100, (int)($_GET['per_page'] ?? 15)));
 $currentPage = max(1, (int)($_GET['page'] ?? 1));
 
 // Filter parameters
-$searchFilter     = trim($_GET['search'] ?? '');
-$statusFilter     = trim($_GET['status'] ?? '');
-$planFilter       = (int)($_GET['plan_id'] ?? 0);
-$frequencyFilter  = trim($_GET['frequency'] ?? '');
-$occasionFilter   = trim($_GET['occasion_type'] ?? '');
-$cityFilter       = trim($_GET['city'] ?? '');
-$sortField        = trim($_GET['sort'] ?? 'newest');
+$searchFilter       = trim($_GET['search'] ?? '');
+$statusFilter       = trim($_GET['status'] ?? '');
+$planFilter         = (int)($_GET['plan_id'] ?? 0);
+$frequencyFilter    = trim($_GET['frequency'] ?? '');
+$occasionFilter     = trim($_GET['occasion_type'] ?? '');
+$cityFilter         = trim($_GET['city'] ?? '');
+$createdFrom        = trim($_GET['created_from'] ?? '');
+$createdTo          = trim($_GET['created_to'] ?? '');
+$nextDeliveryFrom   = trim($_GET['next_delivery_from'] ?? '');
+$nextDeliveryTo     = trim($_GET['next_delivery_to'] ?? '');
+$sortField          = trim($_GET['sort'] ?? 'newest');
 
-if ($currentSubTab === 'subscribers') {
-    try {
-        $where = ["1=1"];
-        $params = [];
+try {
+    $where = ["1=1"];
+    $params = [];
 
-        // Search in Name, Email, Phone, Recipient, Subscription ID
-        if ($searchFilter !== '') {
-            $where[] = "(
-                u.email LIKE :search OR
-                up.name LIKE :search OR
-                up.phone LIKE :search OR
-                s.recipient_name LIKE :search OR
-                s.recipient_phone LIKE :search OR
-                s.id LIKE :search OR
-                s.delivery_address LIKE :search
-            )";
-            $params[':search'] = '%' . $searchFilter . '%';
-        }
-
-        // Status Filter
-        if ($statusFilter !== '' && $statusFilter !== 'all') {
-            $where[] = "s.status = :status";
-            $params[':status'] = $statusFilter;
-        }
-
-        // Plan Filter
-        if ($planFilter > 0) {
-            $where[] = "s.plan_id = :plan_id";
-            $params[':plan_id'] = $planFilter;
-        }
-
-        // Frequency Filter
-        if ($frequencyFilter !== '' && $frequencyFilter !== 'all') {
-            $where[] = "sp.frequency = :freq";
-            $params[':freq'] = $frequencyFilter;
-        }
-
-        // Occasion Filter
-        if ($occasionFilter !== '' && $occasionFilter !== 'all') {
-            $where[] = "s.occasion_type = :occ";
-            $params[':occ'] = $occasionFilter;
-        }
-
-        // City Filter
-        if ($cityFilter !== '') {
-            $where[] = "s.city LIKE :city";
-            $params[':city'] = '%' . $cityFilter . '%';
-        }
-
-        $whereClause = implode(" AND ", $where);
-
-        // Sorting
-        $orderClause = "s.created_at DESC";
-        switch ($sortField) {
-            case 'oldest':
-                $orderClause = "s.created_at ASC";
-                break;
-            case 'next_delivery':
-                $orderClause = "s.next_delivery_date ASC, s.created_at DESC";
-                break;
-            case 'occasion_date':
-                $orderClause = "s.occasion_date ASC";
-                break;
-            case 'customer_name':
-                $orderClause = "COALESCE(up.name, s.recipient_name) ASC";
-                break;
-            case 'plan':
-                $orderClause = "sp.name ASC";
-                break;
-            case 'status':
-                $orderClause = "s.status ASC, s.created_at DESC";
-                break;
-            case 'newest':
-            default:
-                $orderClause = "s.created_at DESC";
-                break;
-        }
-
-        // Count total
-        $cntSql = "SELECT COUNT(*) FROM subscriptions s
-                   LEFT JOIN users u ON s.user_id = u.id
-                   LEFT JOIN user_profiles up ON s.user_id = up.id
-                   LEFT JOIN subscription_plans sp ON s.plan_id = sp.id
-                   WHERE {$whereClause}";
-        $cntStmt = $db->prepare($cntSql);
-        $cntStmt->execute($params);
-        $totalSubscriberRecords = (int)$cntStmt->fetchColumn();
-
-        $totalPages = max(1, (int)ceil($totalSubscriberRecords / $perPage));
-        if ($currentPage > $totalPages) $currentPage = $totalPages;
-        $offset = ($currentPage - 1) * $perPage;
-
-        // Fetch paginated rows
-        $listSql = "SELECT 
-                s.*,
-                COALESCE(up.name, s.recipient_name, 'Customer') AS customer_name,
-                u.email AS customer_email,
-                COALESCE(up.phone, s.recipient_phone, '') AS customer_phone,
-                sp.name AS plan_name,
-                sp.slug AS plan_slug,
-                sp.frequency AS plan_frequency,
-                sp.price_per_delivery AS plan_price_per_delivery,
-                sp.total_price AS plan_total_price,
-                sp.image AS plan_image
-            FROM subscriptions s
-            LEFT JOIN users u ON s.user_id = u.id
-            LEFT JOIN user_profiles up ON s.user_id = up.id
-            LEFT JOIN subscription_plans sp ON s.plan_id = sp.id
-            WHERE {$whereClause}
-            ORDER BY {$orderClause}
-            LIMIT {$perPage} OFFSET {$offset}";
-
-        $listStmt = $db->prepare($listSql);
-        foreach ($params as $k => $v) {
-            $listStmt->bindValue($k, $v);
-        }
-        $listStmt->execute();
-        $subscribers = $listStmt->fetchAll(PDO::FETCH_ASSOC);
-
-    } catch (Exception $e) {
-        error_log("[OMG Admin] Load subscribers error: " . $e->getMessage());
+    // Search in Customer Name, Email, Phone, Recipient Name, Subscription ID, Address
+    if ($searchFilter !== '') {
+        $where[] = "(
+            u.email LIKE :search OR
+            up.name LIKE :search OR
+            up.phone LIKE :search OR
+            s.recipient_name LIKE :search OR
+            s.recipient_phone LIKE :search OR
+            s.id LIKE :search OR
+            s.delivery_address LIKE :search
+        )";
+        $params[':search'] = '%' . $searchFilter . '%';
     }
+
+    // Status Filter
+    if ($statusFilter !== '' && $statusFilter !== 'all') {
+        $where[] = "s.status = :status";
+        $params[':status'] = $statusFilter;
+    }
+
+    // Plan Filter
+    if ($planFilter > 0) {
+        $where[] = "s.plan_id = :plan_id";
+        $params[':plan_id'] = $planFilter;
+    }
+
+    // Frequency Filter
+    if ($frequencyFilter !== '' && $frequencyFilter !== 'all') {
+        $where[] = "sp.frequency = :freq";
+        $params[':freq'] = $frequencyFilter;
+    }
+
+    // Occasion Filter
+    if ($occasionFilter !== '' && $occasionFilter !== 'all') {
+        $where[] = "s.occasion_type = :occ";
+        $params[':occ'] = $occasionFilter;
+    }
+
+    // City Filter
+    if ($cityFilter !== '') {
+        $where[] = "s.city LIKE :city";
+        $params[':city'] = '%' . $cityFilter . '%';
+    }
+
+    // Date Filters
+    if ($createdFrom !== '') {
+        $where[] = "s.created_at >= :cfrom";
+        $params[':cfrom'] = $createdFrom . ' 00:00:00';
+    }
+    if ($createdTo !== '') {
+        $where[] = "s.created_at <= :cto";
+        $params[':cto'] = $createdTo . ' 23:59:59';
+    }
+    if ($nextDeliveryFrom !== '') {
+        $where[] = "s.next_delivery_date >= :ndfrom";
+        $params[':ndfrom'] = $nextDeliveryFrom;
+    }
+    if ($nextDeliveryTo !== '') {
+        $where[] = "s.next_delivery_date <= :ndto";
+        $params[':ndto'] = $nextDeliveryTo;
+    }
+
+    $whereClause = implode(" AND ", $where);
+
+    // Sorting
+    $orderClause = "s.created_at DESC";
+    switch ($sortField) {
+        case 'oldest':
+            $orderClause = "s.created_at ASC";
+            break;
+        case 'next_delivery':
+            $orderClause = "s.next_delivery_date IS NULL, s.next_delivery_date ASC, s.created_at DESC";
+            break;
+        case 'occasion_date':
+            $orderClause = "s.occasion_date ASC";
+            break;
+        case 'customer':
+            $orderClause = "COALESCE(up.name, s.recipient_name) ASC";
+            break;
+        case 'plan':
+            $orderClause = "sp.name ASC";
+            break;
+        case 'price_value':
+            $orderClause = "sp.total_price DESC";
+            break;
+        case 'status':
+            $orderClause = "s.status ASC, s.created_at DESC";
+            break;
+        case 'newest':
+        default:
+            $orderClause = "s.created_at DESC";
+            break;
+    }
+
+    // Count total
+    $cntSql = "SELECT COUNT(*) FROM subscriptions s
+               LEFT JOIN users u ON s.user_id = u.id
+               LEFT JOIN user_profiles up ON s.user_id = up.id
+               LEFT JOIN subscription_plans sp ON s.plan_id = sp.id
+               WHERE {$whereClause}";
+    $cntStmt = $db->prepare($cntSql);
+    $cntStmt->execute($params);
+    $totalSubscriberRecords = (int)$cntStmt->fetchColumn();
+
+    $totalPages = max(1, (int)ceil($totalSubscriberRecords / $perPage));
+    if ($currentPage > $totalPages) $currentPage = $totalPages;
+    $offset = ($currentPage - 1) * $perPage;
+
+    // Fetch paginated rows
+    $listSql = "SELECT 
+            s.*,
+            COALESCE(up.name, s.recipient_name, 'Customer') AS customer_name,
+            u.email AS customer_email,
+            COALESCE(up.phone, s.recipient_phone, '') AS customer_phone,
+            sp.name AS plan_name,
+            sp.slug AS plan_slug,
+            sp.frequency AS plan_frequency,
+            sp.price_per_delivery AS plan_price_per_delivery,
+            sp.total_price AS plan_total_price,
+            sp.savings_percent AS plan_savings_percent,
+            sp.image AS plan_image
+        FROM subscriptions s
+        LEFT JOIN users u ON s.user_id = u.id
+        LEFT JOIN user_profiles up ON s.user_id = up.id
+        LEFT JOIN subscription_plans sp ON s.plan_id = sp.id
+        WHERE {$whereClause}
+        ORDER BY {$orderClause}
+        LIMIT {$perPage} OFFSET {$offset}";
+
+    $listStmt = $db->prepare($listSql);
+    foreach ($params as $k => $v) {
+        $listStmt->bindValue($k, $v);
+    }
+    $listStmt->execute();
+    $subscribers = $listStmt->fetchAll(PDO::FETCH_ASSOC);
+
+} catch (Exception $e) {
+    error_log("[OMG Admin] Load subscribers error: " . $e->getMessage());
 }
 
 // Helper: Distinct Occasion Types for Filter
@@ -992,37 +951,31 @@ try {
     $distinctOccasions = $db->query("SELECT DISTINCT occasion_type FROM subscriptions WHERE occasion_type IS NOT NULL AND occasion_type != '' ORDER BY occasion_type ASC")->fetchAll(PDO::FETCH_COLUMN);
 } catch (Exception $e) {}
 
-$pageTitle = "Subscriptions Management — OMG Floral Store";
+$pageTitle = "Subscription Plans & Management — OMG Floral Store";
 require_once 'admin_header.php';
 ?>
 
-<div class="space-y-6">
-    <!-- Header Title & Action Buttons -->
+<div class="space-y-8 pb-12">
+    <!-- Top Header Bar -->
     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 pb-5">
         <div>
-            <div class="flex items-center gap-2">
-                <span class="text-xs uppercase tracking-widest font-bold text-amber-600 bg-amber-100/70 border border-amber-300 px-2.5 py-0.5 rounded-full">
-                    Admin Portal
-                </span>
-                <span class="text-xs text-slate-400">• Occasion Floral Deliveries</span>
-            </div>
-            <h1 class="text-2xl sm:text-3xl font-serif font-bold text-slate-900 mt-1">Subscription Management</h1>
-            <p class="text-slate-500 text-xs sm:text-sm mt-0.5">Control recurring flower subscriptions, oversee upcoming deliveries, manage tiers and upload custom images.</p>
+            <h1 class="text-2xl sm:text-3xl font-serif font-bold text-slate-900">Subscription Plans</h1>
+            <p class="text-slate-500 text-xs sm:text-sm mt-0.5">Manage subscription plan images. All uploads are processed to 1000×1000 px using the same pipeline as products.</p>
         </div>
 
         <div class="flex items-center gap-2.5 flex-wrap">
-            <a href="admin.php?tab=subscriptions&sub=subscribers&action=export_csv" 
-               class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold shadow-xs transition-colors">
-                📥 Export CSV
+            <a href="#subscribersSection" 
+               class="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold shadow-xs transition-colors">
+                👥 View Subscribers (<?php echo $stats['total_subscribers']; ?>)
             </a>
-            <button onclick="openAddPlanModal()" 
-                    class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl gold-gradient text-slate-950 text-xs font-bold shadow-md hover:brightness-105 transition-all">
+            <button type="button" onclick="openAddPlanModal()" 
+                    class="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl gold-gradient text-slate-950 text-xs font-bold shadow-md hover:brightness-105 transition-all">
                 ✨ + Add Subscription Plan
             </button>
         </div>
     </div>
 
-    <!-- Alert Feedback Banners -->
+    <!-- Feedback Alerts -->
     <?php if (!empty($message)): ?>
         <div class="bg-emerald-50 border border-emerald-200 text-emerald-800 px-4 py-3 rounded-2xl text-sm font-medium flex items-center justify-between shadow-xs">
             <div class="flex items-center gap-2">
@@ -1043,715 +996,702 @@ require_once 'admin_header.php';
         </div>
     <?php endif; ?>
 
-    <!-- Sub-Navigation Navigation Tabs (Overview | Plans | Subscribers) -->
-    <div class="flex items-center gap-2 border-b border-slate-200 pb-0 overflow-x-auto scrollbar-hide">
-        <a href="admin.php?tab=subscriptions&sub=overview"
-           class="px-5 py-3 text-sm font-bold flex items-center gap-2 border-b-2 transition-all whitespace-nowrap <?php echo $currentSubTab === 'overview' ? 'border-amber-500 text-amber-700 bg-amber-50/50 rounded-t-xl' : 'border-transparent text-slate-500 hover:text-slate-800 hover:border-slate-300'; ?>">
-            <span>📊</span> Overview
-            <span class="text-xs px-2 py-0.5 rounded-full <?php echo $currentSubTab === 'overview' ? 'bg-amber-200/80 text-amber-900' : 'bg-slate-200 text-slate-600'; ?>">
-                <?php echo $stats['total_subscribers']; ?>
-            </span>
-        </a>
-
-        <a href="admin.php?tab=subscriptions&sub=plans"
-           class="px-5 py-3 text-sm font-bold flex items-center gap-2 border-b-2 transition-all whitespace-nowrap <?php echo $currentSubTab === 'plans' ? 'border-amber-500 text-amber-700 bg-amber-50/50 rounded-t-xl' : 'border-transparent text-slate-500 hover:text-slate-800 hover:border-slate-300'; ?>">
-            <span>🌸</span> Subscription Plans
-            <span class="text-xs px-2 py-0.5 rounded-full <?php echo $currentSubTab === 'plans' ? 'bg-amber-200/80 text-amber-900' : 'bg-slate-200 text-slate-600'; ?>">
-                <?php echo count($plans); ?>
-            </span>
-        </a>
-
-        <a href="admin.php?tab=subscriptions&sub=subscribers"
-           class="px-5 py-3 text-sm font-bold flex items-center gap-2 border-b-2 transition-all whitespace-nowrap <?php echo $currentSubTab === 'subscribers' ? 'border-amber-500 text-amber-700 bg-amber-50/50 rounded-t-xl' : 'border-transparent text-slate-500 hover:text-slate-800 hover:border-slate-300'; ?>">
-            <span>👥</span> Subscribers
-            <span class="text-xs px-2 py-0.5 rounded-full <?php echo $currentSubTab === 'subscribers' ? 'bg-amber-200/80 text-amber-900' : 'bg-slate-200 text-slate-600'; ?>">
-                <?php echo $stats['total_subscribers']; ?>
-            </span>
-        </a>
-    </div>
-
     <!-- ═══════════════════════════════════════════════════════════════════════════ -->
-    <!-- SUB-TAB 1: OVERVIEW SECTION                                               -->
+    <!-- SECTION 1: SUBSCRIPTION PLANS (Image Management & CRUD)                    -->
     <!-- ═══════════════════════════════════════════════════════════════════════════ -->
-    <?php if ($currentSubTab === 'overview'): ?>
-        <div class="space-y-8">
-            <!-- Real Metric Cards -->
-            <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3.5">
-                <div class="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs">
-                    <p class="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Total Subscribers</p>
-                    <p class="text-2xl font-serif font-bold text-slate-900 mt-1"><?php echo $stats['total_subscribers']; ?></p>
-                    <p class="text-[10px] text-slate-400 mt-0.5">All customer records</p>
-                </div>
-                <div class="bg-white p-4 rounded-2xl border border-emerald-200/80 bg-emerald-50/20 shadow-xs">
-                    <p class="text-[11px] font-bold text-emerald-700 uppercase tracking-wider">Active</p>
-                    <p class="text-2xl font-serif font-bold text-emerald-600 mt-1"><?php echo $stats['active']; ?></p>
-                    <p class="text-[10px] text-emerald-600/70 mt-0.5">Receiving deliveries</p>
-                </div>
-                <div class="bg-white p-4 rounded-2xl border border-amber-200/80 bg-amber-50/20 shadow-xs">
-                    <p class="text-[11px] font-bold text-amber-700 uppercase tracking-wider">Paused</p>
-                    <p class="text-2xl font-serif font-bold text-amber-600 mt-1"><?php echo $stats['paused']; ?></p>
-                    <p class="text-[10px] text-amber-600/70 mt-0.5">Temporarily on hold</p>
-                </div>
-                <div class="bg-white p-4 rounded-2xl border border-rose-200/80 bg-rose-50/20 shadow-xs">
-                    <p class="text-[11px] font-bold text-rose-700 uppercase tracking-wider">Cancelled</p>
-                    <p class="text-2xl font-serif font-bold text-rose-600 mt-1"><?php echo $stats['cancelled']; ?></p>
-                    <p class="text-[10px] text-rose-600/70 mt-0.5">Retained for history</p>
-                </div>
-                <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
-                    <p class="text-[11px] font-bold text-slate-600 uppercase tracking-wider">Expired</p>
-                    <p class="text-2xl font-serif font-bold text-slate-500 mt-1"><?php echo $stats['expired']; ?></p>
-                    <p class="text-[10px] text-slate-400 mt-0.5">Term concluded</p>
-                </div>
-                <div class="bg-white p-4 rounded-2xl border border-amber-300/80 bg-gradient-to-br from-white to-amber-50/40 shadow-xs">
-                    <p class="text-[11px] font-bold text-amber-800 uppercase tracking-wider truncate">Most Subscribed</p>
-                    <p class="text-sm font-bold text-slate-900 mt-2 truncate" title="<?php echo htmlspecialchars($stats['most_popular_plan']); ?>">
-                        <?php echo htmlspecialchars($stats['most_popular_plan']); ?>
-                    </p>
-                    <p class="text-[10px] text-amber-700 mt-0.5">Top performing tier</p>
-                </div>
+    <div class="bg-white rounded-3xl border border-slate-200/80 shadow-xs p-6 space-y-5">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
+            <div>
+                <h2 class="text-lg font-serif font-bold text-slate-900">Subscription Plans — Image Management</h2>
+                <p class="text-xs text-slate-500 mt-0.5">Click "Edit Image" to upload or replace a plan's cover image. Files are validated (MIME + extension + size), cropped to 1000×1000 px, and stored in the permanent image store.</p>
             </div>
+            <button type="button" onclick="openAddPlanModal()" 
+                    class="px-4 py-2 rounded-xl gold-gradient text-slate-950 text-xs font-bold shadow-md hover:brightness-105 shrink-0 self-start sm:self-auto">
+                + Add Subscription Plan
+            </button>
+        </div>
 
-            <!-- Subscription Counts by Plan (Interactive Summary Cards) -->
-            <div class="bg-white rounded-2xl border border-slate-200/80 shadow-xs p-6 space-y-4">
-                <div class="flex items-center justify-between border-b border-slate-100 pb-3">
-                    <div>
-                        <h3 class="text-base font-serif font-bold text-slate-900">Subscription Breakdown by Plan</h3>
-                        <p class="text-xs text-slate-500">Live breakdown of customer distribution across plans.</p>
-                    </div>
-                    <a href="admin.php?tab=subscriptions&sub=plans" class="text-xs font-bold text-amber-700 hover:text-amber-800">
-                        Manage Plans →
-                    </a>
-                </div>
-
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <?php foreach ($plans as $p): ?>
-                        <div class="border border-slate-200 rounded-xl p-4.5 bg-slate-50/40 hover:border-amber-400 transition-all flex flex-col justify-between space-y-3">
-                            <div class="flex items-start gap-3">
-                                <?php if (!empty($p['image'])): ?>
-                                    <img src="<?php echo htmlspecialchars($p['image']); ?>" alt="<?php echo htmlspecialchars($p['name']); ?>"
-                                         class="w-12 h-12 rounded-xl object-cover border border-slate-200 shrink-0">
-                                <?php else: ?>
-                                    <div class="w-12 h-12 rounded-xl bg-slate-200 flex items-center justify-center text-xs font-bold text-slate-400 shrink-0">
-                                        OMG
-                                    </div>
-                                <?php endif; ?>
-                                <div class="min-w-0 flex-1">
+        <?php if (empty($plans)): ?>
+            <div class="text-center py-12 text-slate-400 italic text-sm">
+                No subscription plans found. Click "+ Add Subscription Plan" to create one.
+            </div>
+        <?php else: ?>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-sm border-collapse">
+                    <thead class="bg-slate-50 text-slate-500 uppercase text-[11px] font-bold tracking-wider border-b border-slate-200">
+                        <tr>
+                            <th class="py-3 px-3 w-16">ORDER</th>
+                            <th class="py-3 px-3 w-20">IMAGE</th>
+                            <th class="py-3 px-4">SUBSCRIPTION PLAN</th>
+                            <th class="py-3 px-3">FREQUENCY</th>
+                            <th class="py-3 px-3">PRICE / DELIVERY</th>
+                            <th class="py-3 px-3">SUBSCRIBERS</th>
+                            <th class="py-3 px-3">STATUS</th>
+                            <th class="py-3 px-4 text-right">ACTIONS</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100">
+                        <?php foreach ($plans as $p): ?>
+                            <tr class="hover:bg-slate-50/70 transition-colors">
+                                <!-- Order (# and Up/Down) -->
+                                <td class="py-4 px-3 text-xs text-slate-600">
                                     <div class="flex items-center gap-1.5">
-                                        <h4 class="font-bold text-slate-900 text-sm truncate"><?php echo htmlspecialchars($p['name']); ?></h4>
+                                        <span class="font-mono font-bold text-slate-700 bg-slate-100 px-2 py-0.5 rounded text-xs">
+                                            #<?php echo $p['display_order']; ?>
+                                        </span>
+                                        <div class="flex flex-col">
+                                            <form method="POST" class="inline">
+                                                <input type="hidden" name="action" value="reorder_plan">
+                                                <input type="hidden" name="plan_id" value="<?php echo $p['id']; ?>">
+                                                <input type="hidden" name="direction" value="up">
+                                                <button type="submit" title="Move Up" class="text-[10px] text-slate-400 hover:text-amber-600 leading-none">▲</button>
+                                            </form>
+                                            <form method="POST" class="inline">
+                                                <input type="hidden" name="action" value="reorder_plan">
+                                                <input type="hidden" name="plan_id" value="<?php echo $p['id']; ?>">
+                                                <input type="hidden" name="direction" value="down">
+                                                <button type="submit" title="Move Down" class="text-[10px] text-slate-400 hover:text-amber-600 leading-none">▼</button>
+                                            </form>
+                                        </div>
+                                    </div>
+                                </td>
+
+                                <!-- Image Thumbnail -->
+                                <td class="py-4 px-3">
+                                    <div class="relative group w-14 h-14 rounded-xl overflow-hidden border border-slate-200 shadow-xs cursor-pointer bg-slate-100"
+                                         onclick='openPlanImageModal(<?php echo htmlspecialchars(json_encode($p), ENT_QUOTES); ?>)'>
+                                        <?php if (!empty($p['image'])): ?>
+                                            <img src="<?php echo htmlspecialchars($p['image']); ?>" alt="<?php echo htmlspecialchars($p['name']); ?>" 
+                                                 class="w-full h-full object-cover">
+                                        <?php else: ?>
+                                            <div class="w-full h-full flex items-center justify-center text-[10px] text-slate-400 text-center leading-tight">
+                                                No<br>Image
+                                            </div>
+                                        <?php endif; ?>
+                                        <div class="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity text-[10px] text-white font-bold">
+                                            Edit
+                                        </div>
+                                    </div>
+                                </td>
+
+                                <!-- Subscription Plan Name & Tagline -->
+                                <td class="py-4 px-4 min-w-[200px]">
+                                    <div class="flex items-center gap-2">
+                                        <strong class="text-slate-900 font-bold text-sm"><?php echo htmlspecialchars($p['name']); ?></strong>
                                         <?php if ($p['is_popular']): ?>
                                             <span class="text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 border border-amber-300">Popular</span>
                                         <?php endif; ?>
                                     </div>
-                                    <p class="text-xs text-slate-500 capitalize"><?php echo htmlspecialchars($p['frequency']); ?> • ₹<?php echo number_format($p['price_per_delivery']); ?>/deliv</p>
-                                </div>
-                            </div>
+                                    <?php if (!empty($p['tagline'])): ?>
+                                        <p class="text-xs text-slate-500 italic mt-0.5"><?php echo htmlspecialchars($p['tagline']); ?></p>
+                                    <?php endif; ?>
+                                </td>
 
-                            <div class="grid grid-cols-3 gap-2 text-center pt-2 border-t border-slate-200/70 text-xs">
-                                <div>
-                                    <span class="text-slate-400 block text-[10px]">Total</span>
-                                    <strong class="text-slate-800 font-bold"><?php echo (int)($p['subscriber_count'] ?? 0); ?></strong>
-                                </div>
-                                <div>
-                                    <span class="text-emerald-500 block text-[10px]">Active</span>
-                                    <strong class="text-emerald-600 font-bold"><?php echo (int)($p['active_subscribers'] ?? 0); ?></strong>
-                                </div>
-                                <div>
-                                    <span class="text-amber-500 block text-[10px]">Paused</span>
-                                    <strong class="text-amber-600 font-bold"><?php echo (int)($p['paused_subscribers'] ?? 0); ?></strong>
-                                </div>
-                            </div>
+                                <!-- Frequency -->
+                                <td class="py-4 px-3 text-xs font-semibold capitalize text-slate-700">
+                                    <?php echo htmlspecialchars($p['frequency']); ?>
+                                </td>
 
-                            <a href="admin.php?tab=subscriptions&sub=subscribers&plan_id=<?php echo $p['id']; ?>"
-                               class="text-center text-xs font-semibold text-slate-700 bg-white border border-slate-200 hover:bg-slate-50 py-1.5 rounded-lg transition-colors">
-                                View <?php echo (int)($p['subscriber_count'] ?? 0); ?> Subscribers →
-                            </a>
-                        </div>
-                    <?php endforeach; ?>
-                </div>
-            </div>
+                                <!-- Price / Delivery -->
+                                <td class="py-4 px-3 font-bold text-amber-600 text-sm">
+                                    ₹<?php echo number_format($p['price_per_delivery']); ?>
+                                </td>
 
-            <!-- Two-Column Grid: Upcoming Deliveries & Recent Subscriptions -->
-            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <!-- Upcoming Deliveries -->
-                <div class="bg-white rounded-2xl border border-slate-200/80 shadow-xs p-6 space-y-4">
-                    <div class="flex items-center justify-between border-b border-slate-100 pb-3">
-                        <div class="flex items-center gap-2">
-                            <span class="p-1.5 rounded-lg bg-emerald-100 text-emerald-800 text-xs">🚚</span>
-                            <div>
-                                <h3 class="text-base font-serif font-bold text-slate-900">Upcoming Deliveries</h3>
-                                <p class="text-xs text-slate-500">Scheduled using customer occasion dates.</p>
-                            </div>
-                        </div>
-                        <a href="admin.php?tab=subscriptions&sub=subscribers&sort=next_delivery" class="text-xs font-bold text-amber-700 hover:text-amber-800">
-                            View All →
-                        </a>
-                    </div>
+                                <!-- Subscribers Count Column (Calculated from database) -->
+                                <td class="py-4 px-3 text-xs">
+                                    <a href="admin.php?tab=subscriptions&plan_id=<?php echo $p['id']; ?>#subscribersSection" 
+                                       class="inline-flex items-center gap-1.5 font-bold text-slate-800 hover:text-amber-700 bg-slate-100 hover:bg-amber-100/60 px-2.5 py-1 rounded-lg transition-colors border border-slate-200"
+                                       title="Filter subscribers below by this plan">
+                                        <span>👥</span>
+                                        <span><?php echo (int)($p['subscriber_count'] ?? 0); ?> Subscribers</span>
+                                    </a>
+                                </td>
 
-                    <?php if (empty($upcomingDeliveries)): ?>
-                        <div class="text-center py-10 text-slate-400 italic text-sm">
-                            No upcoming scheduled deliveries found in the database.
-                        </div>
-                    <?php else: ?>
-                        <div class="space-y-2.5">
-                            <?php foreach ($upcomingDeliveries as $ud): ?>
-                                <div class="p-3.5 rounded-xl border border-slate-200/70 hover:border-amber-300 bg-slate-50/50 flex items-center justify-between gap-3 text-xs">
-                                    <div class="min-w-0">
-                                        <div class="flex items-center gap-2">
-                                            <strong class="text-slate-900 font-bold"><?php echo htmlspecialchars($ud['customer_name']); ?></strong>
-                                            <span class="text-[10px] text-slate-400">• For: <?php echo htmlspecialchars($ud['recipient_name'] ?: 'Self'); ?></span>
-                                        </div>
-                                        <p class="text-slate-500 text-[11px] truncate mt-0.5">
-                                            <?php echo htmlspecialchars($ud['plan_name'] ?? 'Plan'); ?> — <?php echo htmlspecialchars($ud['occasion_type']); ?> (<?php echo htmlspecialchars($ud['city']); ?>)
-                                        </p>
-                                    </div>
-                                    <div class="text-right shrink-0">
-                                        <span class="font-mono font-bold text-amber-700 bg-amber-100/80 border border-amber-300 px-2 py-0.5 rounded text-[11px] block">
-                                            <?php echo htmlspecialchars($ud['next_delivery_date']); ?>
-                                        </span>
-                                        <span class="text-[10px] text-emerald-600 font-semibold block mt-0.5">● Active</span>
-                                    </div>
-                                </div>
-                            <?php endforeach; ?>
-                        </div>
-                    <?php endif; ?>
-                </div>
+                                <!-- Status Toggle -->
+                                <td class="py-4 px-3 text-xs">
+                                    <form method="POST" class="inline">
+                                        <input type="hidden" name="action" value="toggle_plan_active">
+                                        <input type="hidden" name="plan_id" value="<?php echo $p['id']; ?>">
+                                        <button type="submit" class="cursor-pointer font-semibold text-xs <?php echo $p['is_active'] ? 'text-emerald-600 hover:text-emerald-800' : 'text-slate-400 hover:text-slate-600'; ?>">
+                                            <?php echo $p['is_active'] ? '● Active' : '○ Disabled'; ?>
+                                        </button>
+                                    </form>
+                                </td>
 
-                <!-- Recent Subscriptions -->
-                <div class="bg-white rounded-2xl border border-slate-200/80 shadow-xs p-6 space-y-4">
-                    <div class="flex items-center justify-between border-b border-slate-100 pb-3">
-                        <div class="flex items-center gap-2">
-                            <span class="p-1.5 rounded-lg bg-amber-100 text-amber-800 text-xs">✨</span>
-                            <div>
-                                <h3 class="text-base font-serif font-bold text-slate-900">Recent Subscriptions</h3>
-                                <p class="text-xs text-slate-500">Latest customer signups by creation date.</p>
-                            </div>
-                        </div>
-                        <a href="admin.php?tab=subscriptions&sub=subscribers&sort=newest" class="text-xs font-bold text-amber-700 hover:text-amber-800">
-                            View All →
-                        </a>
-                    </div>
+                                <!-- Actions Menu -->
+                                <td class="py-4 px-4 text-right">
+                                    <div class="flex items-center justify-end gap-1.5 flex-wrap">
+                                        <!-- Edit Image Button (Primary button from screenshot) -->
+                                        <button type="button" 
+                                                onclick='openPlanImageModal(<?php echo htmlspecialchars(json_encode($p), ENT_QUOTES); ?>)'
+                                                class="px-3.5 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold transition-all shadow-xs">
+                                            Edit Image
+                                        </button>
 
-                    <?php if (empty($recentSubscriptions)): ?>
-                        <div class="text-center py-10 text-slate-400 italic text-sm">
-                            No subscription records stored in database yet.
-                        </div>
-                    <?php else: ?>
-                        <div class="space-y-2.5">
-                            <?php foreach ($recentSubscriptions as $rs): ?>
-                                <div class="p-3.5 rounded-xl border border-slate-200/70 hover:border-amber-300 bg-slate-50/50 flex items-center justify-between gap-3 text-xs">
-                                    <div class="min-w-0">
-                                        <div class="flex items-center gap-2">
-                                            <strong class="text-slate-900 font-bold"><?php echo htmlspecialchars($rs['customer_name']); ?></strong>
-                                            <span class="text-[10px] font-mono text-slate-400">#<?php echo substr($rs['id'], 0, 8); ?></span>
-                                        </div>
-                                        <p class="text-slate-500 text-[11px] truncate mt-0.5">
-                                            <?php echo htmlspecialchars($rs['plan_name'] ?? 'Plan'); ?> (<?php echo htmlspecialchars($rs['occasion_type']); ?>)
-                                        </p>
-                                    </div>
-                                    <div class="text-right shrink-0">
-                                        <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase <?php 
-                                            echo $rs['status'] === 'active' ? 'bg-emerald-100 text-emerald-800' :
-                                                ($rs['status'] === 'paused' ? 'bg-amber-100 text-amber-800' : 'bg-slate-200 text-slate-700'); 
-                                        ?>">
-                                            <?php echo htmlspecialchars($rs['status']); ?>
-                                        </span>
-                                        <span class="text-[10px] text-slate-400 block mt-0.5">
-                                            <?php echo date('d M Y', strtotime($rs['created_at'])); ?>
-                                        </span>
-                                    </div>
-                                </div>
-                            <?php endforeach; ?>
-                        </div>
-                    <?php endif; ?>
-                </div>
-            </div>
-        </div>
-    <?php endif; ?>
+                                        <!-- Edit Plan Form Button -->
+                                        <button type="button" 
+                                                onclick='openEditPlanModal(<?php echo htmlspecialchars(json_encode($p), ENT_QUOTES); ?>)'
+                                                class="px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold transition-colors"
+                                                title="Edit all plan details">
+                                            Edit Plan
+                                        </button>
 
+                                        <!-- View Plan Details Modal -->
+                                        <button type="button" 
+                                                onclick='openViewPlanModal(<?php echo htmlspecialchars(json_encode($p), ENT_QUOTES); ?>)'
+                                                class="px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold transition-colors">
+                                            View
+                                        </button>
 
-    <!-- ═══════════════════════════════════════════════════════════════════════════ -->
-    <!-- SUB-TAB 2: PLANS SECTION                                                  -->
-    <!-- ═══════════════════════════════════════════════════════════════════════════ -->
-    <?php if ($currentSubTab === 'plans'): ?>
-        <div class="bg-white rounded-2xl border border-slate-200/80 shadow-xs p-6 space-y-6">
-            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
-                <div>
-                    <h3 class="text-lg font-serif font-bold text-slate-900">Subscription Plans (<?php echo count($plans); ?>)</h3>
-                    <p class="text-xs text-slate-500">Live tiers reflected on the customer frontend. Drag/order plans, edit pricing, or replace 1000×1000 square cover images.</p>
-                </div>
-                <button onclick="openAddPlanModal()" 
-                        class="px-4 py-2 rounded-xl gold-gradient text-slate-950 text-xs font-bold shadow-md hover:brightness-105 self-start sm:self-auto">
-                    + Add New Plan
-                </button>
-            </div>
-
-            <?php if (empty($plans)): ?>
-                <div class="text-center py-12 text-slate-400 italic">No subscription plans found. Click "+ Add New Plan" to create one.</div>
-            <?php else: ?>
-                <div class="table-wrapper">
-                    <table class="w-full text-left text-sm">
-                        <thead class="bg-slate-100/70 text-slate-600 uppercase text-[11px] font-bold tracking-wider border-b border-slate-200">
-                            <tr>
-                                <th class="py-3 px-3 w-16">Order</th>
-                                <th class="py-3 px-3 w-20">Image</th>
-                                <th class="py-3 px-4">Plan Name & Slug</th>
-                                <th class="py-3 px-3">Frequency</th>
-                                <th class="py-3 px-3">Deliveries</th>
-                                <th class="py-3 px-3">Price / Deliv</th>
-                                <th class="py-3 px-3">Total Price</th>
-                                <th class="py-3 px-3">Savings</th>
-                                <th class="py-3 px-3">Subscribers</th>
-                                <th class="py-3 px-3">Status</th>
-                                <th class="py-3 px-4 text-right">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y divide-slate-100">
-                            <?php foreach ($plans as $p): ?>
-                                <tr class="hover:bg-slate-50/80 transition-colors">
-                                    <!-- Order & Up/Down -->
-                                    <td class="py-3.5 px-3">
-                                        <div class="flex items-center gap-1">
-                                            <span class="font-mono text-xs font-bold text-slate-700 bg-slate-100 px-1.5 py-0.5 rounded">
-                                                #<?php echo $p['display_order']; ?>
-                                            </span>
-                                            <div class="flex flex-col">
-                                                <form method="POST" class="inline">
-                                                    <input type="hidden" name="action" value="reorder_plan">
-                                                    <input type="hidden" name="plan_id" value="<?php echo $p['id']; ?>">
-                                                    <input type="hidden" name="direction" value="up">
-                                                    <button type="submit" title="Move Up" class="text-[10px] text-slate-400 hover:text-amber-600 leading-none">▲</button>
-                                                </form>
-                                                <form method="POST" class="inline">
-                                                    <input type="hidden" name="action" value="reorder_plan">
-                                                    <input type="hidden" name="plan_id" value="<?php echo $p['id']; ?>">
-                                                    <input type="hidden" name="direction" value="down">
-                                                    <button type="submit" title="Move Down" class="text-[10px] text-slate-400 hover:text-amber-600 leading-none">▼</button>
-                                                </form>
-                                            </div>
-                                        </div>
-                                    </td>
-
-                                    <!-- Image Thumbnail -->
-                                    <td class="py-3.5 px-3">
-                                        <div class="relative group w-14 h-14 rounded-xl overflow-hidden border border-slate-200 shadow-xs cursor-pointer"
-                                             onclick='openPlanImageModal(<?php echo htmlspecialchars(json_encode($p), ENT_QUOTES); ?>)'>
-                                            <?php if (!empty($p['image'])): ?>
-                                                <img src="<?php echo htmlspecialchars($p['image']); ?>" alt="Plan Cover" class="w-full h-full object-cover">
-                                            <?php else: ?>
-                                                <div class="w-full h-full bg-slate-100 flex items-center justify-center text-[10px] text-slate-400 text-center leading-tight">
-                                                    No<br>Image
-                                                </div>
-                                            <?php endif; ?>
-                                            <div class="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity text-[10px] text-white font-bold">
-                                                Edit
-                                            </div>
-                                        </div>
-                                    </td>
-
-                                    <!-- Plan Name & Slug -->
-                                    <td class="py-3.5 px-4 min-w-[180px]">
-                                        <div class="flex items-center gap-1.5">
-                                            <strong class="text-slate-900 font-bold"><?php echo htmlspecialchars($p['name']); ?></strong>
-                                            <?php if ($p['is_popular']): ?>
-                                                <span class="text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 border border-amber-300">Popular</span>
-                                            <?php endif; ?>
-                                        </div>
-                                        <p class="text-xs text-slate-500 italic truncate max-w-xs"><?php echo htmlspecialchars($p['tagline'] ?? ''); ?></p>
-                                        <span class="font-mono text-[10px] text-slate-400">slug: <?php echo htmlspecialchars($p['slug']); ?></span>
-                                    </td>
-
-                                    <!-- Frequency -->
-                                    <td class="py-3.5 px-3 text-xs font-semibold capitalize text-slate-700">
-                                        <?php echo htmlspecialchars($p['frequency']); ?>
-                                    </td>
-
-                                    <!-- Deliveries/Yr -->
-                                    <td class="py-3.5 px-3 text-xs font-mono text-slate-700">
-                                        <?php echo $p['deliveries_per_year']; ?>/yr
-                                    </td>
-
-                                    <!-- Price/Deliv -->
-                                    <td class="py-3.5 px-3 font-bold text-amber-600 text-xs">
-                                        ₹<?php echo number_format($p['price_per_delivery']); ?>
-                                    </td>
-
-                                    <!-- Total Price -->
-                                    <td class="py-3.5 px-3 font-bold text-slate-900 text-xs">
-                                        ₹<?php echo number_format($p['total_price']); ?>
-                                    </td>
-
-                                    <!-- Savings -->
-                                    <td class="py-3.5 px-3 text-xs">
-                                        <?php if ($p['savings_percent'] > 0): ?>
-                                            <span class="text-emerald-700 bg-emerald-100 font-bold px-1.5 py-0.5 rounded text-[10px]">
-                                                <?php echo $p['savings_percent']; ?>% OFF
-                                            </span>
-                                        <?php else: ?>
-                                            <span class="text-slate-400 text-[11px]">—</span>
-                                        <?php endif; ?>
-                                    </td>
-
-                                    <!-- Subscriber count with filter link -->
-                                    <td class="py-3.5 px-3 text-xs">
-                                        <a href="admin.php?tab=subscriptions&sub=subscribers&plan_id=<?php echo $p['id']; ?>"
-                                           class="inline-flex items-center gap-1 font-bold text-slate-800 hover:text-amber-700 bg-slate-100 hover:bg-amber-100/50 px-2 py-1 rounded-lg transition-colors"
-                                           title="Filter subscribers by this plan">
-                                            👥 <?php echo (int)($p['subscriber_count'] ?? 0); ?>
-                                        </a>
-                                    </td>
-
-                                    <!-- Status -->
-                                    <td class="py-3.5 px-3 text-xs">
-                                        <form method="POST" class="inline">
-                                            <input type="hidden" name="action" value="toggle_plan_active">
+                                        <!-- Duplicate Plan -->
+                                        <form method="POST" onsubmit="return confirm('Duplicate plan as a new draft?');" class="inline">
+                                            <input type="hidden" name="action" value="duplicate_plan">
                                             <input type="hidden" name="plan_id" value="<?php echo $p['id']; ?>">
-                                            <button type="submit" class="cursor-pointer font-semibold <?php echo $p['is_active'] ? 'text-emerald-600 hover:text-emerald-800' : 'text-slate-400 hover:text-slate-600'; ?>">
-                                                <?php echo $p['is_active'] ? '● Active' : '○ Disabled'; ?>
+                                            <button type="submit" class="p-1.5 rounded-lg text-slate-500 hover:text-slate-800 hover:bg-slate-100" title="Duplicate Plan">
+                                                📋
                                             </button>
                                         </form>
-                                    </td>
 
-                                    <!-- Actions Menu -->
-                                    <td class="py-3.5 px-4 text-right">
-                                        <div class="flex items-center justify-end gap-1.5 flex-wrap">
-                                            <!-- View Details Modal Trigger -->
-                                            <button onclick='openViewPlanModal(<?php echo htmlspecialchars(json_encode($p), ENT_QUOTES); ?>)'
-                                                    class="px-2.5 py-1 text-xs font-semibold rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700">
-                                                View
+                                        <!-- Safe Delete (protected if subscribers exist) -->
+                                        <form method="POST" onsubmit="return confirm('Are you sure you want to delete this plan? If subscribers exist, deletion will be safely blocked.');" class="inline">
+                                            <input type="hidden" name="action" value="delete_plan">
+                                            <input type="hidden" name="plan_id" value="<?php echo $p['id']; ?>">
+                                            <button type="submit" class="p-1.5 rounded-lg text-rose-500 hover:text-rose-700 hover:bg-rose-50" title="Delete Plan">
+                                                🗑️
                                             </button>
+                                        </form>
+                                    </div>
+                                </td>
+                            </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
+        <?php endif; ?>
+    </div>
 
-                                            <!-- Edit Plan Modal Trigger -->
-                                            <button onclick='openEditPlanModal(<?php echo htmlspecialchars(json_encode($p), ENT_QUOTES); ?>)'
-                                                    class="px-2.5 py-1 text-xs font-semibold rounded-lg bg-slate-800 hover:bg-slate-900 text-white">
-                                                Edit
-                                            </button>
 
-                                            <!-- Edit Image Modal Trigger -->
-                                            <button onclick='openPlanImageModal(<?php echo htmlspecialchars(json_encode($p), ENT_QUOTES); ?>)'
-                                                    class="px-2.5 py-1 text-xs font-semibold rounded-lg bg-amber-100 hover:bg-amber-200 text-amber-900 border border-amber-300">
-                                                Image
-                                            </button>
-
-                                            <!-- Duplicate Plan Trigger -->
-                                            <form method="POST" onsubmit="return confirm('Duplicate plan as a new draft?');" class="inline">
-                                                <input type="hidden" name="action" value="duplicate_plan">
-                                                <input type="hidden" name="plan_id" value="<?php echo $p['id']; ?>">
-                                                <button type="submit" class="px-2 py-1 text-xs rounded-lg text-slate-600 hover:bg-slate-100" title="Duplicate Plan">
-                                                    📋
-                                                </button>
-                                            </form>
-
-                                            <!-- Safe Delete / Deactivate -->
-                                            <form method="POST" onsubmit="return confirm('Are you sure you want to delete or deactivate this plan? If subscribers exist, deletion will be blocked safely.');" class="inline">
-                                                <input type="hidden" name="action" value="delete_plan">
-                                                <input type="hidden" name="plan_id" value="<?php echo $p['id']; ?>">
-                                                <button type="submit" class="px-2 py-1 text-xs rounded-lg text-rose-600 hover:bg-rose-50" title="Delete Plan">
-                                                    🗑️
-                                                </button>
-                                            </form>
-                                        </div>
-                                    </td>
-                                </tr>
-                            <?php endforeach; ?>
-                        </tbody>
-                    </table>
-                </div>
-            <?php endif; ?>
+    <!-- ═══════════════════════════════════════════════════════════════════════════ -->
+    <!-- SECTION 2: SUBSCRIPTION OVERVIEW (Real Database Metrics)                    -->
+    <!-- ═══════════════════════════════════════════════════════════════════════════ -->
+    <div class="space-y-4">
+        <div class="flex items-center justify-between">
+            <h2 class="text-base font-serif font-bold text-slate-900 flex items-center gap-2">
+                <span>📊</span> Subscription Overview
+            </h2>
+            <span class="text-xs text-slate-400">Real-time counts across MySQL records</span>
         </div>
-    <?php endif; ?>
 
+        <!-- 6 Compact Stat Cards -->
+        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+            <div class="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs">
+                <p class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Total Subscribers</p>
+                <p class="text-2xl font-serif font-bold text-slate-900 mt-1"><?php echo $stats['total_subscribers']; ?></p>
+                <p class="text-[10px] text-slate-400 mt-0.5">All customer records</p>
+            </div>
+            <div class="bg-white p-4 rounded-2xl border border-emerald-200 bg-emerald-50/20 shadow-xs">
+                <p class="text-[10px] font-bold text-emerald-700 uppercase tracking-wider">Active</p>
+                <p class="text-2xl font-serif font-bold text-emerald-600 mt-1"><?php echo $stats['active']; ?></p>
+                <p class="text-[10px] text-emerald-600/70 mt-0.5">Receiving deliveries</p>
+            </div>
+            <div class="bg-white p-4 rounded-2xl border border-amber-200 bg-amber-50/20 shadow-xs">
+                <p class="text-[10px] font-bold text-amber-700 uppercase tracking-wider">Paused</p>
+                <p class="text-2xl font-serif font-bold text-amber-600 mt-1"><?php echo $stats['paused']; ?></p>
+                <p class="text-[10px] text-amber-600/70 mt-0.5">Temporarily on hold</p>
+            </div>
+            <div class="bg-white p-4 rounded-2xl border border-rose-200 bg-rose-50/20 shadow-xs">
+                <p class="text-[10px] font-bold text-rose-700 uppercase tracking-wider">Cancelled</p>
+                <p class="text-2xl font-serif font-bold text-rose-600 mt-1"><?php echo $stats['cancelled']; ?></p>
+                <p class="text-[10px] text-rose-600/70 mt-0.5">Retained for history</p>
+            </div>
+            <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
+                <p class="text-[10px] font-bold text-slate-600 uppercase tracking-wider">Expired</p>
+                <p class="text-2xl font-serif font-bold text-slate-500 mt-1"><?php echo $stats['expired']; ?></p>
+                <p class="text-[10px] text-slate-400 mt-0.5">Term concluded</p>
+            </div>
+            <div class="bg-white p-4 rounded-2xl border border-amber-300 bg-gradient-to-br from-white to-amber-50/30 shadow-xs">
+                <p class="text-[10px] font-bold text-amber-800 uppercase tracking-wider truncate">Top Plan</p>
+                <p class="text-sm font-bold text-slate-900 mt-2 truncate" title="<?php echo htmlspecialchars($stats['most_popular_plan']); ?>">
+                    <?php echo htmlspecialchars($stats['most_popular_plan']); ?>
+                </p>
+                <p class="text-[10px] text-amber-700 mt-0.5">Most subscribed</p>
+            </div>
+        </div>
 
-    <!-- ═══════════════════════════════════════════════════════════════════════════ -->
-    <!-- SUB-TAB 3: SUBSCRIBERS SECTION                                            -->
-    <!-- ═══════════════════════════════════════════════════════════════════════════ -->
-    <?php if ($currentSubTab === 'subscribers'): ?>
-        <div class="bg-white rounded-2xl border border-slate-200/80 shadow-xs p-6 space-y-6">
-            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
-                <div>
-                    <h3 class="text-lg font-serif font-bold text-slate-900">
-                        Customer Subscribers (<?php echo $totalSubscriberRecords; ?>)
-                    </h3>
-                    <p class="text-xs text-slate-500">Every active, paused, or cancelled subscription stored in the MySQL database.</p>
-                </div>
-                <div class="flex items-center gap-2">
-                    <a href="admin.php?tab=subscriptions&sub=subscribers&action=export_csv" 
-                       class="px-3.5 py-1.5 rounded-xl border border-slate-300 text-slate-700 hover:bg-slate-50 text-xs font-semibold">
-                        📥 Export All CSV
+        <!-- Two Quick Preview Cards: Upcoming Deliveries & Recent Subscriptions -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <!-- Upcoming Deliveries -->
+            <div class="bg-white rounded-2xl border border-slate-200/80 p-5 space-y-3 shadow-xs">
+                <div class="flex items-center justify-between border-b border-slate-100 pb-2.5">
+                    <div class="flex items-center gap-2">
+                        <span class="p-1 rounded-lg bg-emerald-100 text-emerald-800 text-xs">🚚</span>
+                        <h3 class="text-sm font-bold text-slate-900 font-serif">Upcoming Scheduled Deliveries</h3>
+                    </div>
+                    <a href="#subscribersSection" onclick="document.getElementById('filter_sort').value='next_delivery';" class="text-xs font-bold text-amber-700 hover:text-amber-800">
+                        View Table →
                     </a>
+                </div>
+
+                <?php if (empty($upcomingDeliveries)): ?>
+                    <div class="text-center py-6 text-slate-400 italic text-xs">
+                        No upcoming active deliveries scheduled currently.
+                    </div>
+                <?php else: ?>
+                    <div class="space-y-2">
+                        <?php foreach ($upcomingDeliveries as $ud): ?>
+                            <div class="p-2.5 rounded-xl border border-slate-200/70 bg-slate-50/60 flex items-center justify-between gap-3 text-xs">
+                                <div class="min-w-0">
+                                    <strong class="text-slate-900 block truncate"><?php echo htmlspecialchars($ud['customer_name']); ?></strong>
+                                    <p class="text-[11px] text-slate-500 truncate">
+                                        <?php echo htmlspecialchars($ud['plan_name'] ?? 'Plan'); ?> • To: <?php echo htmlspecialchars($ud['recipient_name'] ?: 'Self'); ?> (<?php echo htmlspecialchars($ud['city'] ?: 'Bangalore'); ?>)
+                                    </p>
+                                </div>
+                                <div class="text-right shrink-0">
+                                    <span class="font-mono font-bold text-amber-800 bg-amber-100/80 border border-amber-300 px-2 py-0.5 rounded text-[11px] block">
+                                        <?php echo htmlspecialchars($ud['next_delivery_date']); ?>
+                                    </span>
+                                </div>
+                            </div>
+                        <?php endforeach; ?>
+                    </div>
+                <?php endif; ?>
+            </div>
+
+            <!-- Recent Subscriptions -->
+            <div class="bg-white rounded-2xl border border-slate-200/80 p-5 space-y-3 shadow-xs">
+                <div class="flex items-center justify-between border-b border-slate-100 pb-2.5">
+                    <div class="flex items-center gap-2">
+                        <span class="p-1 rounded-lg bg-amber-100 text-amber-800 text-xs">✨</span>
+                        <h3 class="text-sm font-bold text-slate-900 font-serif">Recent Customer Subscriptions</h3>
+                    </div>
+                    <a href="#subscribersSection" class="text-xs font-bold text-amber-700 hover:text-amber-800">
+                        View Table →
+                    </a>
+                </div>
+
+                <?php if (empty($recentSubscriptions)): ?>
+                    <div class="text-center py-6 text-slate-400 italic text-xs">
+                        No subscription records created in database yet.
+                    </div>
+                <?php else: ?>
+                    <div class="space-y-2">
+                        <?php foreach ($recentSubscriptions as $rs): ?>
+                            <div class="p-2.5 rounded-xl border border-slate-200/70 bg-slate-50/60 flex items-center justify-between gap-3 text-xs">
+                                <div class="min-w-0">
+                                    <div class="flex items-center gap-1.5">
+                                        <strong class="text-slate-900 truncate"><?php echo htmlspecialchars($rs['customer_name']); ?></strong>
+                                        <span class="font-mono text-[10px] text-slate-400">#<?php echo substr($rs['id'], 0, 8); ?></span>
+                                    </div>
+                                    <p class="text-[11px] text-slate-500 truncate">
+                                        <?php echo htmlspecialchars($rs['plan_name'] ?? 'Plan'); ?> (<?php echo htmlspecialchars($rs['occasion_type']); ?>)
+                                    </p>
+                                </div>
+                                <div class="text-right shrink-0">
+                                    <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase <?php 
+                                        echo $rs['status'] === 'active' ? 'bg-emerald-100 text-emerald-800' :
+                                            ($rs['status'] === 'paused' ? 'bg-amber-100 text-amber-800' : 'bg-slate-200 text-slate-700'); 
+                                    ?>">
+                                        <?php echo htmlspecialchars($rs['status']); ?>
+                                    </span>
+                                    <span class="text-[10px] text-slate-400 block mt-0.5">
+                                        <?php echo date('d M Y', strtotime($rs['created_at'])); ?>
+                                    </span>
+                                </div>
+                            </div>
+                        <?php endforeach; ?>
+                    </div>
+                <?php endif; ?>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- ═══════════════════════════════════════════════════════════════════════════ -->
+    <!-- SECTION 3: SUBSCRIBERS SECTION (Immediately Below Plans)                   -->
+    <!-- ═══════════════════════════════════════════════════════════════════════════ -->
+    <div id="subscribersSection" class="bg-white rounded-3xl border border-slate-200/80 shadow-xs p-6 space-y-6">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
+            <div>
+                <h2 class="text-xl font-serif font-bold text-slate-900">Subscribers</h2>
+                <p class="text-xs text-slate-500 mt-0.5">View customers, purchased subscription plans, delivery details, and subscription status.</p>
+            </div>
+            <div class="flex items-center gap-2">
+                <a href="admin.php?tab=subscriptions&action=export_csv" 
+                   class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold shadow-xs transition-colors">
+                    📥 Export CSV
+                </a>
+            </div>
+        </div>
+
+        <!-- Filter & Search Controls Form -->
+        <form method="GET" action="admin.php" class="bg-slate-50/70 p-4 rounded-2xl border border-slate-200/80 space-y-3">
+            <input type="hidden" name="tab" value="subscriptions">
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+                <!-- Search Box -->
+                <div class="sm:col-span-2">
+                    <label class="block text-[10px] font-bold uppercase tracking-wider text-slate-600 mb-1">Search</label>
+                    <input type="text" name="search" value="<?php echo htmlspecialchars($searchFilter); ?>" 
+                           placeholder="Customer, Email, Phone, Recipient, ID..."
+                           class="w-full px-3 py-1.5 rounded-xl border border-slate-300 text-xs outline-none focus:ring-2 focus:ring-amber-500 bg-white">
+                </div>
+
+                <!-- Status Filter -->
+                <div>
+                    <label class="block text-[10px] font-bold uppercase tracking-wider text-slate-600 mb-1">Status</label>
+                    <select name="status" class="w-full px-3 py-1.5 rounded-xl border border-slate-300 text-xs outline-none focus:ring-2 focus:ring-amber-500 bg-white">
+                        <option value="all" <?php echo $statusFilter === 'all' || $statusFilter === '' ? 'selected' : ''; ?>>All Statuses</option>
+                        <option value="active" <?php echo $statusFilter === 'active' ? 'selected' : ''; ?>>Active</option>
+                        <option value="paused" <?php echo $statusFilter === 'paused' ? 'selected' : ''; ?>>Paused</option>
+                        <option value="cancelled" <?php echo $statusFilter === 'cancelled' ? 'selected' : ''; ?>>Cancelled</option>
+                        <option value="expired" <?php echo $statusFilter === 'expired' ? 'selected' : ''; ?>>Expired</option>
+                    </select>
+                </div>
+
+                <!-- Plan Filter -->
+                <div>
+                    <label class="block text-[10px] font-bold uppercase tracking-wider text-slate-600 mb-1">Plan</label>
+                    <select name="plan_id" class="w-full px-3 py-1.5 rounded-xl border border-slate-300 text-xs outline-none focus:ring-2 focus:ring-amber-500 bg-white">
+                        <option value="0">All Plans</option>
+                        <?php foreach ($plans as $p): ?>
+                            <option value="<?php echo $p['id']; ?>" <?php echo $planFilter === (int)$p['id'] ? 'selected' : ''; ?>>
+                                <?php echo htmlspecialchars($p['name']); ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+
+                <!-- Frequency Filter -->
+                <div>
+                    <label class="block text-[10px] font-bold uppercase tracking-wider text-slate-600 mb-1">Frequency</label>
+                    <select name="frequency" class="w-full px-3 py-1.5 rounded-xl border border-slate-300 text-xs outline-none focus:ring-2 focus:ring-amber-500 bg-white">
+                        <option value="all" <?php echo $frequencyFilter === 'all' || $frequencyFilter === '' ? 'selected' : ''; ?>>All</option>
+                        <option value="monthly" <?php echo $frequencyFilter === 'monthly' ? 'selected' : ''; ?>>Monthly</option>
+                        <option value="quarterly" <?php echo $frequencyFilter === 'quarterly' ? 'selected' : ''; ?>>Quarterly</option>
+                        <option value="yearly" <?php echo $frequencyFilter === 'yearly' ? 'selected' : ''; ?>>Yearly</option>
+                    </select>
+                </div>
+
+                <!-- Occasion Filter -->
+                <div>
+                    <label class="block text-[10px] font-bold uppercase tracking-wider text-slate-600 mb-1">Occasion</label>
+                    <select name="occasion_type" class="w-full px-3 py-1.5 rounded-xl border border-slate-300 text-xs outline-none focus:ring-2 focus:ring-amber-500 bg-white">
+                        <option value="all">All Occasions</option>
+                        <?php foreach ($distinctOccasions as $occ): ?>
+                            <option value="<?php echo htmlspecialchars($occ); ?>" <?php echo $occasionFilter === $occ ? 'selected' : ''; ?>>
+                                <?php echo htmlspecialchars($occ); ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
                 </div>
             </div>
 
-            <!-- Server-Side Filters & Search Form -->
-            <form method="GET" action="admin.php" class="bg-slate-50/70 p-4 rounded-xl border border-slate-200/80 space-y-3">
-                <input type="hidden" name="tab" value="subscriptions">
-                <input type="hidden" name="sub" value="subscribers">
-
-                <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
-                    <!-- Search Input -->
-                    <div class="sm:col-span-2">
-                        <label class="block text-[10px] font-bold uppercase tracking-wider text-slate-600 mb-1">Search</label>
-                        <input type="text" name="search" value="<?php echo htmlspecialchars($searchFilter); ?>" 
-                               placeholder="Customer, Email, Phone, Recipient, ID..."
-                               class="w-full px-3 py-1.5 rounded-lg border border-slate-300 text-xs outline-none focus:ring-2 focus:ring-amber-500 bg-white">
-                    </div>
-
-                    <!-- Status Filter -->
-                    <div>
-                        <label class="block text-[10px] font-bold uppercase tracking-wider text-slate-600 mb-1">Status</label>
-                        <select name="status" class="w-full px-3 py-1.5 rounded-lg border border-slate-300 text-xs outline-none focus:ring-2 focus:ring-amber-500 bg-white">
-                            <option value="all" <?php echo $statusFilter === 'all' || $statusFilter === '' ? 'selected' : ''; ?>>All Statuses</option>
-                            <option value="active" <?php echo $statusFilter === 'active' ? 'selected' : ''; ?>>Active</option>
-                            <option value="paused" <?php echo $statusFilter === 'paused' ? 'selected' : ''; ?>>Paused</option>
-                            <option value="cancelled" <?php echo $statusFilter === 'cancelled' ? 'selected' : ''; ?>>Cancelled</option>
-                            <option value="expired" <?php echo $statusFilter === 'expired' ? 'selected' : ''; ?>>Expired</option>
-                        </select>
-                    </div>
-
-                    <!-- Plan Filter -->
-                    <div>
-                        <label class="block text-[10px] font-bold uppercase tracking-wider text-slate-600 mb-1">Plan</label>
-                        <select name="plan_id" class="w-full px-3 py-1.5 rounded-lg border border-slate-300 text-xs outline-none focus:ring-2 focus:ring-amber-500 bg-white">
-                            <option value="0">All Plans</option>
-                            <?php foreach ($plans as $p): ?>
-                                <option value="<?php echo $p['id']; ?>" <?php echo $planFilter === (int)$p['id'] ? 'selected' : ''; ?>>
-                                    <?php echo htmlspecialchars($p['name']); ?>
-                                </option>
-                            <?php endforeach; ?>
-                        </select>
-                    </div>
-
-                    <!-- Occasion Filter -->
-                    <div>
-                        <label class="block text-[10px] font-bold uppercase tracking-wider text-slate-600 mb-1">Occasion</label>
-                        <select name="occasion_type" class="w-full px-3 py-1.5 rounded-lg border border-slate-300 text-xs outline-none focus:ring-2 focus:ring-amber-500 bg-white">
-                            <option value="all">All Occasions</option>
-                            <?php foreach ($distinctOccasions as $occ): ?>
-                                <option value="<?php echo htmlspecialchars($occ); ?>" <?php echo $occasionFilter === $occ ? 'selected' : ''; ?>>
-                                    <?php echo htmlspecialchars($occ); ?>
-                                </option>
-                            <?php endforeach; ?>
-                        </select>
-                    </div>
-
-                    <!-- Sort By -->
-                    <div>
-                        <label class="block text-[10px] font-bold uppercase tracking-wider text-slate-600 mb-1">Sort By</label>
-                        <select name="sort" class="w-full px-3 py-1.5 rounded-lg border border-slate-300 text-xs outline-none focus:ring-2 focus:ring-amber-500 bg-white">
-                            <option value="newest" <?php echo $sortField === 'newest' ? 'selected' : ''; ?>>Newest Created</option>
-                            <option value="oldest" <?php echo $sortField === 'oldest' ? 'selected' : ''; ?>>Oldest Created</option>
-                            <option value="next_delivery" <?php echo $sortField === 'next_delivery' ? 'selected' : ''; ?>>Next Delivery</option>
-                            <option value="occasion_date" <?php echo $sortField === 'occasion_date' ? 'selected' : ''; ?>>Occasion Date</option>
-                            <option value="customer_name" <?php echo $sortField === 'customer_name' ? 'selected' : ''; ?>>Customer Name</option>
-                            <option value="plan" <?php echo $sortField === 'plan' ? 'selected' : ''; ?>>Plan Name</option>
-                            <option value="status" <?php echo $sortField === 'status' ? 'selected' : ''; ?>>Status</option>
-                        </select>
-                    </div>
+            <!-- Date Filters & Sorting -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3 pt-2 border-t border-slate-200/50">
+                <!-- City Filter -->
+                <div>
+                    <label class="block text-[10px] font-bold uppercase tracking-wider text-slate-600 mb-1">City</label>
+                    <input type="text" name="city" value="<?php echo htmlspecialchars($cityFilter); ?>" placeholder="e.g. Bangalore"
+                           class="w-full px-3 py-1.5 rounded-xl border border-slate-300 text-xs outline-none focus:ring-2 focus:ring-amber-500 bg-white">
                 </div>
 
-                <div class="flex items-center justify-end gap-2 pt-1 border-t border-slate-200/60">
-                    <a href="admin.php?tab=subscriptions&sub=subscribers" class="px-3 py-1 text-xs text-slate-500 hover:text-slate-800">
-                        Reset Filters
-                    </a>
-                    <button type="submit" class="px-4 py-1.5 rounded-lg bg-slate-900 text-white text-xs font-bold hover:bg-slate-800 transition-colors">
-                        Apply Filters
-                    </button>
+                <!-- Created From -->
+                <div>
+                    <label class="block text-[10px] font-bold uppercase tracking-wider text-slate-600 mb-1">Created From</label>
+                    <input type="date" name="created_from" value="<?php echo htmlspecialchars($createdFrom); ?>"
+                           class="w-full px-3 py-1.5 rounded-xl border border-slate-300 text-xs outline-none focus:ring-2 focus:ring-amber-500 bg-white">
                 </div>
-            </form>
 
-            <!-- Subscribers Table -->
-            <?php if (empty($subscribers)): ?>
-                <div class="text-center py-14 space-y-2">
-                    <div class="text-4xl">👥</div>
-                    <p class="text-sm font-semibold text-slate-700">No subscribers found.</p>
-                    <p class="text-xs text-slate-400">
-                        <?php echo !empty($searchFilter) || !empty($statusFilter) || $planFilter > 0 ? 'No subscriptions match your current filter selections.' : 'No customer subscriptions have been placed yet.'; ?>
-                    </p>
+                <!-- Created To -->
+                <div>
+                    <label class="block text-[10px] font-bold uppercase tracking-wider text-slate-600 mb-1">Created To</label>
+                    <input type="date" name="created_to" value="<?php echo htmlspecialchars($createdTo); ?>"
+                           class="w-full px-3 py-1.5 rounded-xl border border-slate-300 text-xs outline-none focus:ring-2 focus:ring-amber-500 bg-white">
                 </div>
-            <?php else: ?>
-                <div class="table-wrapper">
-                    <table class="w-full text-left text-sm">
-                        <thead class="bg-slate-100/70 text-slate-600 uppercase text-[11px] font-bold tracking-wider border-b border-slate-200">
-                            <tr>
-                                <th class="py-3 px-3"># ID</th>
-                                <th class="py-3 px-4">Customer</th>
-                                <th class="py-3 px-3">Subscription Plan</th>
-                                <th class="py-3 px-3">Occasion</th>
-                                <th class="py-3 px-3">Recipient & City</th>
-                                <th class="py-3 px-3">Next Delivery</th>
-                                <th class="py-3 px-3">Status</th>
-                                <th class="py-3 px-3">Created</th>
-                                <th class="py-3 px-4 text-right">Actions</th>
+
+                <!-- Next Delivery From -->
+                <div>
+                    <label class="block text-[10px] font-bold uppercase tracking-wider text-slate-600 mb-1">Next Delivery From</label>
+                    <input type="date" name="next_delivery_from" value="<?php echo htmlspecialchars($nextDeliveryFrom); ?>"
+                           class="w-full px-3 py-1.5 rounded-xl border border-slate-300 text-xs outline-none focus:ring-2 focus:ring-amber-500 bg-white">
+                </div>
+
+                <!-- Sort By -->
+                <div>
+                    <label class="block text-[10px] font-bold uppercase tracking-wider text-slate-600 mb-1">Sort By</label>
+                    <select id="filter_sort" name="sort" class="w-full px-3 py-1.5 rounded-xl border border-slate-300 text-xs outline-none focus:ring-2 focus:ring-amber-500 bg-white">
+                        <option value="newest" <?php echo $sortField === 'newest' ? 'selected' : ''; ?>>Newest Created</option>
+                        <option value="oldest" <?php echo $sortField === 'oldest' ? 'selected' : ''; ?>>Oldest Created</option>
+                        <option value="next_delivery" <?php echo $sortField === 'next_delivery' ? 'selected' : ''; ?>>Next Delivery Date</option>
+                        <option value="occasion_date" <?php echo $sortField === 'occasion_date' ? 'selected' : ''; ?>>Occasion Date</option>
+                        <option value="customer" <?php echo $sortField === 'customer' ? 'selected' : ''; ?>>Customer Name</option>
+                        <option value="plan" <?php echo $sortField === 'plan' ? 'selected' : ''; ?>>Plan Name</option>
+                        <option value="price_value" <?php echo $sortField === 'price_value' ? 'selected' : ''; ?>>Price / Value</option>
+                        <option value="status" <?php echo $sortField === 'status' ? 'selected' : ''; ?>>Status</option>
+                    </select>
+                </div>
+
+                <!-- Per Page -->
+                <div>
+                    <label class="block text-[10px] font-bold uppercase tracking-wider text-slate-600 mb-1">Per Page</label>
+                    <select name="per_page" class="w-full px-3 py-1.5 rounded-xl border border-slate-300 text-xs outline-none focus:ring-2 focus:ring-amber-500 bg-white">
+                        <option value="10" <?php echo $perPage === 10 ? 'selected' : ''; ?>>10</option>
+                        <option value="15" <?php echo $perPage === 15 ? 'selected' : ''; ?>>15</option>
+                        <option value="25" <?php echo $perPage === 25 ? 'selected' : ''; ?>>25</option>
+                        <option value="50" <?php echo $perPage === 50 ? 'selected' : ''; ?>>50</option>
+                        <option value="100" <?php echo $perPage === 100 ? 'selected' : ''; ?>>100</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="flex items-center justify-end gap-2 pt-2 border-t border-slate-200/60">
+                <a href="admin.php?tab=subscriptions#subscribersSection" class="px-3 py-1.5 text-xs text-slate-500 hover:text-slate-800">
+                    Reset Filters
+                </a>
+                <button type="submit" class="px-4 py-1.5 rounded-xl bg-slate-900 text-white text-xs font-bold hover:bg-slate-800 transition-colors shadow-xs">
+                    Apply Filters
+                </button>
+            </div>
+        </form>
+
+        <!-- Subscribers Table (13 Columns) -->
+        <?php if (empty($subscribers)): ?>
+            <div class="text-center py-14 space-y-2">
+                <div class="text-4xl">👥</div>
+                <p class="text-sm font-semibold text-slate-700">No subscribers found.</p>
+                <p class="text-xs text-slate-400">
+                    <?php echo (!empty($searchFilter) || !empty($statusFilter) || $planFilter > 0) ? 'No subscriptions match your current filter selections.' : 'No customer subscriptions have been placed yet in the database.'; ?>
+                </p>
+            </div>
+        <?php else: ?>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-xs border-collapse">
+                    <thead class="bg-slate-50 text-slate-500 uppercase text-[10px] font-bold tracking-wider border-b border-slate-200">
+                        <tr>
+                            <th class="py-3 px-3">CUSTOMER</th>
+                            <th class="py-3 px-3">EMAIL</th>
+                            <th class="py-3 px-3">PHONE</th>
+                            <th class="py-3 px-3">SUB ID</th>
+                            <th class="py-3 px-3">PLAN</th>
+                            <th class="py-3 px-3">FREQUENCY</th>
+                            <th class="py-3 px-3">PRICE / VALUE</th>
+                            <th class="py-3 px-3">OCCASION</th>
+                            <th class="py-3 px-3">RECIPIENT</th>
+                            <th class="py-3 px-3">NEXT DELIVERY</th>
+                            <th class="py-3 px-3">STATUS</th>
+                            <th class="py-3 px-3">CREATED</th>
+                            <th class="py-3 px-4 text-right">ACTIONS</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100">
+                        <?php foreach ($subscribers as $s): ?>
+                            <tr class="hover:bg-slate-50/70 transition-colors">
+                                <!-- 1. Customer -->
+                                <td class="py-3.5 px-3 min-w-[130px]">
+                                    <strong class="text-slate-900 font-bold block text-xs"><?php echo htmlspecialchars($s['customer_name']); ?></strong>
+                                    <span class="text-[10px] text-slate-400 font-mono block">UID: <?php echo substr($s['user_id'], 0, 8); ?></span>
+                                </td>
+
+                                <!-- 2. Email -->
+                                <td class="py-3.5 px-3 max-w-[140px] truncate text-slate-600" title="<?php echo htmlspecialchars($s['customer_email']); ?>">
+                                    <?php echo htmlspecialchars($s['customer_email'] ?: '—'); ?>
+                                </td>
+
+                                <!-- 3. Phone -->
+                                <td class="py-3.5 px-3 text-slate-600 whitespace-nowrap">
+                                    <?php echo htmlspecialchars($s['customer_phone'] ?: ($s['recipient_phone'] ?: '—')); ?>
+                                </td>
+
+                                <!-- 4. Subscription ID -->
+                                <td class="py-3.5 px-3 font-mono text-[11px] font-bold text-slate-700">
+                                    <span class="bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">
+                                        #<?php echo substr($s['id'], 0, 8); ?>
+                                    </span>
+                                </td>
+
+                                <!-- 5. Plan -->
+                                <td class="py-3.5 px-3 min-w-[130px]">
+                                    <div class="flex items-center gap-1.5">
+                                        <?php if (!empty($s['plan_image'])): ?>
+                                            <img src="<?php echo htmlspecialchars($s['plan_image']); ?>" alt="Plan" class="w-6 h-6 rounded object-cover border border-slate-200 shrink-0">
+                                        <?php endif; ?>
+                                        <span class="font-bold text-slate-900 truncate"><?php echo htmlspecialchars($s['plan_name'] ?? 'Custom Plan'); ?></span>
+                                    </div>
+                                </td>
+
+                                <!-- 6. Frequency -->
+                                <td class="py-3.5 px-3 capitalize text-slate-600 whitespace-nowrap">
+                                    <?php echo htmlspecialchars($s['plan_frequency'] ?? 'monthly'); ?>
+                                </td>
+
+                                <!-- 7. Price / Value -->
+                                <td class="py-3.5 px-3 whitespace-nowrap">
+                                    <strong class="text-amber-700 block">₹<?php echo number_format($s['plan_price_per_delivery']); ?> <span class="text-[10px] font-normal text-slate-400">/deliv</span></strong>
+                                    <span class="text-[10px] text-slate-400">Total: ₹<?php echo number_format($s['plan_total_price']); ?></span>
+                                </td>
+
+                                <!-- 8. Occasion -->
+                                <td class="py-3.5 px-3 whitespace-nowrap">
+                                    <strong class="text-slate-800 block"><?php echo htmlspecialchars($s['occasion_type']); ?></strong>
+                                    <span class="text-slate-400 text-[10px] font-mono"><?php echo htmlspecialchars($s['occasion_date']); ?></span>
+                                </td>
+
+                                <!-- 9. Recipient -->
+                                <td class="py-3.5 px-3">
+                                    <span class="text-slate-900 font-medium block"><?php echo htmlspecialchars($s['recipient_name'] ?: 'Self'); ?></span>
+                                    <span class="text-[10px] text-slate-400 block"><?php echo htmlspecialchars($s['city'] ?: 'Bangalore'); ?></span>
+                                </td>
+
+                                <!-- 10. Next Delivery -->
+                                <td class="py-3.5 px-3 whitespace-nowrap">
+                                    <?php if (!empty($s['next_delivery_date'])): ?>
+                                        <span class="font-mono font-bold text-amber-800 bg-amber-100/70 border border-amber-300 px-1.5 py-0.5 rounded text-[10px]">
+                                            <?php echo htmlspecialchars($s['next_delivery_date']); ?>
+                                        </span>
+                                    <?php else: ?>
+                                        <span class="text-slate-400 italic text-[10px]">Not set</span>
+                                    <?php endif; ?>
+                                </td>
+
+                                <!-- 11. Status -->
+                                <td class="py-3.5 px-3 whitespace-nowrap">
+                                    <?php
+                                    $badgeMap = [
+                                        'active'    => 'bg-emerald-100 text-emerald-800 border-emerald-300',
+                                        'paused'    => 'bg-amber-100 text-amber-800 border-amber-300',
+                                        'cancelled' => 'bg-rose-100 text-rose-800 border-rose-300',
+                                        'expired'   => 'bg-slate-100 text-slate-700 border-slate-300',
+                                    ];
+                                    $bClass = $badgeMap[$s['status']] ?? 'bg-slate-100 text-slate-700 border-slate-200';
+                                    ?>
+                                    <span class="px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider border <?php echo $bClass; ?>">
+                                        ● <?php echo htmlspecialchars($s['status']); ?>
+                                    </span>
+                                </td>
+
+                                <!-- 12. Created -->
+                                <td class="py-3.5 px-3 text-[10px] text-slate-400 font-mono whitespace-nowrap">
+                                    <?php echo date('d M Y', strtotime($s['created_at'])); ?>
+                                </td>
+
+                                <!-- 13. Actions -->
+                                <td class="py-3.5 px-4 text-right whitespace-nowrap">
+                                    <div class="flex items-center justify-end gap-1">
+                                        <!-- View Modal -->
+                                        <button type="button" 
+                                                onclick='openViewSubscriberModal(<?php echo htmlspecialchars(json_encode($s), ENT_QUOTES); ?>)'
+                                                class="px-2 py-1 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-semibold transition-colors">
+                                            View
+                                        </button>
+
+                                        <!-- Edit Modal -->
+                                        <button type="button" 
+                                                onclick='openEditSubscriberModal(<?php echo htmlspecialchars(json_encode($s), ENT_QUOTES); ?>)'
+                                                class="px-2 py-1 rounded bg-slate-800 hover:bg-slate-900 text-white text-[11px] font-semibold transition-colors">
+                                            Edit
+                                        </button>
+
+                                        <!-- Quick Status Change Buttons -->
+                                        <?php if ($s['status'] === 'active'): ?>
+                                            <form method="POST" onsubmit="return confirm('Pause this subscription? Deliveries will be temporarily held.');" class="inline">
+                                                <input type="hidden" name="action" value="update_subscriber_status">
+                                                <input type="hidden" name="subscription_id" value="<?php echo $s['id']; ?>">
+                                                <input type="hidden" name="status" value="paused">
+                                                <button type="submit" class="px-1.5 py-1 text-[11px] rounded bg-amber-50 text-amber-700 hover:bg-amber-100 font-medium">
+                                                    Pause
+                                                </button>
+                                            </form>
+                                        <?php elseif ($s['status'] === 'paused'): ?>
+                                            <form method="POST" onsubmit="return confirm('Resume this subscription? Deliveries will be restored.');" class="inline">
+                                                <input type="hidden" name="action" value="update_subscriber_status">
+                                                <input type="hidden" name="subscription_id" value="<?php echo $s['id']; ?>">
+                                                <input type="hidden" name="status" value="active">
+                                                <button type="submit" class="px-1.5 py-1 text-[11px] rounded bg-emerald-50 text-emerald-700 hover:bg-emerald-100 font-medium">
+                                                    Resume
+                                                </button>
+                                            </form>
+                                        <?php endif; ?>
+
+                                        <?php if ($s['status'] !== 'cancelled'): ?>
+                                            <form method="POST" onsubmit="return confirm('Cancel this subscription? Record will be retained.');" class="inline">
+                                                <input type="hidden" name="action" value="update_subscriber_status">
+                                                <input type="hidden" name="subscription_id" value="<?php echo $s['id']; ?>">
+                                                <input type="hidden" name="status" value="cancelled">
+                                                <button type="submit" class="px-1.5 py-1 text-[11px] rounded text-rose-600 hover:bg-rose-50 font-medium">
+                                                    Cancel
+                                                </button>
+                                            </form>
+                                        <?php endif; ?>
+
+                                        <?php if ($s['status'] !== 'expired'): ?>
+                                            <form method="POST" onsubmit="return confirm('Mark this subscription as expired?');" class="inline">
+                                                <input type="hidden" name="action" value="update_subscriber_status">
+                                                <input type="hidden" name="subscription_id" value="<?php echo $s['id']; ?>">
+                                                <input type="hidden" name="status" value="expired">
+                                                <button type="submit" class="px-1.5 py-1 text-[11px] rounded text-slate-500 hover:bg-slate-100 font-medium">
+                                                    Expire
+                                                </button>
+                                            </form>
+                                        <?php endif; ?>
+                                    </div>
+                                </td>
                             </tr>
-                        </thead>
-                        <tbody class="divide-y divide-slate-100">
-                            <?php foreach ($subscribers as $idx => $s): ?>
-                                <tr class="hover:bg-slate-50/80 transition-colors">
-                                    <!-- Subscription ID -->
-                                    <td class="py-3.5 px-3">
-                                        <span class="font-mono text-xs font-bold text-slate-700 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">
-                                            #<?php echo substr($s['id'], 0, 8); ?>
-                                        </span>
-                                    </td>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
 
-                                    <!-- Customer Details -->
-                                    <td class="py-3.5 px-4 min-w-[170px]">
-                                        <strong class="text-slate-900 font-bold block"><?php echo htmlspecialchars($s['customer_name']); ?></strong>
-                                        <span class="text-xs text-slate-500 block truncate"><?php echo htmlspecialchars($s['customer_email'] ?: 'No email'); ?></span>
-                                        <?php if (!empty($s['customer_phone'])): ?>
-                                            <span class="text-[11px] text-slate-400 block"><?php echo htmlspecialchars($s['customer_phone']); ?></span>
-                                        <?php endif; ?>
-                                    </td>
-
-                                    <!-- Plan & Frequency -->
-                                    <td class="py-3.5 px-3">
-                                        <div class="flex items-center gap-2">
-                                            <?php if (!empty($s['plan_image'])): ?>
-                                                <img src="<?php echo htmlspecialchars($s['plan_image']); ?>" class="w-8 h-8 rounded-lg object-cover border border-slate-200 shrink-0" alt="Plan">
-                                            <?php endif; ?>
-                                            <div>
-                                                <span class="font-bold text-slate-800 block text-xs truncate max-w-[140px]">
-                                                    <?php echo htmlspecialchars($s['plan_name'] ?? 'Custom Plan'); ?>
-                                                </span>
-                                                <span class="text-[10px] text-slate-500 capitalize">
-                                                    <?php echo htmlspecialchars($s['plan_frequency'] ?? 'monthly'); ?>
-                                                </span>
-                                            </div>
-                                        </div>
-                                    </td>
-
-                                    <!-- Occasion Type & Date -->
-                                    <td class="py-3.5 px-3 text-xs">
-                                        <strong class="text-slate-800 block"><?php echo htmlspecialchars($s['occasion_type']); ?></strong>
-                                        <span class="text-slate-400 text-[11px] block font-mono"><?php echo htmlspecialchars($s['occasion_date']); ?></span>
-                                    </td>
-
-                                    <!-- Recipient & City -->
-                                    <td class="py-3.5 px-3 text-xs">
-                                        <span class="text-slate-800 font-medium block"><?php echo htmlspecialchars($s['recipient_name'] ?: 'Same as Customer'); ?></span>
-                                        <span class="text-slate-400 text-[11px] block"><?php echo htmlspecialchars($s['city'] ?: 'Bangalore'); ?></span>
-                                    </td>
-
-                                    <!-- Next Delivery Date -->
-                                    <td class="py-3.5 px-3 text-xs">
-                                        <?php if (!empty($s['next_delivery_date'])): ?>
-                                            <span class="font-mono font-bold text-amber-800 bg-amber-100/70 border border-amber-300 px-2 py-0.5 rounded text-[11px]">
-                                                <?php echo htmlspecialchars($s['next_delivery_date']); ?>
-                                            </span>
-                                        <?php else: ?>
-                                            <span class="text-slate-400 italic text-[11px]">Not scheduled</span>
-                                        <?php endif; ?>
-                                    </td>
-
-                                    <!-- Status Badge -->
-                                    <td class="py-3.5 px-3 text-xs">
-                                        <?php
-                                        $badgeClasses = [
-                                            'active'    => 'bg-emerald-100 text-emerald-800 border-emerald-200',
-                                            'paused'    => 'bg-amber-100 text-amber-800 border-amber-200',
-                                            'cancelled' => 'bg-rose-100 text-rose-800 border-rose-200',
-                                            'expired'   => 'bg-slate-100 text-slate-700 border-slate-200',
-                                        ];
-                                        $statusClass = $badgeClasses[$s['status']] ?? 'bg-slate-100 text-slate-700 border-slate-200';
-                                        ?>
-                                        <span class="px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border <?php echo $statusClass; ?>">
-                                            ● <?php echo htmlspecialchars($s['status']); ?>
-                                        </span>
-                                    </td>
-
-                                    <!-- Created Date -->
-                                    <td class="py-3.5 px-3 text-[11px] text-slate-400 font-mono">
-                                        <?php echo date('d M Y', strtotime($s['created_at'])); ?>
-                                    </td>
-
-                                    <!-- Actions Menu -->
-                                    <td class="py-3.5 px-4 text-right">
-                                        <div class="flex items-center justify-end gap-1.5 flex-wrap">
-                                            <!-- View Details Modal Trigger -->
-                                            <button onclick='openViewSubscriberModal(<?php echo htmlspecialchars(json_encode($s), ENT_QUOTES); ?>)'
-                                                    class="px-2.5 py-1 text-xs font-semibold rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors">
-                                                View
-                                            </button>
-
-                                            <!-- Edit Subscriber Trigger -->
-                                            <button onclick='openEditSubscriberModal(<?php echo htmlspecialchars(json_encode($s), ENT_QUOTES); ?>)'
-                                                    class="px-2.5 py-1 text-xs font-semibold rounded-lg bg-slate-800 hover:bg-slate-900 text-white transition-colors">
-                                                Edit
-                                            </button>
-
-                                            <!-- Status Quick-Actions dropdown or direct buttons -->
-                                            <?php if ($s['status'] === 'active'): ?>
-                                                <form method="POST" onsubmit="return confirm('Pause this subscription? Deliveries will be temporarily suspended.');" class="inline">
-                                                    <input type="hidden" name="action" value="update_subscriber_status">
-                                                    <input type="hidden" name="subscription_id" value="<?php echo $s['id']; ?>">
-                                                    <input type="hidden" name="status" value="paused">
-                                                    <button type="submit" class="px-2 py-1 text-xs rounded-lg bg-amber-50 text-amber-700 hover:bg-amber-100 font-medium">
-                                                        Pause
-                                                    </button>
-                                                </form>
-                                            <?php elseif ($s['status'] === 'paused'): ?>
-                                                <form method="POST" onsubmit="return confirm('Resume this subscription? Deliveries will be restored.');" class="inline">
-                                                    <input type="hidden" name="action" value="update_subscriber_status">
-                                                    <input type="hidden" name="subscription_id" value="<?php echo $s['id']; ?>">
-                                                    <input type="hidden" name="status" value="active">
-                                                    <button type="submit" class="px-2 py-1 text-xs rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-100 font-medium">
-                                                        Resume
-                                                    </button>
-                                                </form>
-                                            <?php endif; ?>
-
-                                            <?php if ($s['status'] !== 'cancelled'): ?>
-                                                <form method="POST" onsubmit="return confirm('Cancel this subscription? Historical records are preserved.');" class="inline">
-                                                    <input type="hidden" name="action" value="update_subscriber_status">
-                                                    <input type="hidden" name="subscription_id" value="<?php echo $s['id']; ?>">
-                                                    <input type="hidden" name="status" value="cancelled">
-                                                    <button type="submit" class="px-2 py-1 text-xs rounded-lg text-rose-600 hover:bg-rose-50 font-medium">
-                                                        Cancel
-                                                    </button>
-                                                </form>
-                                            <?php endif; ?>
-                                        </div>
-                                    </td>
-                                </tr>
-                            <?php endforeach; ?>
-                        </tbody>
-                    </table>
+            <!-- Pagination Bar -->
+            <div class="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 border-t border-slate-100 text-xs text-slate-500">
+                <div>
+                    Showing <strong><?php echo min($totalSubscriberRecords, ($currentPage - 1) * $perPage + 1); ?>-<?php echo min($totalSubscriberRecords, $currentPage * $perPage); ?></strong>
+                    of <strong><?php echo $totalSubscriberRecords; ?></strong> subscribers
                 </div>
 
-                <!-- Pagination Component -->
-                <div class="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 border-t border-slate-100 text-xs text-slate-500">
-                    <div>
-                        Showing <strong><?php echo min($totalSubscriberRecords, ($currentPage - 1) * $perPage + 1); ?>-<?php echo min($totalSubscriberRecords, $currentPage * $perPage); ?></strong>
-                        of <strong><?php echo $totalSubscriberRecords; ?></strong> subscribers
+                <?php if ($totalPages > 1): ?>
+                    <div class="flex items-center gap-1">
+                        <?php
+                        $basePaginationParams = http_build_query([
+                            'tab'                => 'subscriptions',
+                            'search'             => $searchFilter,
+                            'status'             => $statusFilter,
+                            'plan_id'            => $planFilter,
+                            'frequency'          => $frequencyFilter,
+                            'occasion_type'      => $occasionFilter,
+                            'city'               => $cityFilter,
+                            'created_from'       => $createdFrom,
+                            'created_to'         => $createdTo,
+                            'next_delivery_from' => $nextDeliveryFrom,
+                            'next_delivery_to'   => $nextDeliveryTo,
+                            'sort'               => $sortField,
+                            'per_page'           => $perPage
+                        ]);
+                        ?>
+                        <?php if ($currentPage > 1): ?>
+                            <a href="admin.php?<?php echo $basePaginationParams; ?>&page=<?php echo $currentPage - 1; ?>#subscribersSection"
+                               class="px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 font-semibold text-slate-700">
+                                Previous
+                            </a>
+                        <?php endif; ?>
+
+                        <?php for ($pNum = max(1, $currentPage - 2); $pNum <= min($totalPages, $currentPage + 2); $pNum++): ?>
+                            <a href="admin.php?<?php echo $basePaginationParams; ?>&page=<?php echo $pNum; ?>#subscribersSection"
+                               class="px-3 py-1.5 rounded-lg border font-bold <?php echo $pNum === $currentPage ? 'bg-amber-500 border-amber-500 text-slate-950' : 'border-slate-200 text-slate-700 hover:bg-slate-50'; ?>">
+                                <?php echo $pNum; ?>
+                            </a>
+                        <?php endfor; ?>
+
+                        <?php if ($currentPage < $totalPages): ?>
+                            <a href="admin.php?<?php echo $basePaginationParams; ?>&page=<?php echo $currentPage + 1; ?>#subscribersSection"
+                               class="px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 font-semibold text-slate-700">
+                                Next
+                            </a>
+                        <?php endif; ?>
                     </div>
-
-                    <?php if ($totalPages > 1): ?>
-                        <div class="flex items-center gap-1">
-                            <?php if ($currentPage > 1): ?>
-                                <a href="admin.php?tab=subscriptions&sub=subscribers&page=<?php echo $currentPage - 1; ?>&search=<?php echo urlencode($searchFilter); ?>&status=<?php echo urlencode($statusFilter); ?>&plan_id=<?php echo $planFilter; ?>&sort=<?php echo urlencode($sortField); ?>"
-                                   class="px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 font-semibold text-slate-700">
-                                    Previous
-                                </a>
-                            <?php endif; ?>
-
-                            <?php for ($pNum = max(1, $currentPage - 2); $pNum <= min($totalPages, $currentPage + 2); $pNum++): ?>
-                                <a href="admin.php?tab=subscriptions&sub=subscribers&page=<?php echo $pNum; ?>&search=<?php echo urlencode($searchFilter); ?>&status=<?php echo urlencode($statusFilter); ?>&plan_id=<?php echo $planFilter; ?>&sort=<?php echo urlencode($sortField); ?>"
-                                   class="px-3 py-1.5 rounded-lg border font-bold <?php echo $pNum === $currentPage ? 'bg-amber-500 border-amber-500 text-slate-950' : 'border-slate-200 text-slate-700 hover:bg-slate-50'; ?>">
-                                    <?php echo $pNum; ?>
-                                </a>
-                            <?php endfor; ?>
-
-                            <?php if ($currentPage < $totalPages): ?>
-                                <a href="admin.php?tab=subscriptions&sub=subscribers&page=<?php echo $currentPage + 1; ?>&search=<?php echo urlencode($searchFilter); ?>&status=<?php echo urlencode($statusFilter); ?>&plan_id=<?php echo $planFilter; ?>&sort=<?php echo urlencode($sortField); ?>"
-                                   class="px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 font-semibold text-slate-700">
-                                    Next
-                                </a>
-                            <?php endif; ?>
-                        </div>
-                    <?php endif; ?>
-                </div>
-            <?php endif; ?>
-        </div>
-    <?php endif; ?>
+                <?php endif; ?>
+            </div>
+        <?php endif; ?>
+    </div>
 </div>
 
 
@@ -1759,7 +1699,7 @@ require_once 'admin_header.php';
 <!-- MODALS                                                                     -->
 <!-- ═══════════════════════════════════════════════════════════════════════════ -->
 
-<!-- 1. MODAL: ADD / EDIT SUBSCRIPTION PLAN -->
+<!-- 1. MODAL: ADD / EDIT SUBSCRIPTION PLAN (All 14 Fields + Product Image Upload Pipeline) -->
 <div id="planFormModal" class="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-xs hidden items-center justify-center p-4">
     <div class="bg-white max-w-2xl w-full rounded-3xl p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
         <div class="flex items-center justify-between border-b border-slate-100 pb-3">
@@ -1770,13 +1710,16 @@ require_once 'admin_header.php';
         <form method="POST" enctype="multipart/form-data" class="space-y-4">
             <input type="hidden" id="plan_action_type" name="action" value="create_plan">
             <input type="hidden" id="modal_plan_id" name="plan_id" value="">
+            <input type="hidden" id="modal_remove_image_flag" name="remove_image" value="0">
 
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <!-- 1. Plan Name -->
                 <div>
                     <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">Plan Name *</label>
                     <input type="text" id="modal_plan_name" name="name" required placeholder="e.g. Monthly Bloom"
                            class="w-full px-4 py-2 rounded-xl border border-slate-300 text-sm outline-none focus:ring-2 focus:ring-amber-500">
                 </div>
+                <!-- 2. Slug -->
                 <div>
                     <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">Slug (URL friendly)</label>
                     <input type="text" id="modal_plan_slug" name="slug" placeholder="e.g. monthly-bloom"
@@ -1784,18 +1727,21 @@ require_once 'admin_header.php';
                 </div>
             </div>
 
+            <!-- 3. Tagline -->
             <div>
                 <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">Tagline</label>
                 <input type="text" id="modal_plan_tagline" name="tagline" placeholder="e.g. Fresh curated joy, every month"
                        class="w-full px-4 py-2 rounded-xl border border-slate-300 text-sm outline-none focus:ring-2 focus:ring-amber-500">
             </div>
 
+            <!-- 4. Description -->
             <div>
                 <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">Description</label>
                 <textarea id="modal_plan_description" name="description" rows="3" placeholder="Full plan description for customers..."
                           class="w-full px-4 py-2 rounded-xl border border-slate-300 text-sm outline-none focus:ring-2 focus:ring-amber-500"></textarea>
             </div>
 
+            <!-- 5. Frequency, 6. Deliveries/Yr, 7. Price/Deliv, 8. Total Price -->
             <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 <div>
                     <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">Frequency *</label>
@@ -1822,6 +1768,7 @@ require_once 'admin_header.php';
                 </div>
             </div>
 
+            <!-- 9. Savings %, 14. Display Order -->
             <div class="grid grid-cols-2 gap-3">
                 <div>
                     <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">Savings %</label>
@@ -1835,20 +1782,38 @@ require_once 'admin_header.php';
                 </div>
             </div>
 
+            <!-- 10. Features -->
             <div>
                 <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">Features (1 per line)</label>
-                <textarea id="modal_plan_features" name="features" rows="4" placeholder="1 curated delivery per month&#10;Handpicked seasonal blooms&#10;Free priority delivery"
+                <textarea id="modal_plan_features" name="features" rows="3" placeholder="1 curated delivery per month&#10;Handpicked seasonal blooms&#10;Free priority delivery"
                           class="w-full px-4 py-2 rounded-xl border border-slate-300 text-sm outline-none focus:ring-2 focus:ring-amber-500"></textarea>
             </div>
 
-            <!-- Image Upload Section (only on create; on edit, dedicated image modal can also be used) -->
-            <div id="plan_create_image_section">
-                <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">Plan Cover Image (Product Pipeline)</label>
-                <input type="file" name="plan_image" accept="image/jpeg,image/png,image/webp"
-                       class="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs bg-slate-50">
-                <p class="text-[11px] text-slate-400 mt-1">Processed to 1000×1000 square GD crop and stored in permanent store.</p>
+            <!-- 11. Plan Image (Product Pipeline) -->
+            <div class="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-3">
+                <label class="block text-xs font-bold uppercase tracking-wider text-slate-800">
+                    Plan Cover Image (Product Image Pipeline)
+                </label>
+                
+                <div id="modal_form_image_preview_box" class="hidden items-center gap-3">
+                    <img id="modal_form_image_preview" src="" alt="Plan Preview" class="w-16 h-16 rounded-xl object-cover border border-slate-300">
+                    <div>
+                        <span id="modal_form_image_label" class="text-xs text-slate-600 block font-medium">Saved Cover Image</span>
+                        <button type="button" onclick="markFormImageRemoval()" class="text-xs text-rose-600 hover:text-rose-800 font-semibold underline mt-0.5">
+                            Remove Image
+                        </button>
+                    </div>
+                </div>
+
+                <div>
+                    <input type="file" id="modal_form_image_file" name="plan_image" accept="image/jpeg,image/png,image/webp"
+                           onchange="previewFormPlanImage(this)"
+                           class="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs bg-white file:mr-3 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-amber-100 file:text-amber-900">
+                    <p class="text-[11px] text-slate-400 mt-1">Accepts JPG, PNG, WEBP (Max 5MB). Processed to 1000×1000 px square JPEG via GD.</p>
+                </div>
             </div>
 
+            <!-- 12. Is Popular, 13. Is Active -->
             <div class="flex items-center gap-6 pt-2">
                 <label class="flex items-center gap-2 cursor-pointer text-xs font-bold text-slate-700">
                     <input type="checkbox" id="modal_plan_popular" name="is_popular" value="1" class="w-4 h-4 text-amber-600 rounded">
@@ -1914,224 +1879,11 @@ require_once 'admin_header.php';
             <div class="flex justify-end gap-3 pt-3 border-t border-slate-100">
                 <button type="button" onclick="closePlanImageModal()" class="px-4 py-2 text-slate-600 text-sm font-semibold">Cancel</button>
                 <button type="submit" class="px-5 py-2 gold-gradient text-slate-950 font-bold rounded-xl text-sm shadow-md">Save Image</button>
-=======
-// ── HANDLE POST: Save/Update Subscription Plan Image ────────────────────────
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
-    if (!$is_main_admin) {
-        $error = 'Unauthorized. Only main_admin can modify subscription plans.';
-    } else {
-        $action = $_POST['action'];
-
-        if ($action === 'update_plan') {
-            $planId = (int)($_POST['plan_id'] ?? 0);
-
-            if (!$planId) {
-                $error = 'Plan ID is required.';
-            } else {
-                try {
-                    $curr = $db->prepare("SELECT * FROM subscription_plans WHERE id = :id LIMIT 1");
-                    $curr->execute([':id' => $planId]);
-                    $plan = $curr->fetch(PDO::FETCH_ASSOC);
-
-                    if (!$plan) {
-                        throw new Exception("Subscription plan not found.");
-                    }
-
-                    $existingImage = $plan['image'] ?? '';
-
-                    // Handle Remove Image flag
-                    if (isset($_POST['remove_image']) && $_POST['remove_image'] === '1') {
-                        if (!empty($existingImage) && strpos($existingImage, OMG_IMG_URL_PATH) !== false) {
-                            deleteLocalImage($existingImage);
-                        }
-                        $newImage = '';
-                    } else {
-                        // Process file upload through Product pipeline
-                        $newImage = handleSubscriptionImageUpload('plan_image', $plan['name'], $existingImage);
-                    }
-
-                    $stmt = $db->prepare("UPDATE subscription_plans SET image = :image WHERE id = :id");
-                    $stmt->execute([':image' => $newImage, ':id' => $planId]);
-
-                    $message = "Subscription plan image updated successfully!";
-
-                } catch (Exception $e) {
-                    $error = $e->getMessage();
-                }
-            }
-        }
-    }
-}
-
-// Fetch all plans for display
-try {
-    $plans = $db->query("SELECT * FROM subscription_plans ORDER BY display_order ASC")->fetchAll(PDO::FETCH_ASSOC);
-} catch (Exception $e) {
-    $plans = [];
-    $error = 'Could not load subscription plans: ' . $e->getMessage();
-}
-
-$pageTitle = "Subscription Plans Management";
-require_once 'admin_header.php';
-?>
-
-<div class="space-y-8">
-    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200 pb-6">
-        <div>
-            <h1 class="text-2xl sm:text-3xl font-serif font-bold text-slate-900">Subscription Plans</h1>
-            <p class="text-slate-500 text-sm mt-1">Manage subscription plan images. All uploads are processed to 1000×1000 px using the same pipeline as products.</p>
-        </div>
-    </div>
-
-    <?php if ($message): ?>
-        <div class="bg-emerald-50 border border-emerald-200 text-emerald-700 px-4 py-3 rounded-xl text-sm font-medium">
-            <?php echo htmlspecialchars($message); ?>
-        </div>
-    <?php endif; ?>
-    <?php if ($error): ?>
-        <div class="bg-rose-50 border border-rose-200 text-rose-700 px-4 py-3 rounded-xl text-sm font-medium">
-            <?php echo htmlspecialchars($error); ?>
-        </div>
-    <?php endif; ?>
-
-    <!-- Subscription Plans Table -->
-    <div class="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-6 space-y-6">
-        <div class="border-b border-slate-100 pb-4">
-            <h3 class="text-lg font-serif font-bold text-slate-900">Subscription Plans — Image Management</h3>
-            <p class="text-xs text-slate-500 mt-1">Click "Edit Image" to upload or replace a plan's cover image. Files are validated (MIME + extension + size), cropped to 1000×1000 px, and stored in the permanent image store.</p>
-        </div>
-
-        <div class="table-wrapper">
-            <table class="w-full text-left text-sm">
-                <thead class="bg-slate-100/70 text-slate-600 uppercase text-[11px] font-bold tracking-wider border-b border-slate-200">
-                    <tr>
-                        <th class="py-3 px-4">Order</th>
-                        <th class="py-3 px-4">Image</th>
-                        <th class="py-3 px-4">Subscription Plan</th>
-                        <th class="py-3 px-4">Frequency</th>
-                        <th class="py-3 px-4">Price / Delivery</th>
-                        <th class="py-3 px-4">Status</th>
-                        <th class="py-3 px-4 text-right">Actions</th>
-                    </tr>
-                </thead>
-                <tbody class="divide-y divide-slate-100">
-                    <?php foreach ($plans as $plan): ?>
-                        <tr class="hover:bg-slate-50">
-                            <td class="py-3.5 px-4 text-xs font-mono font-bold text-slate-500">#<?php echo $plan['display_order']; ?></td>
-                            <td class="py-3.5 px-4">
-                                <?php if (!empty($plan['image'])): ?>
-                                    <img src="<?php echo htmlspecialchars($plan['image']); ?>"
-                                        alt="<?php echo htmlspecialchars($plan['name']); ?>"
-                                        class="w-14 h-14 object-cover rounded-lg border border-slate-200 shadow-sm">
-                                <?php else: ?>
-                                    <div class="w-14 h-14 rounded-lg border border-dashed border-slate-300 bg-slate-50 flex items-center justify-center text-[10px] text-slate-400 text-center leading-tight">
-                                        No<br>Image
-                                    </div>
-                                <?php endif; ?>
-                            </td>
-                            <td class="py-3.5 px-4">
-                                <p class="font-bold text-slate-900"><?php echo htmlspecialchars($plan['name']); ?></p>
-                                <p class="text-xs text-slate-500 italic"><?php echo htmlspecialchars($plan['tagline'] ?? ''); ?></p>
-                            </td>
-                            <td class="py-3.5 px-4 text-xs font-semibold text-slate-700 capitalize"><?php echo htmlspecialchars($plan['frequency']); ?></td>
-                            <td class="py-3.5 px-4 font-bold text-amber-600">&#8377;<?php echo number_format($plan['price_per_delivery']); ?></td>
-                            <td class="py-3.5 px-4 text-xs">
-                                <span class="<?php echo $plan['is_active'] ? 'text-emerald-600 font-semibold' : 'text-slate-400'; ?>">
-                                    <?php echo $plan['is_active'] ? '&#9679; Active' : '&#9675; Inactive'; ?>
-                                </span>
-                            </td>
-                            <td class="py-3.5 px-4 text-right">
-                                <button onclick="openPlanImageModal(<?php echo htmlspecialchars(json_encode([
-                                    'id'    => $plan['id'],
-                                    'name'  => $plan['name'],
-                                    'image' => $plan['image'] ?? '',
-                                ]), ENT_QUOTES); ?>)"
-                                    class="px-3 py-1.5 bg-slate-800 text-white rounded-lg text-xs font-medium hover:bg-slate-900 transition-colors">
-                                    Edit Image
-                                </button>
-                            </td>
-                        </tr>
-                    <?php endforeach; ?>
-                </tbody>
-            </table>
-        </div>
-    </div>
-</div>
-
-<!-- MODAL: Edit Subscription Plan Image -->
-<div id="planImageModal"
-    class="hidden fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4">
-    <div class="bg-white max-w-md w-full rounded-2xl p-6 shadow-2xl space-y-5">
-        <div class="flex items-center justify-between border-b border-slate-100 pb-3">
-            <h3 id="planModalTitle" class="text-lg font-serif font-bold text-slate-900">Edit Subscription Image</h3>
-            <button type="button" onclick="closePlanImageModal()"
-                class="text-slate-400 hover:text-slate-600 font-bold text-2xl leading-none">&times;</button>
-        </div>
-
-        <form id="planImageForm" method="POST" enctype="multipart/form-data" class="space-y-5">
-            <input type="hidden" name="action" value="update_plan">
-            <input type="hidden" id="plan_id_input" name="plan_id" value="">
-            <input type="hidden" id="remove_image_flag" name="remove_image" value="0">
-
-            <div>
-                <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-2">
-                    Plan Cover Image
-                </label>
-
-                <!-- Current / Preview Image -->
-                <div id="imagePreviewWrapper" class="mb-3 hidden">
-                    <div class="relative w-40 h-40 rounded-xl overflow-hidden border border-slate-200 shadow-sm bg-slate-50 mx-auto">
-                        <img id="imagePreview" src="" alt="Plan Image Preview" class="w-full h-full object-cover">
-                        <button type="button" onclick="removeImage()"
-                            class="absolute top-1.5 right-1.5 bg-rose-500 hover:bg-rose-600 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold shadow-md transition-colors"
-                            title="Remove Image">&times;</button>
-                    </div>
-                    <p class="text-[11px] text-slate-400 text-center mt-1" id="previewLabel">Current saved image</p>
-                </div>
-
-                <!-- No image placeholder -->
-                <div id="noImagePlaceholder"
-                    class="mb-3 w-40 h-40 rounded-xl border-2 border-dashed border-slate-300 bg-slate-50 flex flex-col items-center justify-center mx-auto">
-                    <svg class="w-10 h-10 text-slate-300 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
-                            d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                    </svg>
-                    <p class="text-xs text-slate-400">No image set</p>
-                </div>
-
-                <!-- File input -->
-                <label for="plan_image_input"
-                    class="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border-2 border-dashed border-slate-300 hover:border-amber-400 hover:bg-amber-50 cursor-pointer transition-all text-sm font-semibold text-slate-600 hover:text-amber-700">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                            d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-                    </svg>
-                    Choose Image
-                </label>
-                <input type="file" id="plan_image_input" name="plan_image"
-                    accept="image/jpeg,image/jpg,image/png,image/webp"
-                    class="hidden" onchange="previewPlanImage(this)">
-                <p class="text-[11px] text-slate-400 text-center mt-2">JPG, PNG, WEBP &middot; Max 5 MB &middot; Auto-cropped to 1000&times;1000 px</p>
-            </div>
-
-            <div class="flex justify-end gap-3 pt-3 border-t border-slate-100">
-                <button type="button" onclick="closePlanImageModal()"
-                    class="px-4 py-2 text-slate-600 text-sm font-semibold hover:text-slate-800 transition-colors">Cancel</button>
-                <?php if ($is_main_admin): ?>
-                    <button type="submit"
-                        class="px-5 py-2 gold-gradient text-slate-950 font-bold rounded-xl text-sm shadow-md hover:opacity-90">
-                        Save Image
-                    </button>
-                <?php else: ?>
-                    <span class="px-4 py-2 text-xs text-slate-400 italic">Only main_admin can save images.</span>
-                <?php endif; ?>
->>>>>>> b34855a241af95ea619ff4cb20e5c1044d14eec8
             </div>
         </form>
     </div>
 </div>
 
-<<<<<<< HEAD
 <!-- 3. MODAL: VIEW PLAN DETAILS -->
 <div id="viewPlanModal" class="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-xs hidden items-center justify-center p-4">
     <div class="bg-white max-w-lg w-full rounded-3xl p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
@@ -2159,14 +1911,14 @@ require_once 'admin_header.php';
                     <strong id="vp_price" class="text-amber-600 font-bold text-sm"></strong>
                 </div>
                 <div>
-                    <span class="text-slate-400 text-[10px] uppercase font-bold block">Total Price</span>
+                    <span class="text-slate-400 text-[10px] uppercase font-bold block">Total Plan Price</span>
                     <strong id="vp_total" class="text-slate-900 font-bold text-sm"></strong>
                 </div>
             </div>
 
             <div>
                 <span class="text-slate-400 text-[10px] uppercase font-bold block mb-1">Description</span>
-                <p id="vp_description" class="text-slate-600 leading-relaxed"></p>
+                <p id="vp_description" class="text-slate-600 bg-slate-50 p-3 rounded-xl border border-slate-200/60"></p>
             </div>
 
             <div>
@@ -2176,53 +1928,53 @@ require_once 'admin_header.php';
         </div>
 
         <div class="flex justify-end pt-3 border-t border-slate-100">
-            <button type="button" onclick="closeViewPlanModal()" class="px-5 py-2 bg-slate-900 text-white font-bold rounded-xl text-xs">Close</button>
+            <button type="button" onclick="closeViewPlanModal()" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-xl">Close</button>
         </div>
     </div>
 </div>
 
-<!-- 4. MODAL: VIEW SUBSCRIBER FULL DETAILS -->
+<!-- 4. MODAL: VIEW SUBSCRIBER DETAILS (Full 6-Section Card) -->
 <div id="viewSubscriberModal" class="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-xs hidden items-center justify-center p-4">
-    <div class="bg-white max-w-xl w-full rounded-3xl p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+    <div class="bg-white max-w-2xl w-full rounded-3xl p-6 shadow-2xl space-y-5 max-h-[90vh] overflow-y-auto">
         <div class="flex items-center justify-between border-b border-slate-100 pb-3">
             <div>
                 <h3 class="text-lg font-serif font-bold text-slate-900">Subscriber Details</h3>
-                <span id="vs_sub_id" class="font-mono text-xs text-slate-400"></span>
+                <span id="vs_sub_id" class="text-xs font-mono text-slate-400 font-bold"></span>
             </div>
             <button type="button" onclick="closeViewSubscriberModal()" class="text-slate-400 hover:text-slate-600 text-lg font-bold">✕</button>
         </div>
 
         <div class="space-y-4 text-xs text-slate-700">
-            <!-- Customer Section -->
+            <!-- 1. Customer Information -->
             <div class="bg-slate-50 p-4 rounded-2xl border border-slate-200/70 space-y-2">
-                <h4 class="text-[11px] font-bold uppercase tracking-wider text-amber-800">👤 Customer</h4>
-                <div class="grid grid-cols-2 gap-2">
+                <span class="text-slate-500 font-bold uppercase text-[10px] tracking-wider block">1. Customer Information</span>
+                <div class="grid grid-cols-2 gap-3">
                     <div>
-                        <span class="text-slate-400 text-[10px] block">Name</span>
-                        <strong id="vs_cust_name" class="text-slate-800 text-sm"></strong>
+                        <span class="text-slate-400 text-[10px] block">Customer Name</span>
+                        <strong id="vs_cust_name" class="text-slate-900 text-sm"></strong>
                     </div>
                     <div>
-                        <span class="text-slate-400 text-[10px] block">Email</span>
-                        <span id="vs_cust_email" class="text-slate-700"></span>
+                        <span class="text-slate-400 text-[10px] block">Customer Email</span>
+                        <strong id="vs_cust_email" class="text-slate-800"></strong>
                     </div>
                     <div>
-                        <span class="text-slate-400 text-[10px] block">Phone</span>
-                        <span id="vs_cust_phone" class="text-slate-700"></span>
+                        <span class="text-slate-400 text-[10px] block">Phone Number</span>
+                        <strong id="vs_cust_phone" class="text-slate-800"></strong>
                     </div>
                     <div>
                         <span class="text-slate-400 text-[10px] block">User ID</span>
-                        <span id="vs_user_id" class="font-mono text-[10px] text-slate-500"></span>
+                        <span id="vs_user_id" class="font-mono text-slate-600"></span>
                     </div>
                 </div>
             </div>
 
-            <!-- Subscription Section -->
-            <div class="bg-slate-50 p-4 rounded-2xl border border-slate-200/70 space-y-2">
-                <h4 class="text-[11px] font-bold uppercase tracking-wider text-amber-800">🌸 Subscription Plan</h4>
-                <div class="grid grid-cols-2 gap-2">
+            <!-- 2. Subscription Information -->
+            <div class="bg-amber-50/30 p-4 rounded-2xl border border-amber-200/60 space-y-2">
+                <span class="text-amber-800 font-bold uppercase text-[10px] tracking-wider block">2. Subscription Information</span>
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
                     <div>
-                        <span class="text-slate-400 text-[10px] block">Plan</span>
-                        <strong id="vs_plan_name" class="text-slate-800 text-sm"></strong>
+                        <span class="text-slate-400 text-[10px] block">Plan Name</span>
+                        <strong id="vs_plan_name" class="text-slate-900"></strong>
                     </div>
                     <div>
                         <span class="text-slate-400 text-[10px] block">Status</span>
@@ -2230,71 +1982,106 @@ require_once 'admin_header.php';
                     </div>
                     <div>
                         <span class="text-slate-400 text-[10px] block">Frequency</span>
-                        <span id="vs_frequency" class="capitalize text-slate-700"></span>
+                        <strong id="vs_frequency" class="capitalize text-slate-800"></strong>
                     </div>
                     <div>
-                        <span class="text-slate-400 text-[10px] block">Occasion</span>
-                        <span id="vs_occasion" class="text-slate-700"></span>
+                        <span class="text-slate-400 text-[10px] block">Price / Deliv</span>
+                        <strong id="vs_price_per_delivery" class="text-amber-700"></strong>
+                    </div>
+                    <div>
+                        <span class="text-slate-400 text-[10px] block">Total Plan Value</span>
+                        <strong id="vs_total_value" class="text-slate-900"></strong>
+                    </div>
+                    <div>
+                        <span class="text-slate-400 text-[10px] block">Savings</span>
+                        <strong id="vs_savings" class="text-emerald-700"></strong>
+                    </div>
+                    <div>
+                        <span class="text-slate-400 text-[10px] block">Created Date</span>
+                        <span id="vs_created_at" class="text-slate-600"></span>
+                    </div>
+                    <div>
+                        <span class="text-slate-400 text-[10px] block">Updated Date</span>
+                        <span id="vs_updated_at" class="text-slate-600"></span>
                     </div>
                 </div>
             </div>
 
-            <!-- Delivery & Recipient Section -->
+            <!-- 3. Occasion Information -->
             <div class="bg-slate-50 p-4 rounded-2xl border border-slate-200/70 space-y-2">
-                <h4 class="text-[11px] font-bold uppercase tracking-wider text-amber-800">🚚 Delivery Information</h4>
-                <div class="grid grid-cols-2 gap-2">
+                <span class="text-slate-500 font-bold uppercase text-[10px] tracking-wider block">3. Occasion Information</span>
+                <div class="grid grid-cols-2 gap-3">
                     <div>
-                        <span class="text-slate-400 text-[10px] block">Recipient</span>
-                        <strong id="vs_recip_name" class="text-slate-800"></strong>
+                        <span class="text-slate-400 text-[10px] block">Occasion Type</span>
+                        <strong id="vs_occasion_type" class="text-slate-900 text-sm"></strong>
+                    </div>
+                    <div>
+                        <span class="text-slate-400 text-[10px] block">Occasion Date</span>
+                        <strong id="vs_occasion_date" class="text-slate-900 font-mono"></strong>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 4. Recipient Information -->
+            <div class="bg-slate-50 p-4 rounded-2xl border border-slate-200/70 space-y-2">
+                <span class="text-slate-500 font-bold uppercase text-[10px] tracking-wider block">4. Recipient Information</span>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <span class="text-slate-400 text-[10px] block">Recipient Name</span>
+                        <strong id="vs_recip_name" class="text-slate-900"></strong>
                     </div>
                     <div>
                         <span class="text-slate-400 text-[10px] block">Recipient Phone</span>
-                        <span id="vs_recip_phone" class="text-slate-700"></span>
-                    </div>
-                    <div class="col-span-2">
-                        <span class="text-slate-400 text-[10px] block">Address</span>
-                        <p id="vs_address" class="text-slate-800 mt-0.5 leading-relaxed"></p>
-                    </div>
-                    <div>
-                        <span class="text-slate-400 text-[10px] block">City</span>
-                        <span id="vs_city" class="text-slate-700"></span>
-                    </div>
-                    <div>
-                        <span class="text-slate-400 text-[10px] block">Next Delivery Date</span>
-                        <strong id="vs_next_delivery" class="text-amber-700 font-mono"></strong>
+                        <strong id="vs_recip_phone" class="text-slate-900"></strong>
                     </div>
                 </div>
             </div>
 
-            <!-- Delivery Summary & Notes -->
-            <div class="grid grid-cols-2 gap-3">
-                <div class="p-3 rounded-xl border border-slate-200 bg-white">
-                    <span class="text-slate-400 text-[10px] uppercase font-bold block">Total Deliveries Made</span>
-                    <strong id="vs_total_deliv" class="text-slate-800 text-sm font-bold"></strong>
-                </div>
-                <div class="p-3 rounded-xl border border-slate-200 bg-white">
-                    <span class="text-slate-400 text-[10px] uppercase font-bold block">Joined Date</span>
-                    <span id="vs_created_at" class="text-slate-700 font-mono text-[11px]"></span>
+            <!-- 5. Delivery Information -->
+            <div class="bg-slate-50 p-4 rounded-2xl border border-slate-200/70 space-y-2">
+                <span class="text-slate-500 font-bold uppercase text-[10px] tracking-wider block">5. Delivery Information</span>
+                <div class="space-y-2">
+                    <div>
+                        <span class="text-slate-400 text-[10px] block">Delivery Address</span>
+                        <p id="vs_address" class="text-slate-800 font-medium"></p>
+                    </div>
+                    <div class="grid grid-cols-3 gap-3 pt-1">
+                        <div>
+                            <span class="text-slate-400 text-[10px] block">City</span>
+                            <strong id="vs_city" class="text-slate-800"></strong>
+                        </div>
+                        <div>
+                            <span class="text-slate-400 text-[10px] block">Next Delivery Date</span>
+                            <strong id="vs_next_delivery" class="text-amber-800 font-mono"></strong>
+                        </div>
+                        <div>
+                            <span class="text-slate-400 text-[10px] block">Total Deliveries Made</span>
+                            <strong id="vs_total_deliv" class="text-slate-800"></strong>
+                        </div>
+                    </div>
                 </div>
             </div>
 
-            <div id="vs_notes_wrapper">
-                <span class="text-slate-400 text-[10px] uppercase font-bold block mb-1">Customer / Admin Notes</span>
-                <p id="vs_notes" class="p-3 rounded-xl bg-slate-50 border border-slate-200 text-slate-600 italic"></p>
+            <!-- 6. Notes -->
+            <div id="vs_notes_wrapper" class="bg-slate-50 p-4 rounded-2xl border border-slate-200/70">
+                <span class="text-slate-500 font-bold uppercase text-[10px] tracking-wider block mb-1">6. Subscription Notes</span>
+                <p id="vs_notes" class="text-slate-700 italic"></p>
             </div>
         </div>
 
         <div class="flex justify-end pt-3 border-t border-slate-100">
-            <button type="button" onclick="closeViewSubscriberModal()" class="px-5 py-2 bg-slate-900 text-white font-bold rounded-xl text-xs">Close</button>
+            <button type="button" onclick="closeViewSubscriberModal()" class="px-5 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold rounded-xl">
+                Close
+            </button>
         </div>
     </div>
 </div>
 
-<!-- 5. MODAL: EDIT SUBSCRIBER DETAILS -->
+<!-- 5. MODAL: EDIT SUBSCRIBER -->
 <div id="editSubscriberModal" class="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-xs hidden items-center justify-center p-4">
-    <div class="bg-white max-w-lg w-full rounded-3xl p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+    <div class="bg-white max-w-xl w-full rounded-3xl p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
         <div class="flex items-center justify-between border-b border-slate-100 pb-3">
-            <h3 class="text-lg font-serif font-bold text-slate-900">Edit Subscription Details</h3>
+            <h3 class="text-lg font-serif font-bold text-slate-900">Edit Subscriber Record</h3>
             <button type="button" onclick="closeEditSubscriberModal()" class="text-slate-400 hover:text-slate-600 text-lg font-bold">✕</button>
         </div>
 
@@ -2302,56 +2089,18 @@ require_once 'admin_header.php';
             <input type="hidden" name="action" value="edit_subscriber">
             <input type="hidden" id="es_sub_id" name="subscription_id" value="">
 
-            <div>
-                <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">Subscription Plan *</label>
-                <select id="es_plan_id" name="plan_id" required class="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm outline-none focus:ring-2 focus:ring-amber-500 bg-white">
-                    <?php foreach ($plans as $p): ?>
-                        <option value="<?php echo $p['id']; ?>"><?php echo htmlspecialchars($p['name']); ?> (₹<?php echo number_format($p['price_per_delivery']); ?>)</option>
-                    <?php endforeach; ?>
-                </select>
-            </div>
-
             <div class="grid grid-cols-2 gap-3">
                 <div>
-                    <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">Occasion Type *</label>
-                    <input type="text" id="es_occasion_type" name="occasion_type" required
-                           class="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm outline-none focus:ring-2 focus:ring-amber-500">
-                </div>
-                <div>
-                    <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">Occasion Date *</label>
-                    <input type="date" id="es_occasion_date" name="occasion_date" required
-                           class="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm outline-none focus:ring-2 focus:ring-amber-500">
-                </div>
-            </div>
-
-            <div class="grid grid-cols-2 gap-3">
-                <div>
-                    <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">Recipient Name</label>
-                    <input type="text" id="es_recipient_name" name="recipient_name"
-                           class="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm outline-none focus:ring-2 focus:ring-amber-500">
-                </div>
-                <div>
-                    <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">Recipient Phone</label>
-                    <input type="text" id="es_recipient_phone" name="recipient_phone"
-                           class="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm outline-none focus:ring-2 focus:ring-amber-500">
-                </div>
-            </div>
-
-            <div>
-                <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">Delivery Address</label>
-                <textarea id="es_delivery_address" name="delivery_address" rows="2"
-                          class="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm outline-none focus:ring-2 focus:ring-amber-500"></textarea>
-            </div>
-
-            <div class="grid grid-cols-2 gap-3">
-                <div>
-                    <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">City</label>
-                    <input type="text" id="es_city" name="city" value="Bangalore"
-                           class="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm outline-none focus:ring-2 focus:ring-amber-500">
+                    <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">Plan</label>
+                    <select id="es_plan_id" name="plan_id" class="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs bg-white">
+                        <?php foreach ($plans as $p): ?>
+                            <option value="<?php echo $p['id']; ?>"><?php echo htmlspecialchars($p['name']); ?></option>
+                        <?php endforeach; ?>
+                    </select>
                 </div>
                 <div>
                     <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">Status</label>
-                    <select id="es_status" name="status" class="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm outline-none focus:ring-2 focus:ring-amber-500 bg-white">
+                    <select id="es_status" name="status" class="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs bg-white">
                         <option value="active">Active</option>
                         <option value="paused">Paused</option>
                         <option value="cancelled">Cancelled</option>
@@ -2362,36 +2111,67 @@ require_once 'admin_header.php';
 
             <div class="grid grid-cols-2 gap-3">
                 <div>
-                    <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">Next Delivery Date</label>
-                    <input type="date" id="es_next_delivery" name="next_delivery_date"
-                           class="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm outline-none focus:ring-2 focus:ring-amber-500">
+                    <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">Recipient Name</label>
+                    <input type="text" id="es_recipient_name" name="recipient_name" class="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs">
                 </div>
                 <div>
-                    <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">Total Deliveries</label>
-                    <input type="number" id="es_total_deliveries" name="total_deliveries" min="0"
-                           class="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm outline-none focus:ring-2 focus:ring-amber-500">
+                    <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">Recipient Phone</label>
+                    <input type="text" id="es_recipient_phone" name="recipient_phone" class="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs">
+                </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">Occasion Type</label>
+                    <input type="text" id="es_occasion_type" name="occasion_type" class="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">Occasion Date</label>
+                    <input type="date" id="es_occasion_date" name="occasion_date" class="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs">
+                </div>
+            </div>
+
+            <div>
+                <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">Delivery Address</label>
+                <textarea id="es_delivery_address" name="delivery_address" rows="2" class="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs"></textarea>
+            </div>
+
+            <div class="grid grid-cols-3 gap-3">
+                <div>
+                    <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">City</label>
+                    <input type="text" id="es_city" name="city" class="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">Next Delivery</label>
+                    <input type="date" id="es_next_delivery" name="next_delivery_date" class="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">Deliveries Count</label>
+                    <input type="number" id="es_total_deliveries" name="total_deliveries" min="0" class="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs">
                 </div>
             </div>
 
             <div>
                 <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">Notes</label>
-                <textarea id="es_notes" name="notes" rows="2" placeholder="Special preferences, instructions, etc."
-                          class="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm outline-none focus:ring-2 focus:ring-amber-500"></textarea>
+                <textarea id="es_notes" name="notes" rows="2" class="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs"></textarea>
             </div>
 
             <div class="flex justify-end gap-3 pt-3 border-t border-slate-100">
-                <button type="button" onclick="closeEditSubscriberModal()" class="px-4 py-2 text-slate-600 text-sm font-semibold">Cancel</button>
-                <button type="submit" class="px-5 py-2 gold-gradient text-slate-950 font-bold rounded-xl text-sm shadow-md">Update Subscription</button>
+                <button type="button" onclick="closeEditSubscriberModal()" class="px-4 py-2 text-slate-600 text-xs font-semibold">Cancel</button>
+                <button type="submit" class="px-5 py-2 gold-gradient text-slate-950 font-bold rounded-xl text-xs shadow-md">
+                    Save Changes
+                </button>
             </div>
         </form>
     </div>
 </div>
 
+
 <!-- ═══════════════════════════════════════════════════════════════════════════ -->
-<!-- SCRIPTS FOR INTERACTIVITY                                                 -->
+<!-- JAVASCRIPT CONTROLLERS                                                     -->
 <!-- ═══════════════════════════════════════════════════════════════════════════ -->
 <script>
-    // ── PLAN FORM MODAL (Add / Edit) ─────────────────────────────────────────
+    // ── ADD / EDIT PLAN MODAL ────────────────────────────────────────────────
     function openAddPlanModal() {
         document.getElementById('planModalTitle').textContent = 'Add Subscription Plan';
         document.getElementById('plan_action_type').value = 'create_plan';
@@ -2405,11 +2185,13 @@ require_once 'admin_header.php';
         document.getElementById('modal_plan_price').value = '';
         document.getElementById('modal_plan_total').value = '';
         document.getElementById('modal_plan_savings').value = '0';
-        document.getElementById('modal_plan_order').value = '1';
+        document.getElementById('modal_plan_order').value = '<?php echo count($plans) + 1; ?>';
         document.getElementById('modal_plan_features').value = '';
         document.getElementById('modal_plan_popular').checked = false;
         document.getElementById('modal_plan_active').checked = true;
-        document.getElementById('plan_create_image_section').classList.remove('hidden');
+        document.getElementById('modal_remove_image_flag').value = '0';
+        document.getElementById('modal_form_image_file').value = '';
+        document.getElementById('modal_form_image_preview_box').classList.add('hidden');
 
         document.getElementById('planFormModal').classList.remove('hidden');
         document.getElementById('planFormModal').classList.add('flex');
@@ -2419,29 +2201,41 @@ require_once 'admin_header.php';
         document.getElementById('planModalTitle').textContent = 'Edit Subscription Plan: ' + plan.name;
         document.getElementById('plan_action_type').value = 'edit_plan';
         document.getElementById('modal_plan_id').value = plan.id;
-        document.getElementById('modal_plan_name').value = plan.name || '';
-        document.getElementById('modal_plan_slug').value = plan.slug || '';
+        document.getElementById('modal_plan_name').value = plan.name;
+        document.getElementById('modal_plan_slug').value = plan.slug;
         document.getElementById('modal_plan_tagline').value = plan.tagline || '';
         document.getElementById('modal_plan_description').value = plan.description || '';
-        document.getElementById('modal_plan_frequency').value = plan.frequency || 'monthly';
-        document.getElementById('modal_plan_deliveries').value = plan.deliveries_per_year || 12;
-        document.getElementById('modal_plan_price').value = plan.price_per_delivery || '';
-        document.getElementById('modal_plan_total').value = plan.total_price || '';
-        document.getElementById('modal_plan_savings').value = plan.savings_percent || 0;
-        document.getElementById('modal_plan_order').value = plan.display_order || 1;
+        document.getElementById('modal_plan_frequency').value = plan.frequency;
+        document.getElementById('modal_plan_deliveries').value = plan.deliveries_per_year;
+        document.getElementById('modal_plan_price').value = plan.price_per_delivery;
+        document.getElementById('modal_plan_total').value = plan.total_price;
+        document.getElementById('modal_plan_savings').value = plan.savings_percent;
+        document.getElementById('modal_plan_order').value = plan.display_order;
+        document.getElementById('modal_plan_popular').checked = Boolean(Number(plan.is_popular));
+        document.getElementById('modal_plan_active').checked = Boolean(Number(plan.is_active));
+        document.getElementById('modal_remove_image_flag').value = '0';
+        document.getElementById('modal_form_image_file').value = '';
 
+        // Features parsing
         let feats = [];
         try {
             feats = JSON.parse(plan.features);
             if (!Array.isArray(feats) && feats.features) feats = feats.features;
         } catch (e) {
-            feats = [plan.features];
+            feats = plan.features ? [plan.features] : [];
         }
-        document.getElementById('modal_plan_features').value = Array.isArray(feats) ? feats.join('\n') : '';
+        document.getElementById('modal_plan_features').value = Array.isArray(feats) ? feats.join("\n") : '';
 
-        document.getElementById('modal_plan_popular').checked = plan.is_popular == 1;
-        document.getElementById('modal_plan_active').checked = plan.is_active == 1;
-        document.getElementById('plan_create_image_section').classList.add('hidden');
+        // Existing image preview
+        if (plan.image) {
+            document.getElementById('modal_form_image_preview').src = plan.image;
+            document.getElementById('modal_form_image_label').textContent = 'Current Cover Image';
+            document.getElementById('modal_form_image_preview_box').classList.remove('hidden');
+            document.getElementById('modal_form_image_preview_box').classList.add('flex');
+        } else {
+            document.getElementById('modal_form_image_preview_box').classList.add('hidden');
+            document.getElementById('modal_form_image_preview_box').classList.remove('flex');
+        }
 
         document.getElementById('planFormModal').classList.remove('hidden');
         document.getElementById('planFormModal').classList.add('flex');
@@ -2452,35 +2246,69 @@ require_once 'admin_header.php';
         document.getElementById('planFormModal').classList.remove('flex');
     }
 
-    // Auto-calculate Total Price in Plan Form
-    document.getElementById('modal_plan_price').addEventListener('input', autoCalcPlanTotal);
-    document.getElementById('modal_plan_deliveries').addEventListener('input', autoCalcPlanTotal);
-    function autoCalcPlanTotal() {
+    function previewFormPlanImage(input) {
+        if (!input.files || !input.files[0]) return;
+        const file = input.files[0];
+        const allowed = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+        if (!allowed.includes(file.type)) {
+            alert('Invalid file format. Please upload JPG, PNG, or WEBP.');
+            input.value = '';
+            return;
+        }
+        if (file.size > 5 * 1024 * 1024) {
+            alert('File exceeds 5 MB size limit.');
+            input.value = '';
+            return;
+        }
+
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            document.getElementById('modal_form_image_preview').src = e.target.result;
+            document.getElementById('modal_form_image_label').textContent = 'Selected: ' + file.name + ' (1000×1000 crop on save)';
+            document.getElementById('modal_form_image_preview_box').classList.remove('hidden');
+            document.getElementById('modal_form_image_preview_box').classList.add('flex');
+            document.getElementById('modal_remove_image_flag').value = '0';
+        };
+        reader.readAsDataURL(file);
+    }
+
+    function markFormImageRemoval() {
+        if (!confirm('Remove this image? It will be deleted from storage when you save.')) return;
+        document.getElementById('modal_form_image_preview').src = '';
+        document.getElementById('modal_form_image_preview_box').classList.add('hidden');
+        document.getElementById('modal_form_image_preview_box').classList.remove('flex');
+        document.getElementById('modal_form_image_file').value = '';
+        document.getElementById('modal_remove_image_flag').value = '1';
+    }
+
+    // Auto-calculate Total Price based on Frequency and Price/Delivery
+    document.getElementById('modal_plan_price').addEventListener('input', updatePlanTotal);
+    document.getElementById('modal_plan_deliveries').addEventListener('input', updatePlanTotal);
+    document.getElementById('modal_plan_frequency').addEventListener('change', function() {
+        const delivInput = document.getElementById('modal_plan_deliveries');
+        if (this.value === 'monthly') delivInput.value = '12';
+        else if (this.value === 'quarterly') delivInput.value = '4';
+        else if (this.value === 'yearly') delivInput.value = '1';
+        updatePlanTotal();
+    });
+
+    function updatePlanTotal() {
         const price = parseFloat(document.getElementById('modal_plan_price').value) || 0;
-        const count = parseInt(document.getElementById('modal_plan_deliveries').value) || 0;
-        if (price > 0 && count > 0) {
-            document.getElementById('modal_plan_total').value = (price * count).toFixed(2);
+        const deliv = parseInt(document.getElementById('modal_plan_deliveries').value) || 1;
+        const total = document.getElementById('modal_plan_total');
+        if (!total.dataset.userEdited) {
+            total.value = (price * deliv).toFixed(2);
         }
     }
 
-    // ── DEDICATED PLAN IMAGE MODAL ───────────────────────────────────────────
+    // ── DEDICATED IMAGE MODAL ────────────────────────────────────────────────
     function openPlanImageModal(plan) {
         document.getElementById('img_modal_plan_id').value = plan.id;
-        document.getElementById('imageModalPlanName').textContent = plan.name;
-        document.getElementById('remove_image_flag').value = '0';
-        document.getElementById('plan_image_input').value = '';
-
-        if (plan.image && plan.image.trim() !== '') {
-=======
-<script>
-    function openPlanImageModal(plan) {
-        document.getElementById('planModalTitle').innerText = 'Edit Image: ' + plan.name;
-        document.getElementById('plan_id_input').value = plan.id;
+        document.getElementById('imageModalPlanName').textContent = plan.name + ' (' + plan.frequency + ')';
         document.getElementById('remove_image_flag').value = '0';
         document.getElementById('plan_image_input').value = '';
 
         if (plan.image) {
->>>>>>> b34855a241af95ea619ff4cb20e5c1044d14eec8
             document.getElementById('imagePreview').src = plan.image;
             document.getElementById('imagePreviewWrapper').classList.remove('hidden');
             document.getElementById('noImagePlaceholder').classList.add('hidden');
@@ -2488,51 +2316,30 @@ require_once 'admin_header.php';
         } else {
             document.getElementById('imagePreviewWrapper').classList.add('hidden');
             document.getElementById('noImagePlaceholder').classList.remove('hidden');
-<<<<<<< HEAD
             document.getElementById('previewLabel').textContent = 'No image set';
         }
 
         document.getElementById('planImageModal').classList.remove('hidden');
         document.getElementById('planImageModal').classList.add('flex');
-=======
-        }
-
-        document.getElementById('planImageModal').classList.remove('hidden');
->>>>>>> b34855a241af95ea619ff4cb20e5c1044d14eec8
     }
 
     function closePlanImageModal() {
         document.getElementById('planImageModal').classList.add('hidden');
-<<<<<<< HEAD
         document.getElementById('planImageModal').classList.remove('flex');
-=======
-        document.getElementById('plan_image_input').value = '';
-        document.getElementById('remove_image_flag').value = '0';
->>>>>>> b34855a241af95ea619ff4cb20e5c1044d14eec8
     }
 
     function previewPlanImage(input) {
         if (!input.files || !input.files[0]) return;
         const file = input.files[0];
 
-<<<<<<< HEAD
         const allowed = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
         if (!allowed.includes(file.type)) {
             alert('Invalid file format. Please upload JPG, PNG, or WEBP.');
-=======
-        const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
-        if (!allowedTypes.includes(file.type)) {
-            alert('Invalid file type. Only JPG, PNG, and WEBP are allowed.');
->>>>>>> b34855a241af95ea619ff4cb20e5c1044d14eec8
             input.value = '';
             return;
         }
         if (file.size > 5 * 1024 * 1024) {
-<<<<<<< HEAD
             alert('File exceeds 5 MB size limit.');
-=======
-            alert('File is too large. Maximum size is 5 MB.');
->>>>>>> b34855a241af95ea619ff4cb20e5c1044d14eec8
             input.value = '';
             return;
         }
@@ -2542,28 +2349,19 @@ require_once 'admin_header.php';
             document.getElementById('imagePreview').src = e.target.result;
             document.getElementById('imagePreviewWrapper').classList.remove('hidden');
             document.getElementById('noImagePlaceholder').classList.add('hidden');
-<<<<<<< HEAD
             document.getElementById('previewLabel').textContent = 'Selected: ' + file.name + ' (will be cropped to 1000×1000)';
-=======
-            document.getElementById('previewLabel').textContent = 'New image (not yet saved)';
->>>>>>> b34855a241af95ea619ff4cb20e5c1044d14eec8
             document.getElementById('remove_image_flag').value = '0';
         };
         reader.readAsDataURL(file);
     }
 
     function removeImage() {
-<<<<<<< HEAD
         if (!confirm('Remove this image? It will be deleted from storage when you save.')) return;
-=======
-        if (!confirm('Remove this image? It will be deleted when you save.')) return;
->>>>>>> b34855a241af95ea619ff4cb20e5c1044d14eec8
         document.getElementById('imagePreview').src = '';
         document.getElementById('imagePreviewWrapper').classList.add('hidden');
         document.getElementById('noImagePlaceholder').classList.remove('hidden');
         document.getElementById('plan_image_input').value = '';
         document.getElementById('remove_image_flag').value = '1';
-<<<<<<< HEAD
         document.getElementById('previewLabel').textContent = 'Image marked for removal';
     }
 
@@ -2572,7 +2370,7 @@ require_once 'admin_header.php';
         document.getElementById('vp_title').textContent = plan.name;
         document.getElementById('vp_image').src = plan.image || 'https://images.unsplash.com/photo-1561181286-d3fee7d55364?auto=format&fit=crop&w=600&q=80';
         document.getElementById('vp_frequency').textContent = plan.frequency;
-        document.getElementById('vp_deliveries').textContent = plan.deliveries_per_year + ' times/year';
+        document.getElementById('vp_deliveries').textContent = plan.deliveries_per_year + ' deliveries / year';
         document.getElementById('vp_price').textContent = '₹' + Number(plan.price_per_delivery).toLocaleString('en-IN');
         document.getElementById('vp_total').textContent = '₹' + Number(plan.total_price).toLocaleString('en-IN');
         document.getElementById('vp_description').textContent = plan.description || 'No description provided.';
@@ -2584,9 +2382,9 @@ require_once 'admin_header.php';
             feats = JSON.parse(plan.features);
             if (!Array.isArray(feats) && feats.features) feats = feats.features;
         } catch (e) {
-            feats = [plan.features];
+            feats = plan.features ? [plan.features] : [];
         }
-        if (Array.isArray(feats)) {
+        if (Array.isArray(feats) && feats.length > 0) {
             feats.forEach(f => {
                 if (f && f.trim()) {
                     const li = document.createElement('li');
@@ -2594,6 +2392,10 @@ require_once 'admin_header.php';
                     fList.appendChild(li);
                 }
             });
+        } else {
+            const li = document.createElement('li');
+            li.textContent = 'Standard curated floral arrangements';
+            fList.appendChild(li);
         }
 
         document.getElementById('viewPlanModal').classList.remove('hidden');
@@ -2607,27 +2409,32 @@ require_once 'admin_header.php';
 
     // ── VIEW SUBSCRIBER MODAL ────────────────────────────────────────────────
     function openViewSubscriberModal(s) {
-        document.getElementById('vs_sub_id').textContent = 'ID: ' + s.id;
+        document.getElementById('vs_sub_id').textContent = 'Subscription ID: #' + s.id;
         document.getElementById('vs_cust_name').textContent = s.customer_name || 'Customer';
         document.getElementById('vs_cust_email').textContent = s.customer_email || '—';
-        document.getElementById('vs_cust_phone').textContent = s.customer_phone || '—';
+        document.getElementById('vs_cust_phone').textContent = s.customer_phone || s.recipient_phone || '—';
         document.getElementById('vs_user_id').textContent = s.user_id || '—';
 
         document.getElementById('vs_plan_name').textContent = s.plan_name || 'Custom Plan';
-        document.getElementById('vs_status').textContent = s.status || 'active';
+        document.getElementById('vs_status').textContent = '● ' + (s.status || 'active');
         document.getElementById('vs_status').className = 'font-bold uppercase text-[11px] ' + 
             (s.status === 'active' ? 'text-emerald-700' : (s.status === 'paused' ? 'text-amber-700' : 'text-rose-700'));
         document.getElementById('vs_frequency').textContent = s.plan_frequency || 'monthly';
-        document.getElementById('vs_occasion').textContent = s.occasion_type + ' (' + s.occasion_date + ')';
+        document.getElementById('vs_price_per_delivery').textContent = '₹' + Number(s.plan_price_per_delivery || 0).toLocaleString('en-IN');
+        document.getElementById('vs_total_value').textContent = '₹' + Number(s.plan_total_price || 0).toLocaleString('en-IN');
+        document.getElementById('vs_savings').textContent = (s.plan_savings_percent || 0) + '%';
+        document.getElementById('vs_created_at').textContent = s.created_at || '—';
+        document.getElementById('vs_updated_at').textContent = s.updated_at || '—';
 
-        document.getElementById('vs_recip_name').textContent = s.recipient_name || s.customer_name;
+        document.getElementById('vs_occasion_type').textContent = s.occasion_type || 'Special Occasion';
+        document.getElementById('vs_occasion_date').textContent = s.occasion_date || '—';
+
+        document.getElementById('vs_recip_name').textContent = s.recipient_name || s.customer_name || '—';
         document.getElementById('vs_recip_phone').textContent = s.recipient_phone || s.customer_phone || '—';
         document.getElementById('vs_address').textContent = s.delivery_address || 'No street address specified';
         document.getElementById('vs_city').textContent = s.city || 'Bangalore';
         document.getElementById('vs_next_delivery').textContent = s.next_delivery_date || 'Not Scheduled';
-
         document.getElementById('vs_total_deliv').textContent = (s.total_deliveries || 0) + ' deliveries';
-        document.getElementById('vs_created_at').textContent = s.created_at || '—';
 
         if (s.notes && s.notes.trim()) {
             document.getElementById('vs_notes_wrapper').classList.remove('hidden');
@@ -2680,12 +2487,6 @@ require_once 'admin_header.php';
                 }
             });
         }
-=======
-    }
-
-    document.getElementById('planImageModal').addEventListener('click', function(e) {
-        if (e.target === this) closePlanImageModal();
->>>>>>> b34855a241af95ea619ff4cb20e5c1044d14eec8
     });
 </script>
 

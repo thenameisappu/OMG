@@ -200,8 +200,6 @@ CREATE TABLE IF NOT EXISTS `subscription_plans` (
     `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
-<<<<<<< HEAD
-=======
 -- Seed default subscription plans
 INSERT IGNORE INTO `subscription_plans`
   (`name`, `slug`, `tagline`, `description`, `frequency`, `deliveries_per_year`, `price_per_delivery`, `total_price`, `savings_percent`, `features`, `image`, `is_popular`, `display_order`)
@@ -209,7 +207,6 @@ VALUES
   ('Monthly Bloom', 'monthly-bloom', 'Fresh joy, every month', 'Receive a curated luxury floral arrangement or hamper delivered to your loved one once a month, timed perfectly around your chosen occasion date.', 'monthly', 12, 999.00, 11988.00, 0, '["1 curated delivery per month","Occasion-timed delivery","Handpicked seasonal blooms","Premium packaging & ribbon","Digital occasion reminder","Free delivery within Bangalore"]', 'https://miaoda-site-img.s3cdn.medo.dev/images/KLing_8fb5dcf8-22bd-4fbd-98ba-1611bfcdcc4d.jpg', 0, 1),
   ('Quarterly Celebration', 'quarterly-celebration', 'Four grand moments a year', 'Let us surprise your loved one four times a year with an exclusive curated hamper or luxury arrangement for each season of your special bond.', 'quarterly', 4, 1799.00, 7196.00, 20, '["1 premium delivery every quarter","Larger luxury arrangements","Seasonal exclusive hampers","Personalized message card","Photo delivery confirmation","Free priority delivery"]', 'https://miaoda-site-img.s3cdn.medo.dev/images/KLing_3556e18d-69b0-4c22-93c1-29efba584217.jpg', 1, 2),
   ('Annual Romance', 'annual-romance', 'The grandest single gesture', 'One extraordinary, over-the-top floral creation or premium hamper set once a year on your most special occasion — crafted as a true masterpiece.', 'yearly', 1, 3999.00, 3999.00, 33, '["1 grand annual delivery","Bespoke signature arrangement","Complimentary add-on upgrade","Dedicated florist consultation","Premium keepsake packaging","Express same-day delivery option"]', 'https://miaoda-site-img.s3cdn.medo.dev/images/KLing_14558096-74be-4c1a-a8a2-e0334e6050d9.jpg', 0, 3);
->>>>>>> b34855a241af95ea619ff4cb20e5c1044d14eec8
 
 -- 14. Customer Subscriptions Table (user subscription records)
 CREATE TABLE IF NOT EXISTS `subscriptions` (
