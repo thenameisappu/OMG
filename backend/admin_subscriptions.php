@@ -154,6 +154,7 @@ if (!function_exists('deleteLocalImage')) {
     }
 }
 
+
 if (!function_exists('cropToSquare1000')) {
     function cropToSquare1000(string $tmpName, string $destPath): bool 
     {
