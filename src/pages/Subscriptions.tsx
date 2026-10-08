@@ -151,6 +151,7 @@ export default function Subscriptions() {
   useEffect(() => {
     subscriptionService.getPlans().then((data) => {
       if (data && data.length > 0) {
+<<<<<<< HEAD
         const themePalette = [
           { color: 'from-emerald-400 to-teal-500', lightColor: 'bg-emerald-50', borderColor: 'border-emerald-200', accentColor: 'text-emerald-600' },
           { color: 'from-amber-400 to-orange-500', lightColor: 'bg-amber-50', borderColor: 'border-amber-300', accentColor: 'text-amber-600' },
@@ -187,6 +188,26 @@ export default function Subscriptions() {
           const defaultSelected = merged.find((p: any) => p.is_popular) || merged[1] || merged[0];
           setSelectedPlan(defaultSelected);
         }
+=======
+        // Merge backend data with frontend style config
+        const merged = DEFAULT_PLANS.map((dp) => {
+          const backend = data.find((b: any) => b.slug === dp.slug);
+          if (!backend) return dp;
+          return {
+            ...dp,
+            name: backend.name || dp.name,
+            tagline: backend.tagline || dp.tagline,
+            price_per_delivery: parseFloat(backend.price_per_delivery) || dp.price_per_delivery,
+            total_price: parseFloat(backend.total_price) || dp.total_price,
+            savings_percent: parseInt(backend.savings_percent) || dp.savings_percent,
+            features_list: backend.features_list?.length ? backend.features_list : dp.features_list,
+            image: backend.image || dp.image,
+          };
+        });
+        setPlans(merged);
+        // Keep quarterly as default
+        setSelectedPlan(merged[1]);
+>>>>>>> b34855a241af95ea619ff4cb20e5c1044d14eec8
       }
     }).catch(() => {/* use defaults */});
   }, []);
