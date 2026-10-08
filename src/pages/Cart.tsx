@@ -1,6 +1,6 @@
 import { formatINR } from "@/lib/currency";
 import { Link } from 'react-router-dom';
-import { Trash2, Minus, Plus, ShoppingBag, ArrowLeft, ShieldCheck, Gift, CheckCircle2 } from 'lucide-react';
+import { Trash2, Minus, Plus, ShoppingBag, ArrowLeft, CheckCircle2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useCart } from '@/contexts/CartContext';
@@ -142,16 +142,6 @@ export default function Cart() {
                 </Button>
               </Link>
 
-              <div className="space-y-3 pt-4 border-t border-white/10 text-xs text-white/70">
-                <div className="flex items-center gap-2">
-                  <Gift className="h-4 w-4 text-secondary" />
-                  <span>Includes Handwritten Silk Message Card</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <ShieldCheck className="h-4 w-4 text-secondary" />
-                  <span>256-Bit SSL Encrypted Checkout</span>
-                </div>
-              </div>
             </div>
           </div>
         </div>

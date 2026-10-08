@@ -36,12 +36,27 @@ CREATE TABLE IF NOT EXISTS `products` (
     `is_featured` BOOLEAN DEFAULT FALSE,
     `is_bestseller` BOOLEAN DEFAULT FALSE,
     `reviews_count` INT DEFAULT 0,
+    `rating` DECIMAL(2,1) DEFAULT NULL,
+    `rating_total` DECIMAL(10,1) DEFAULT 0,
+    `rating_count` INT DEFAULT 0,
     `stock_status` ENUM('in_stock', 'out_of_stock') DEFAULT 'in_stock',
     `stock_quantity` INT DEFAULT 0,
     `is_active` TINYINT(1) DEFAULT 1,
     `sku` VARCHAR(100) DEFAULT NULL,
     `images` LONGTEXT DEFAULT NULL,
     `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS `product_ratings` (
+    `id` BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    `product_id` CHAR(36) NOT NULL,
+    `user_id` CHAR(36) NOT NULL,
+    `rating` DECIMAL(2,1) NOT NULL,
+    `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY `unique_product_user_rating` (`product_id`, `user_id`),
+    FOREIGN KEY (`product_id`) REFERENCES `products`(`id`) ON DELETE CASCADE,
+    FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- 4. Orders Table
@@ -101,13 +116,6 @@ CREATE TABLE IF NOT EXISTS `admin_users` (
     `otp_expiry` DATETIME DEFAULT NULL,
     `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-
--- Safely add missing columns to admin_users if importing into an existing database
-ALTER TABLE `admin_users` ADD COLUMN `name` VARCHAR(255) AFTER `username`;
-ALTER TABLE `admin_users` ADD COLUMN `email` VARCHAR(191) UNIQUE AFTER `password`;
-ALTER TABLE `admin_users` ADD COLUMN `is_main_admin` TINYINT(1) DEFAULT 0 AFTER `email`;
-ALTER TABLE `admin_users` ADD COLUMN `otp_code` VARCHAR(6) AFTER `is_main_admin`;
-ALTER TABLE `admin_users` ADD COLUMN `otp_expiry` DATETIME AFTER `otp_code`;
 
 -- 8. Inquiries Table (Surprise / Bespoke Service requests)
 CREATE TABLE IF NOT EXISTS `inquiries` (
@@ -170,4 +178,53 @@ CREATE TABLE IF NOT EXISTS `surprise_upgrades` (
     `display_order` INT DEFAULT 0,
     `is_active` TINYINT(1) DEFAULT 1,
     `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 13. Subscription Plans Table (Monthly / Quarterly / Yearly tiers)
+CREATE TABLE IF NOT EXISTS `subscription_plans` (
+    `id` INT AUTO_INCREMENT PRIMARY KEY,
+    `name` VARCHAR(255) NOT NULL,
+    `slug` VARCHAR(100) UNIQUE NOT NULL,
+    `tagline` VARCHAR(255),
+    `description` TEXT,
+    `frequency` ENUM('monthly', 'quarterly', 'yearly') NOT NULL,
+    `deliveries_per_year` INT NOT NULL DEFAULT 12,
+    `price_per_delivery` DECIMAL(10,2) NOT NULL,
+    `total_price` DECIMAL(10,2) NOT NULL,
+    `savings_percent` INT DEFAULT 0,
+    `features` LONGTEXT,
+    `image` VARCHAR(255) DEFAULT NULL,
+    `is_popular` TINYINT(1) DEFAULT 0,
+    `is_active` TINYINT(1) DEFAULT 1,
+    `display_order` INT DEFAULT 0,
+    `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Seed default subscription plans
+INSERT IGNORE INTO `subscription_plans`
+  (`name`, `slug`, `tagline`, `description`, `frequency`, `deliveries_per_year`, `price_per_delivery`, `total_price`, `savings_percent`, `features`, `image`, `is_popular`, `display_order`)
+VALUES
+  ('Monthly Bloom', 'monthly-bloom', 'Fresh joy, every month', 'Receive a curated luxury floral arrangement or hamper delivered to your loved one once a month, timed perfectly around your chosen occasion date.', 'monthly', 12, 999.00, 11988.00, 0, '["1 curated delivery per month","Occasion-timed delivery","Handpicked seasonal blooms","Premium packaging & ribbon","Digital occasion reminder","Free delivery within Bangalore"]', 'https://miaoda-site-img.s3cdn.medo.dev/images/KLing_8fb5dcf8-22bd-4fbd-98ba-1611bfcdcc4d.jpg', 0, 1),
+  ('Quarterly Celebration', 'quarterly-celebration', 'Four grand moments a year', 'Let us surprise your loved one four times a year with an exclusive curated hamper or luxury arrangement for each season of your special bond.', 'quarterly', 4, 1799.00, 7196.00, 20, '["1 premium delivery every quarter","Larger luxury arrangements","Seasonal exclusive hampers","Personalized message card","Photo delivery confirmation","Free priority delivery"]', 'https://miaoda-site-img.s3cdn.medo.dev/images/KLing_3556e18d-69b0-4c22-93c1-29efba584217.jpg', 1, 2),
+  ('Annual Romance', 'annual-romance', 'The grandest single gesture', 'One extraordinary, over-the-top floral creation or premium hamper set once a year on your most special occasion — crafted as a true masterpiece.', 'yearly', 1, 3999.00, 3999.00, 33, '["1 grand annual delivery","Bespoke signature arrangement","Complimentary add-on upgrade","Dedicated florist consultation","Premium keepsake packaging","Express same-day delivery option"]', 'https://miaoda-site-img.s3cdn.medo.dev/images/KLing_14558096-74be-4c1a-a8a2-e0334e6050d9.jpg', 0, 3);
+
+-- 14. Customer Subscriptions Table (user subscription records)
+CREATE TABLE IF NOT EXISTS `subscriptions` (
+    `id` CHAR(36) PRIMARY KEY,
+    `user_id` CHAR(36) NOT NULL,
+    `plan_id` INT NOT NULL,
+    `occasion_type` VARCHAR(100) NOT NULL,
+    `occasion_date` DATE NOT NULL,
+    `recipient_name` VARCHAR(255),
+    `recipient_phone` VARCHAR(30),
+    `delivery_address` TEXT,
+    `city` VARCHAR(100) DEFAULT 'Bangalore',
+    `status` ENUM('active', 'paused', 'cancelled', 'expired') DEFAULT 'active',
+    `next_delivery_date` DATE,
+    `total_deliveries` INT DEFAULT 0,
+    `notes` TEXT,
+    `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE,
+    FOREIGN KEY (`plan_id`) REFERENCES `subscription_plans`(`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

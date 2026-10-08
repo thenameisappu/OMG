@@ -110,12 +110,14 @@ function register($db, $data)
             sendEmail($email, "Verify your OH MY GUDNESS Account", $htmlBody);
 
             http_response_code(200);
-            echo json_encode([
+            $response = [
                 "success" => true,
                 "message" => "A new 6-digit verification code has been sent to your email.",
                 "requires_verification" => true,
                 "email" => $email
-            ]);
+            ];
+            if (getenv('APP_ENV') === 'development') $response['dev_otp'] = $otp;
+            echo json_encode($response);
             return;
         }
     }
@@ -152,12 +154,14 @@ function register($db, $data)
         $mailSent = sendEmail($email, "Verify your OH MY GUDNESS Account", $htmlBody);
 
         http_response_code(201);
-        echo json_encode([
+        $response = [
             "success" => true,
             "message" => "Account created! A 6-digit verification code has been sent to your email.",
             "requires_verification" => true,
             "email" => $email
-        ]);
+        ];
+        if (getenv('APP_ENV') === 'development') $response['dev_otp'] = $otp;
+        echo json_encode($response);
     } else {
         http_response_code(500);
         echo json_encode(["message" => "Unable to create user account. Please try again."]);
@@ -196,11 +200,13 @@ function login($db, $data)
                 sendEmail($email, "Verify your OH MY GUDNESS Account", $htmlBody);
 
                 http_response_code(403);
-                echo json_encode([
+                $response = [
                     "message" => "Account not verified. A verification code has been sent to your email.",
                     "requires_verification" => true,
                     "email" => $email
-                ]);
+                ];
+                if (getenv('APP_ENV') === 'development') $response['dev_otp'] = $otp;
+                echo json_encode($response);
                 return;
             }
 
@@ -388,7 +394,9 @@ function resendOtp($db, $data)
         $userName = explode('@', $email)[0];
         $htmlBody = buildEmailVerificationTemplate($userName, $otp);
         sendEmail($email, "Verify your OH MY GUDNESS Account", $htmlBody);
-        echo json_encode(["message" => "A new 6-digit OTP code has been sent to your email."]);
+        $response = ["message" => "A new 6-digit OTP code has been sent to your email."];
+        if (getenv('APP_ENV') === 'development') $response['dev_otp'] = $otp;
+        echo json_encode($response);
     } else {
         http_response_code(404);
         echo json_encode(["message" => "User account not found."]);

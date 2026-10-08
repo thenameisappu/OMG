@@ -4,6 +4,7 @@ import ProductDetail from './pages/ProductDetail';
 import Cart from './pages/Cart';
 import Checkout from './pages/Checkout';
 import SurpriseServices from './pages/SurpriseServices';
+import Subscriptions from './pages/Subscriptions';
 import Wishlist from './pages/Wishlist';
 import Login from './pages/Login';
 import VerifyOtp from './pages/VerifyOtp';
@@ -11,6 +12,7 @@ import ForgotPassword from './pages/ForgotPassword';
 import DeliveryInfo from './pages/DeliveryInfo';
 import FAQ from './pages/FAQ';
 import TermsAndConditions from './pages/TermsAndConditions';
+import About from './pages/About';
 
 import NotFound from './pages/NotFound';
 import Orders from './pages/Orders';
@@ -55,6 +57,11 @@ const routes: RouteConfig[] = [
     element: <SurpriseServices />
   },
   {
+    name: 'Subscriptions',
+    path: '/subscriptions',
+    element: <Subscriptions />
+  },
+  {
     name: 'Wishlist',
     path: '/wishlist',
     element: <Wishlist />
@@ -83,6 +90,11 @@ const routes: RouteConfig[] = [
     name: 'Delivery Info',
     path: '/delivery-info',
     element: <DeliveryInfo />
+  },
+  {
+    name: 'About',
+    path: '/about',
+    element: <About />
   },
   {
     name: 'FAQ',

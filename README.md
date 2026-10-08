@@ -115,20 +115,20 @@ Before running the application, make sure you have the following installed on yo
 
 ### 1. Database Setup
 1. Open your MySQL client (e.g., phpMyAdmin, MySQL Workbench, or CLI).
-2. Create a new database named `u981836125_OhMyGudness1` (or your preferred local database name):
+2. Create a new database named `Database name ` (or your preferred local database name):
    ```sql
-   CREATE DATABASE u981836125_OhMyGudness1;
+   CREATE DATABASE Database name ;
    ```
 3. Import the database schema from the [db_schema.sql](file:///c:/Users/samrat/Downloads/OMG/backend/db_schema.sql) file:
    ```bash
-   mysql -u your_username -p u981836125_OhMyGudness1 < backend/db_schema.sql
+   mysql -u your_username -p Database name  < backend/db_schema.sql
    ```
 
 ### 2. Backend Configuration
 1. Open [backend/config.php](file:///c:/Users/samrat/Downloads/OMG/backend/config.php) and configure your database credentials:
    ```php
    private $host = 'localhost'; // Database host
-   private $db_name = 'u981836125_OhMyGudness1';
+   private $db_name = 'Database name ';
    private $username = 'YOUR_MYSQL_USER';
    private $password = 'YOUR_MYSQL_PASSWORD';
    ```

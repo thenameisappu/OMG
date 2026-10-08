@@ -446,6 +446,9 @@ switch ($tab) {
     case 'customisations':
         require_once 'admin_customisations.php';
         break;
+    case 'subscriptions':
+        require_once 'admin_subscriptions.php';
+        break;
     case 'surprises':
         require_once 'admin_surprises.php';
         break;

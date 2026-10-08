@@ -7,8 +7,8 @@ This document outlines the complete backend-database integration for the OMG (Oh
 
 ### 1.1 Connection
 - **Host**: auth-db2201.hstgr.io
-- **Database**: u981836125_OhMyGudness1
-- **User**: u981836125_OhMyGudness1
+- **Database**: Database name 
+- **User**: Database name 
 - **Type**: MySQL / MariaDB
 
 ### 1.2 Tables ( Assumed based on usage)

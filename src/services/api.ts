@@ -197,6 +197,13 @@ export const productService = {
         const response = await api.get(`/products.php?action=search&search=${term}`);
         return { data: response.data, error: null };
     },
+    submitRating: async (productId: string, rating: number): Promise<any> => {
+        const response = await api.post('/products.php?action=submit_rating', {
+            product_id: productId,
+            rating,
+        });
+        return response.data;
+    },
 };
 
 // Order Services
@@ -290,3 +297,49 @@ export const surpriseService = {
     }
 };
 
+// Testimonials Service
+export const testimonialService = {
+    getAll: async (): Promise<any[]> => {
+        try {
+            const response = await api.get('/testimonials.php?action=get_all');
+            if (response.data?.success && Array.isArray(response.data.testimonials) && response.data.testimonials.length > 0) {
+                return response.data.testimonials;
+            }
+            return [];
+        } catch {
+            return [];
+        }
+    },
+    submit: async (data: { name: string; review: string; rating: number; location?: string }): Promise<any> => {
+        const response = await api.post('/testimonials.php', data);
+        return response.data;
+    }
+};
+
+// Subscription Services
+export const subscriptionService = {
+    getPlans: async (): Promise<any[]> => {
+        try {
+            const response = await api.get('/subscriptions.php?action=get_plans');
+            return response.data?.plans || [];
+        } catch {
+            return [];
+        }
+    },
+    create: async (subscriptionData: any): Promise<any> => {
+        const response = await api.post('/subscriptions.php?action=create_subscription', subscriptionData);
+        return response.data;
+    },
+    getAll: async (): Promise<any[]> => {
+        try {
+            const response = await api.get('/subscriptions.php?action=get_subscriptions');
+            return response.data?.subscriptions || [];
+        } catch {
+            return [];
+        }
+    },
+    cancel: async (subscriptionId: string): Promise<any> => {
+        const response = await api.post('/subscriptions.php?action=cancel_subscription', { subscription_id: subscriptionId });
+        return response.data;
+    },
+};

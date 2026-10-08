@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import { cn } from "@/lib/utils";
 import {
   Calendar,
@@ -23,6 +23,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
+import { useCart } from '@/contexts/CartContext';
 import { inquiryService, surpriseService } from '@/services/api';
 
 const ICON_MAP: Record<string, any> = {
@@ -36,9 +37,12 @@ const ICON_MAP: Record<string, any> = {
 
 export default function SurpriseServices() {
   const { user } = useAuth();
+  const { addToCart } = useCart();
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const formRef = useRef<HTMLDivElement>(null);
+  const builderRef = useRef<HTMLDivElement>(null);
 
   // Dynamic Data States
   const [packages, setPackages] = useState<any[]>([]);
@@ -173,6 +177,39 @@ export default function SurpriseServices() {
       message: `I'm interested in booking the "${pkgTitle}" package (Estimated Total: ₹${totalPrice.toLocaleString('en-IN')}). Please contact me with details.`
     }));
     formRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  const handleReserveExperience = () => {
+    if (!selectedPackage) return;
+
+    const selectedAddonNames = selectedAddons
+      .map(id => upgrades.find(u => u.id === id)?.name)
+      .filter(Boolean);
+
+    const upgradeSummary = selectedAddonNames.length > 0 
+      ? ` (with ${selectedAddonNames.join(', ')})` 
+      : '';
+
+    const experienceItem = {
+      id: `exp-${selectedPackage.id || 'pkg'}-${Date.now()}`,
+      name: `${selectedPackage.title}${upgradeSummary}`,
+      slug: `surprise-${(selectedPackage.title || 'experience').toLowerCase().replace(/[^a-z0-9]+/g, '-')}`,
+      description: `Bespoke Experience Reservation: ${selectedPackage.title}. Upgrades: ${selectedAddonNames.join(', ') || 'Standard Included'}. Full on-site coordination & master florist styling included.`,
+      price: totalPrice,
+      category: 'occasions',
+      image: selectedPackage.image || 'https://miaoda-site-img.s3cdn.medo.dev/images/KLing_0d1f5bf9-c3e6-4678-b943-f496a294145d.jpg',
+      stock_status: 'in_stock' as const,
+      stock_quantity: 99,
+      is_active: 1,
+      quantity: 1,
+    };
+
+    addToCart(experienceItem as any, 1);
+    toast({
+      title: "✨ Experience Reserved!",
+      description: `Proceeding to checkout for ${selectedPackage.title}...`,
+    });
+    navigate('/checkout');
   };
 
   const validateForm = () => {
@@ -310,7 +347,7 @@ export default function SurpriseServices() {
               <Button
                 size="lg"
                 className="h-16 px-10 rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-600 text-black font-bold text-lg hover:brightness-110 transition-all shadow-lg hover:scale-105 gold-glow"
-                onClick={() => formRef.current?.scrollIntoView({ behavior: 'smooth' })}
+                onClick={() => builderRef.current?.scrollIntoView({ behavior: 'smooth' })}
               >
                 Plan Your Surprise Now
                 <ArrowRight className="ml-2 h-5 w-5" />
@@ -349,7 +386,7 @@ export default function SurpriseServices() {
         </section>
 
         {/* INTERACTIVE EXPERIENCE ESTIMATOR & BUILDER */}
-        <section className="py-24 bg-black/40 border-b border-amber-500/10">
+        <section ref={builderRef} id="interactive-builder" className="py-24 bg-black/40 border-b border-amber-500/10">
           <div className="container max-w-6xl px-4">
             <div className="text-center mb-16 space-y-4">
               <span className="text-amber-400 font-semibold text-xs tracking-widest uppercase">Interactive Builder</span>
@@ -389,6 +426,11 @@ export default function SurpriseServices() {
                           )}
                         >
                           <div>
+                            {pkg.image && (
+                              <div className="aspect-video rounded-xl overflow-hidden mb-3 border border-amber-500/20 relative group">
+                                <img src={pkg.image} alt={pkg.title} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" />
+                              </div>
+                            )}
                             <div className="flex justify-between items-start mb-2">
                               {pkg.badge && (
                                 <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-amber-400/20 text-amber-300 border border-amber-400/30">
@@ -511,7 +553,7 @@ export default function SurpriseServices() {
                       <Button
                         size="lg"
                         className="w-full h-14 rounded-full bg-gradient-to-r from-amber-400 to-amber-600 text-black font-bold text-base hover:brightness-110 shadow-lg gold-glow"
-                        onClick={() => scrollToFormWithPackage(selectedPackage.title)}
+                        onClick={handleReserveExperience}
                       >
                         Reserve This Custom Experience
                         <ArrowRight className="ml-2 h-5 w-5" />

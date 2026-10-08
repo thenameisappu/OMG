@@ -83,7 +83,7 @@ export default function Footer() {
             </a>
 
             <a
-              href="https://www.facebook.com/ohmygudness.in"
+              href="https://www.facebook.com/people/Oh-My-Gudness/61591674733037/"
               target="_blank"
               rel="noopener noreferrer"
             >
@@ -104,11 +104,13 @@ export default function Footer() {
         <div>
           <h4 className="font-semibold mb-6 text-secondary">Quick Links</h4>
           <ul className="space-y-4 text-sm text-muted-foreground">
+            <li><Link to="/about" className="hover:text-secondary transition-colors">About Us</Link></li>
             <li><Link to="/products" className="hover:text-secondary transition-colors">Shop Collection's</Link></li>
             <li><Link to="/products?category=flower-arrangements" className="hover:text-secondary transition-colors">Oh My Bloom's</Link></li>
             <li><Link to="/products?category=gift-hampers" className="hover:text-secondary transition-colors">Oh My Love's</Link></li>
             <li><Link to="/products?category=signature-collection" className="hover:text-secondary transition-colors">Oh My Signature's</Link></li>
             <li><Link to="/products?category=occasions" className="hover:text-secondary transition-colors">Oh My Moment's</Link></li>
+            <li><Link to="/subscriptions" className="hover:text-secondary transition-colors flex items-center gap-1.5">🌸 Floral Subscriptions</Link></li>
 
           </ul>
         </div>

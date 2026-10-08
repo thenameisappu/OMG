@@ -9,7 +9,7 @@ export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
 
   // Extract target domain from environment variables (.env)
-  let rawUrl = env.VITE_BACKEND_URL || env.VITE_SITE_URL || env.VITE_BASE_URL || env.BASE_URL || 'https://ghostwhite-kudu-967584.hostingersite.com';
+  let rawUrl = env.VITE_BACKEND_URL || env.VITE_SITE_URL || env.VITE_BASE_URL || env.BASE_URL || 'https://ohmygudness.in/';
   // Strip trailing /backend if present to isolate origin
   let targetOrigin = rawUrl.replace(/\/backend\/?$/, '');
 

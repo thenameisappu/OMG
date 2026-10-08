@@ -178,6 +178,8 @@ if (!$isLoggedIn && $currentPage !== 'admin.php') {
                             class="<?php echo $currentTab === 'inquiries' ? 'bg-slate-800 text-amber-400 font-semibold border border-amber-400/20' : 'text-slate-300 hover:bg-slate-800/60 hover:text-white'; ?> px-3 py-2 rounded-lg text-sm transition-all flex items-center gap-1.5">Inquiries</a>
                         <a href="admin.php?tab=customisations"
                             class="<?php echo $currentTab === 'customisations' ? 'bg-slate-800 text-amber-400 font-semibold border border-amber-400/20' : 'text-slate-300 hover:bg-slate-800/60 hover:text-white'; ?> px-3 py-2 rounded-lg text-sm transition-all flex items-center gap-1.5">Customisations</a>
+                        <a href="admin.php?tab=subscriptions"
+                            class="<?php echo $currentTab === 'subscriptions' ? 'bg-slate-800 text-amber-400 font-semibold border border-amber-400/20' : 'text-slate-300 hover:bg-slate-800/60 hover:text-white'; ?> px-3 py-2 rounded-lg text-sm transition-all flex items-center gap-1.5">Subscriptions</a>
                         <a href="admin.php?tab=surprises"
                             class="<?php echo $currentTab === 'surprises' ? 'bg-slate-800 text-amber-400 font-semibold border border-amber-400/20' : 'text-slate-300 hover:bg-slate-800/60 hover:text-white'; ?> px-3 py-2 rounded-lg text-sm transition-all flex items-center gap-1.5">Surprises</a>
                         <a href="admin.php?tab=products"
@@ -222,6 +224,9 @@ if (!$isLoggedIn && $currentPage !== 'admin.php') {
                 <a href="admin.php?tab=customisations"
                     class="block px-3 py-2.5 rounded-lg text-base font-medium text-slate-200 hover:bg-slate-800 hover:text-amber-400">✨
                     Customisations</a>
+                <a href="admin.php?tab=subscriptions"
+                    class="block px-3 py-2.5 rounded-lg text-base font-medium text-slate-200 hover:bg-slate-800 hover:text-amber-400">📅
+                    Subscriptions</a>
                 <a href="admin.php?tab=surprises"
                     class="block px-3 py-2.5 rounded-lg text-base font-medium text-slate-200 hover:bg-slate-800 hover:text-amber-400">🎉
                     Surprises & Pincodes</a>

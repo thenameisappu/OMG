@@ -9,7 +9,7 @@ function logNews($msg)
 
 function sendThankYouEmail($email)
 {
-    $siteUrl = getenv('VITE_SITE_URL') ?: (getenv('VITE_BACKEND_URL') ?: (getenv('BASE_URL') ?: (getenv('VITE_BASE_URL') ?: 'https://ghostwhite-kudu-967584.hostingersite.com')));
+    $siteUrl = getenv('VITE_SITE_URL') ?: (getenv('VITE_BACKEND_URL') ?: (getenv('BASE_URL') ?: (getenv('VITE_BASE_URL') ?: 'https://ohmygudness.in/')));
     $subject = "Welcome to the OMG Family! 🌸";
 
     // HTML Message
