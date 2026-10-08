@@ -157,10 +157,19 @@ export default function Subscriptions() {
           if (!backend) return dp;
           return {
             ...dp,
+<<<<<<< HEAD
+=======
+            name: backend.name || dp.name,
+            tagline: backend.tagline || dp.tagline,
+>>>>>>> b34855a (Initial commit)
             price_per_delivery: parseFloat(backend.price_per_delivery) || dp.price_per_delivery,
             total_price: parseFloat(backend.total_price) || dp.total_price,
             savings_percent: parseInt(backend.savings_percent) || dp.savings_percent,
             features_list: backend.features_list?.length ? backend.features_list : dp.features_list,
+<<<<<<< HEAD
+=======
+            image: backend.image || dp.image,
+>>>>>>> b34855a (Initial commit)
           };
         });
         setPlans(merged);

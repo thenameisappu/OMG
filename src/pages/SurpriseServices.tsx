@@ -426,6 +426,11 @@ export default function SurpriseServices() {
                           )}
                         >
                           <div>
+                            {pkg.image && (
+                              <div className="aspect-video rounded-xl overflow-hidden mb-3 border border-amber-500/20 relative group">
+                                <img src={pkg.image} alt={pkg.title} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" />
+                              </div>
+                            )}
                             <div className="flex justify-between items-start mb-2">
                               {pkg.badge && (
                                 <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-amber-400/20 text-amber-300 border border-amber-400/30">

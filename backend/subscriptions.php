@@ -35,21 +35,44 @@ function ensureSubscriptionTables($pdo) {
         `total_price` DECIMAL(10,2) NOT NULL,
         `savings_percent` INT DEFAULT 0,
         `features` LONGTEXT,
+<<<<<<< HEAD
+=======
+        `image` VARCHAR(255) DEFAULT NULL,
+>>>>>>> b34855a (Initial commit)
         `is_popular` TINYINT(1) DEFAULT 0,
         `is_active` TINYINT(1) DEFAULT 1,
         `display_order` INT DEFAULT 0,
         `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 
+<<<<<<< HEAD
+=======
+    // Migration: ensure image column exists if table was previously created
+    try {
+        $cols = $pdo->query("SHOW COLUMNS FROM `subscription_plans`")->fetchAll(PDO::FETCH_COLUMN);
+        if (!in_array('image', $cols)) {
+            $pdo->exec("ALTER TABLE `subscription_plans` ADD COLUMN `image` VARCHAR(255) DEFAULT NULL AFTER `features`");
+        }
+    } catch (Exception $e) {}
+
+>>>>>>> b34855a (Initial commit)
     // Seed plans if empty
     $count = $pdo->query("SELECT COUNT(*) FROM subscription_plans")->fetchColumn();
     if ((int)$count === 0) {
         $pdo->exec("INSERT INTO subscription_plans
+<<<<<<< HEAD
             (name,slug,tagline,description,frequency,deliveries_per_year,price_per_delivery,total_price,savings_percent,features,is_popular,display_order)
             VALUES
             ('Monthly Bloom','monthly-bloom','Fresh joy, every month','Receive a curated luxury floral arrangement or hamper delivered to your loved one once a month, timed perfectly around your chosen occasion date.','monthly',12,999.00,11988.00,0,'{\"features\":[\"1 curated delivery per month\",\"Occasion-timed delivery\",\"Handpicked seasonal blooms\",\"Premium packaging & ribbon\",\"Digital occasion reminder\",\"Free delivery within Bangalore\"]}',0,1),
             ('Quarterly Celebration','quarterly-celebration','Four grand moments a year','Let us surprise your loved one four times a year with an exclusive curated hamper or luxury arrangement for each season of your special bond.','quarterly',4,1799.00,7196.00,20,'{\"features\":[\"1 premium delivery every quarter\",\"Larger luxury arrangements\",\"Seasonal exclusive hampers\",\"Personalized message card\",\"Photo delivery confirmation\",\"Free priority delivery\"]}',1,2),
             ('Annual Romance','annual-romance','The grandest single gesture','One extraordinary, over-the-top floral creation or premium hamper set once a year on your most special occasion — crafted as a true masterpiece.','yearly',1,3999.00,3999.00,33,'{\"features\":[\"1 grand annual delivery\",\"Bespoke signature arrangement\",\"Complimentary add-on upgrade\",\"Dedicated florist consultation\",\"Premium keepsake packaging\",\"Express same-day delivery option\"]}',0,3)");
+=======
+            (name,slug,tagline,description,frequency,deliveries_per_year,price_per_delivery,total_price,savings_percent,features,image,is_popular,display_order)
+            VALUES
+            ('Monthly Bloom','monthly-bloom','Fresh joy, every month','Receive a curated luxury floral arrangement or hamper delivered to your loved one once a month, timed perfectly around your chosen occasion date.','monthly',12,999.00,11988.00,0,'{\"features\":[\"1 curated delivery per month\",\"Occasion-timed delivery\",\"Handpicked seasonal blooms\",\"Premium packaging & ribbon\",\"Digital occasion reminder\",\"Free delivery within Bangalore\"]}','https://miaoda-site-img.s3cdn.medo.dev/images/KLing_8fb5dcf8-22bd-4fbd-98ba-1611bfcdcc4d.jpg',0,1),
+            ('Quarterly Celebration','quarterly-celebration','Four grand moments a year','Let us surprise your loved one four times a year with an exclusive curated hamper or luxury arrangement for each season of your special bond.','quarterly',4,1799.00,7196.00,20,'{\"features\":[\"1 premium delivery every quarter\",\"Larger luxury arrangements\",\"Seasonal exclusive hampers\",\"Personalized message card\",\"Photo delivery confirmation\",\"Free priority delivery\"]}','https://miaoda-site-img.s3cdn.medo.dev/images/KLing_3556e18d-69b0-4c22-93c1-29efba584217.jpg',1,2),
+            ('Annual Romance','annual-romance','The grandest single gesture','One extraordinary, over-the-top floral creation or premium hamper set once a year on your most special occasion — crafted as a true masterpiece.','yearly',1,3999.00,3999.00,33,'{\"features\":[\"1 grand annual delivery\",\"Bespoke signature arrangement\",\"Complimentary add-on upgrade\",\"Dedicated florist consultation\",\"Premium keepsake packaging\",\"Express same-day delivery option\"]}','https://miaoda-site-img.s3cdn.medo.dev/images/KLing_14558096-74be-4c1a-a8a2-e0334e6050d9.jpg',0,3)");
+>>>>>>> b34855a (Initial commit)
     }
 
     // subscriptions

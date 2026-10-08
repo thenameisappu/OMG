@@ -14,7 +14,7 @@ if (!BASE_URL) {
 }
 
 if (!BASE_URL || BASE_URL === '/backend') {
-    BASE_URL = 'https://ghostwhite-kudu-967584.hostingersite.com/backend';
+    BASE_URL = 'https://ohmygudness.in//backend';
 }
 
 async function run() {
