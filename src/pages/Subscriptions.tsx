@@ -151,30 +151,42 @@ export default function Subscriptions() {
   useEffect(() => {
     subscriptionService.getPlans().then((data) => {
       if (data && data.length > 0) {
-        // Merge backend data with frontend style config
-        const merged = DEFAULT_PLANS.map((dp) => {
-          const backend = data.find((b: any) => b.slug === dp.slug);
-          if (!backend) return dp;
+        const themePalette = [
+          { color: 'from-emerald-400 to-teal-500', lightColor: 'bg-emerald-50', borderColor: 'border-emerald-200', accentColor: 'text-emerald-600' },
+          { color: 'from-amber-400 to-orange-500', lightColor: 'bg-amber-50', borderColor: 'border-amber-300', accentColor: 'text-amber-600' },
+          { color: 'from-rose-400 to-pink-600', lightColor: 'bg-rose-50', borderColor: 'border-rose-200', accentColor: 'text-rose-600' },
+          { color: 'from-purple-400 to-indigo-500', lightColor: 'bg-purple-50', borderColor: 'border-purple-200', accentColor: 'text-purple-600' },
+        ];
+
+        const merged = data.map((bp: any, idx: number) => {
+          const defaultPlan = DEFAULT_PLANS.find((dp) => dp.slug === bp.slug);
+          const theme = defaultPlan || themePalette[idx % themePalette.length];
           return {
-            ...dp,
-<<<<<<< HEAD
-=======
-            name: backend.name || dp.name,
-            tagline: backend.tagline || dp.tagline,
->>>>>>> b34855a (Initial commit)
-            price_per_delivery: parseFloat(backend.price_per_delivery) || dp.price_per_delivery,
-            total_price: parseFloat(backend.total_price) || dp.total_price,
-            savings_percent: parseInt(backend.savings_percent) || dp.savings_percent,
-            features_list: backend.features_list?.length ? backend.features_list : dp.features_list,
-<<<<<<< HEAD
-=======
-            image: backend.image || dp.image,
->>>>>>> b34855a (Initial commit)
+            id: bp.id,
+            name: bp.name,
+            slug: bp.slug,
+            tagline: bp.tagline || (defaultPlan?.tagline ?? ''),
+            frequency: bp.frequency,
+            deliveries_per_year: parseInt(bp.deliveries_per_year) || 12,
+            price_per_delivery: parseFloat(bp.price_per_delivery) || 0,
+            total_price: parseFloat(bp.total_price) || 0,
+            savings_percent: parseInt(bp.savings_percent) || 0,
+            is_popular: Boolean(bp.is_popular),
+            features_list: Array.isArray(bp.features_list) ? bp.features_list : (defaultPlan?.features_list ?? []),
+            badge: bp.is_popular ? 'Most Popular' : (defaultPlan?.badge ?? null),
+            color: theme.color,
+            lightColor: theme.lightColor,
+            borderColor: theme.borderColor,
+            accentColor: theme.accentColor,
+            image: bp.image || defaultPlan?.image || 'https://images.unsplash.com/photo-1561181286-d3fee7d55364?auto=format&fit=crop&w=600&q=80',
           };
         });
-        setPlans(merged);
-        // Keep quarterly as default
-        setSelectedPlan(merged[1]);
+
+        if (merged.length > 0) {
+          setPlans(merged);
+          const defaultSelected = merged.find((p: any) => p.is_popular) || merged[1] || merged[0];
+          setSelectedPlan(defaultSelected);
+        }
       }
     }).catch(() => {/* use defaults */});
   }, []);
