@@ -226,6 +226,12 @@ function getProducts($db)
     $query = "SELECT * FROM products";
     $conditions = [];
 
+    // SURPRISE LIST PRODUCT INTEGRITY RULE:
+    // 'surprise_experience' and 'subscription' are INTERNAL proxy categories used solely
+    // to satisfy order_items foreign key constraints. They must NEVER appear in the
+    // public-facing product catalog, regardless of who is requesting.
+    $conditions[] = "category NOT IN ('surprise_experience', 'subscription')";
+
     if (!$include_inactive) {
         $conditions[] = "is_active = 1";
     }
@@ -346,7 +352,10 @@ function submitRating($db)
 function getFeaturedProducts($db)
 {
     $limit = isset($_GET['limit']) ? max(1, (int)$_GET['limit']) : 10;
-    $query = "SELECT * FROM products WHERE is_active = 1 AND is_featured = 1 ORDER BY created_at DESC LIMIT " . $limit;
+    // Exclude internal proxy categories from public catalog
+    $query = "SELECT * FROM products WHERE is_active = 1 AND is_featured = 1
+              AND category NOT IN ('surprise_experience', 'subscription')
+              ORDER BY created_at DESC LIMIT " . $limit;
     $stmt = $db->prepare($query);
     $stmt->execute();
 
@@ -372,7 +381,11 @@ function searchProducts($db)
     }
 
     $searchTerm = "%" . $searchTerm . "%";
-    $query = "SELECT * FROM products WHERE is_active = 1 AND (name LIKE :search OR description LIKE :search)";
+    // Exclude internal proxy categories from search results
+    $query = "SELECT * FROM products
+              WHERE is_active = 1
+              AND category NOT IN ('surprise_experience', 'subscription')
+              AND (name LIKE :search OR description LIKE :search)";
     $stmt = $db->prepare($query);
     $stmt->bindParam(":search", $searchTerm);
     $stmt->execute();

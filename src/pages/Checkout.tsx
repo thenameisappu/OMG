@@ -7,7 +7,8 @@ import {
   Calendar,
   CheckCircle2,
   ArrowLeft,
-  Moon
+  Moon,
+  AlertCircle
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -29,6 +30,12 @@ export default function Checkout() {
   const [deliveryOption, setDeliveryOption] = useState('scheduled');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [orderId, setOrderId] = useState<string | null>(null);
+  const [duplicateSubModal, setDuplicateSubModal] = useState<{
+    isOpen: boolean;
+    planId?: number;
+    message?: string;
+    formData?: any;
+  } | null>(null);
 
   // Get current date and time
   const now = new Date();
@@ -54,12 +61,7 @@ export default function Checkout() {
     ];
 
     if (option === 'same-day' || date === today) {
-      return slots.filter(slot => currentHour + 3 <= slot.cutoff + 3); // 3-hour cutoff rule
-      // Wait, 3-hour cutoff usually means you can't book if start of slot is within 3 hours.
-      // Let's refine:
-      // Morning (9 AM) -> Cutoff 6 AM
-      // Afternoon (1 PM) -> Cutoff 10 AM
-      // Evening (6 PM) -> Cutoff 3 PM (15:00)
+      return slots.filter(slot => currentHour + 3 <= slot.cutoff + 3);
     }
 
     return slots;
@@ -148,8 +150,10 @@ export default function Checkout() {
         payment_method: 'pending',
         items: cart.map(item => ({
           product_id: item.id,
+          name: item.name,
           quantity: item.quantity,
-          unit_price: item.price
+          unit_price: item.price,
+          _subscription: (item as any)._subscription || null
         }))
       };
 
@@ -160,7 +164,7 @@ export default function Checkout() {
       }
 
       console.log('Order created:', responseData);
-      setOrderId(responseData.id); // Assuming backend returns { id: "..." }
+      setOrderId(responseData.id);
       setIsSuccess(true);
       clearCart();
 
@@ -171,10 +175,72 @@ export default function Checkout() {
 
     } catch (error: any) {
       console.error("Order submission error:", error);
-      console.log("Error details:", error.response); // Log full response for debugging
+      console.log("Error details:", error.response);
+
+      // Handle duplicate subscription protection gracefully
+      if (error.response?.status === 409 && error.response?.data?.message === 'duplicate_subscription') {
+        setDuplicateSubModal({
+          isOpen: true,
+          planId: error.response?.data?.plan_id,
+          message: error.response?.data?.error || "You already have an active subscription for this plan.",
+          formData: data
+        });
+        return;
+      }
+
       toast({
         title: "Order Failed",
         description: error.response?.data?.message || error.message || "Something went wrong. Please check console.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleConfirmDuplicateSubscription = async () => {
+    if (!duplicateSubModal?.formData) return;
+    const formData = duplicateSubModal.formData;
+    setIsSubmitting(true);
+    try {
+      const orderPayload = {
+        total_amount: cartTotal,
+        customer_name: formData.name,
+        customer_email: formData.email,
+        customer_phone: formData.phone,
+        delivery_address: `${formData.houseNumber}, ${formData.street}, ${formData.address}, ${formData.city} - ${formData.pincode}`,
+        delivery_option: formData.deliveryOption,
+        delivery_date: formData.deliveryDate || null,
+        delivery_time: formData.deliveryTime,
+        payment_method: 'pending',
+        items: cart.map(item => ({
+          product_id: item.id,
+          name: item.name,
+          quantity: item.quantity,
+          unit_price: item.price,
+          _subscription: {
+            ...((item as any)._subscription || {}),
+            confirm_duplicate: true
+          }
+        }))
+      };
+
+      const { data: responseData, error } = await orderService.create(orderPayload);
+      if (error) {
+        throw new Error(error.response?.data?.message || "Failed to create order");
+      }
+      setOrderId(responseData.id);
+      setIsSuccess(true);
+      setDuplicateSubModal(null);
+      clearCart();
+      toast({
+        title: "Order Placed Successfully",
+        description: "Your additional subscription order has been confirmed.",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Order Failed",
+        description: error.response?.data?.message || error.message || "Failed to place order.",
         variant: "destructive",
       });
     } finally {
@@ -550,6 +616,59 @@ export default function Checkout() {
           </form>
         </Form>
       </div>
+
+      {/* Duplicate Subscription Confirmation Modal */}
+      {duplicateSubModal?.isOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white border rounded-2xl max-w-md w-full p-6 shadow-2xl relative text-left">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="h-10 w-10 rounded-full bg-amber-500/10 text-amber-600 flex items-center justify-center shrink-0">
+                <AlertCircle className="h-5 w-5" />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-primary font-serif-luxury italic">Active Subscription Notice</h3>
+                <p className="text-xs text-muted-foreground">Duplicate Subscription Confirmation</p>
+              </div>
+            </div>
+
+            <p className="text-sm text-muted-foreground mb-6 leading-relaxed">
+              {duplicateSubModal.message || "You already have an active subscription for this plan in your account."}
+              <br /><br />
+              Would you like to add an additional recurring delivery schedule for this plan (e.g., for another loved one or address), or review your existing subscriptions?
+            </p>
+
+            <div className="space-y-2.5">
+              <Button
+                type="button"
+                onClick={handleConfirmDuplicateSubscription}
+                disabled={isSubmitting}
+                className="w-full bg-primary text-white hover:bg-primary/90 rounded-full h-11 font-medium text-sm"
+              >
+                {isSubmitting ? "Processing..." : "Yes, Add Another Subscription"}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setDuplicateSubModal(null);
+                  navigate('/profile');
+                }}
+                className="w-full rounded-full h-11 border-border/80 hover:bg-muted text-sm font-medium"
+              >
+                Review Existing Subscriptions
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => setDuplicateSubModal(null)}
+                className="w-full rounded-full h-9 text-xs text-muted-foreground"
+              >
+                Cancel
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

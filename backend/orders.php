@@ -102,37 +102,110 @@ function createOrder($db, $userId, $data)
         // FEATURE 6: DATA INTEGRITY (Transaction)
         $db->beginTransaction();
 
-        // FEATURE 3: STOCK CONTROL LOGIC
-        // Validate stock for ALL items before creating order.
-        // SELECT ... FOR UPDATE locks the rows within the transaction,
-        // preventing race conditions when two users order the same item simultaneously.
+        // ── ITEM TYPE DETECTION HELPER ────────────────────────────────────────────
+        $isInternalProxyId = function($id) {
+            $str = (string)$id;
+            return strpos($str, 'exp-') === 0 
+                || strpos($str, 'surprise-') === 0 
+                || strpos($str, 'sub-') === 0 
+                || strpos($str, 'subscription-') === 0;
+        };
+
+        // ── INVENTORY & STOCK RULES ───────────────────────────────────────────────
+        // 1. Subscriptions & Surprise Experiences do NOT require stock, do NOT have
+        //    inventory deducted, and are NEVER blocked by stock count.
+        // 2. Normal physical products undergo SELECT ... FOR UPDATE, stock validation,
+        //    and active status checks.
         foreach ($data->items as $item) {
-            $stockQuery = "SELECT stock_status, stock_quantity, name, is_active FROM products WHERE id = :id FOR UPDATE";
+            $productIdStr = (string)$item->product_id;
+
+            // Branch A: Surprise Experience item
+            if (strpos($productIdStr, 'exp-') === 0 || strpos($productIdStr, 'surprise-') === 0) {
+                // Ensure proxy product row exists with category 'surprise_experience' (never 'occasions')
+                $expId = null;
+                if (preg_match('/^exp-(\d+)-/', $productIdStr, $expMatch)) {
+                    $expId = (int)$expMatch[1];
+                }
+
+                $realExp = null;
+                if ($expId !== null) {
+                    $expLookup = $db->prepare("SELECT * FROM surprise_experiences WHERE id = ? LIMIT 1");
+                    $expLookup->execute([$expId]);
+                    $realExp = $expLookup->fetch(PDO::FETCH_ASSOC) ?: null;
+                }
+
+                $expName  = $realExp ? $realExp['title'] : (!empty($item->name) ? $item->name : 'Bespoke Experience Reservation');
+                $expImage = $realExp ? $realExp['image'] : null;
+                $expDesc  = $realExp ? ($realExp['description'] ?? 'Bespoke Experience Reservation with on-site coordination & styling') : 'Bespoke Experience Reservation with on-site coordination & styling';
+                $expPrice = $realExp ? (float)$realExp['base_price'] : (float)$item->unit_price;
+                $expSlug  = 'exp-' . strtolower(preg_replace('/[^a-z0-9]+/i', '-', $expName)) . '-' . substr(md5($productIdStr), 0, 6);
+
+                $insProduct = $db->prepare(
+                    "INSERT IGNORE INTO products
+                     (id, name, slug, description, price, category, image, is_active, stock_status, stock_quantity)
+                     VALUES (:id, :name, :slug, :desc, :price, 'surprise_experience', :image, 1, 'in_stock', 0)"
+                );
+                $insProduct->execute([
+                    ':id'    => $productIdStr,
+                    ':name'  => $expName,
+                    ':slug'  => $expSlug,
+                    ':desc'  => $expDesc,
+                    ':price' => $expPrice,
+                    ':image' => $expImage,
+                ]);
+                continue; // Unlimited availability - bypass stock validation!
+            }
+
+            // Branch B: Subscription item
+            if (strpos($productIdStr, 'sub-') === 0 || strpos($productIdStr, 'subscription-') === 0) {
+                $subPlansStmt = $db->query("SELECT * FROM subscription_plans");
+                $subPlansList = $subPlansStmt ? $subPlansStmt->fetchAll(PDO::FETCH_ASSOC) : [];
+                $matchedPlan = null;
+                foreach ($subPlansList as $sp) {
+                    if (strpos($productIdStr, 'sub-' . $sp['slug']) === 0 || strpos($productIdStr, $sp['slug']) !== false) {
+                        $matchedPlan = $sp;
+                        break;
+                    }
+                }
+                if (!$matchedPlan && !empty($subPlansList)) {
+                    $matchedPlan = $subPlansList[0];
+                }
+
+                $subName = !empty($item->name) ? $item->name : ($matchedPlan ? $matchedPlan['name'] . ' Subscription' : 'Floral Subscription Plan');
+                $subSlug = 'sub-' . ($matchedPlan ? $matchedPlan['slug'] : 'plan') . '-' . substr(md5($productIdStr), 0, 6);
+                $subPrice = (float)$item->unit_price;
+                $subImage = $matchedPlan['image'] ?? null;
+                $subDesc = $matchedPlan['description'] ?? 'OMG Luxury Floral Subscription recurring delivery';
+
+                $insProduct = $db->prepare("INSERT IGNORE INTO products (id, name, slug, description, price, category, image, is_active, stock_status, stock_quantity) VALUES (:id, :name, :slug, :desc, :price, 'subscription', :image, 1, 'in_stock', 0)");
+                $insProduct->execute([
+                    ':id' => $productIdStr,
+                    ':name' => $subName,
+                    ':slug' => $subSlug,
+                    ':desc' => $subDesc,
+                    ':price' => $subPrice,
+                    ':image' => $subImage
+                ]);
+                continue; // Not inventory-based - bypass stock validation!
+            }
+
+            // Branch C: Normal physical inventory products
+            $stockQuery = "SELECT stock_status, stock_quantity, name, is_active, category FROM products WHERE id = :id FOR UPDATE";
             $stockStmt = $db->prepare($stockQuery);
             $stockStmt->bindParam(":id", $item->product_id);
             $stockStmt->execute();
 
             if ($stockStmt->rowCount() > 0) {
                 $product = $stockStmt->fetch(PDO::FETCH_ASSOC);
+                if ($product['category'] === 'surprise_experience' || $product['category'] === 'subscription') {
+                    continue; // Skip if internal proxy row
+                }
                 if ((int)$product['is_active'] !== 1) {
                     throw new Exception("Product '" . $product['name'] . "' is no longer active.");
                 }
                 if ($product['stock_status'] === 'out_of_stock' || (int)$product['stock_quantity'] < $item->quantity) {
                     throw new Exception("Product '" . $product['name'] . "' has insufficient stock available (Requested: " . $item->quantity . ", Available: " . $product['stock_quantity'] . ").");
                 }
-            } else if (strpos((string)$item->product_id, 'exp-') === 0 || strpos((string)$item->product_id, 'surprise-') === 0) {
-                // Auto-register experience item in products table so foreign key constraints & order records succeed seamlessly
-                $expName = !empty($item->name) ? $item->name : "Bespoke Experience Reservation";
-                $expSlug = 'exp-' . strtolower(preg_replace('/[^a-z0-9]+/i', '-', $expName)) . '-' . substr(md5($item->product_id), 0, 6);
-                $expPrice = (float)$item->unit_price;
-                $insProduct = $db->prepare("INSERT IGNORE INTO products (id, name, slug, description, price, category, is_active, stock_status, stock_quantity) VALUES (:id, :name, :slug, :desc, :price, 'occasions', 1, 'in_stock', 999)");
-                $insProduct->execute([
-                    ':id' => $item->product_id,
-                    ':name' => $expName,
-                    ':slug' => $expSlug,
-                    ':desc' => 'Bespoke Experience Reservation with on-site coordination & styling',
-                    ':price' => $expPrice
-                ]);
             } else {
                 throw new Exception("Product ID " . $item->product_id . " not found.");
             }
@@ -170,7 +243,7 @@ function createOrder($db, $userId, $data)
 
         $stmt->execute();
 
-        // Create Order Items & Deduct Stock
+        // Create Order Items & Conditionally Deduct Stock
         foreach ($data->items as $item) {
             $itemQuery = "INSERT INTO order_items (order_id, product_id, quantity, unit_price) VALUES (:order_id, :product_id, :quantity, :unit_price)";
             $itemStmt = $db->prepare($itemQuery);
@@ -180,17 +253,96 @@ function createOrder($db, $userId, $data)
             $itemStmt->bindParam(":unit_price", $item->unit_price);
             $itemStmt->execute();
 
-            // Deduct stock quantity atomically; use two distinct named params (:qty1, :qty2)
-            // since some PDO drivers do not support the same named placeholder used twice.
-            $deductQuery = "UPDATE products
-                            SET stock_quantity = GREATEST(0, stock_quantity - :qty1),
-                                stock_status = IF(stock_quantity - :qty2 <= 0, 'out_of_stock', 'in_stock')
-                            WHERE id = :id";
-            $deductStmt = $db->prepare($deductQuery);
-            $deductStmt->bindParam(":qty1", $item->quantity, PDO::PARAM_INT);
-            $deductStmt->bindParam(":qty2", $item->quantity, PDO::PARAM_INT);
-            $deductStmt->bindParam(":id", $item->product_id);
-            $deductStmt->execute();
+            // ── INVENTORY RULE: Only deduct stock for normal physical products. ────────
+            // Subscriptions and Surprise Experiences are services without inventory.
+            // Their proxy rows have stock_quantity = 0 and must NEVER be deducted from.
+            if (!$isInternalProxyId((string)$item->product_id)) {
+                // Deduct stock quantity atomically; use two distinct named params (:qty1, :qty2)
+                // since some PDO drivers do not support the same named placeholder used twice.
+                $deductQuery = "UPDATE products
+                                SET stock_quantity = GREATEST(0, stock_quantity - :qty1),
+                                    stock_status = IF(stock_quantity - :qty2 <= 0, 'out_of_stock', 'in_stock')
+                                WHERE id = :id AND category NOT IN ('surprise_experience', 'subscription')";
+                $deductStmt = $db->prepare($deductQuery);
+                $deductStmt->bindParam(":qty1", $item->quantity, PDO::PARAM_INT);
+                $deductStmt->bindParam(":qty2", $item->quantity, PDO::PARAM_INT);
+                $deductStmt->bindParam(":id", $item->product_id);
+                $deductStmt->execute();
+            }
+            // else: subscription/surprise item → no stock deduction
+        }
+
+        // Auto-create customer subscription record in `subscriptions` table
+        foreach ($data->items as $item) {
+            if (strpos((string)$item->product_id, 'sub-') === 0 || strpos((string)$item->product_id, 'subscription-') === 0) {
+                // Find matching plan ID
+                $planId = 1;
+                $subPlansStmt = $db->query("SELECT id, slug FROM subscription_plans");
+                $subPlansList = $subPlansStmt ? $subPlansStmt->fetchAll(PDO::FETCH_ASSOC) : [];
+                if (isset($item->_subscription) && !empty($item->_subscription->plan_id)) {
+                    $planId = (int)$item->_subscription->plan_id;
+                } else {
+                    foreach ($subPlansList as $sp) {
+                        if (strpos((string)$item->product_id, 'sub-' . $sp['slug']) === 0 || strpos((string)$item->product_id, $sp['slug']) !== false) {
+                            $planId = (int)$sp['id'];
+                            break;
+                        }
+                    }
+                    if (!$planId && !empty($subPlansList)) {
+                        $planId = (int)$subPlansList[0]['id'];
+                    }
+                }
+
+                // ── SUBSCRIPTION DUPLICATE PROTECTION ────────────────────────────────────
+                // Backend independently verifies whether this user already has an active
+                // subscription for the same plan. The frontend may pass confirm_duplicate=true
+                // after the user explicitly confirmed they want another subscription.
+                // The backend NEVER trusts the frontend's is_subscribed value — it always
+                // queries the database directly.
+                $confirmDuplicate = !empty($item->_subscription->confirm_duplicate) && $item->_subscription->confirm_duplicate === true;
+                if (!$confirmDuplicate) {
+                    $dupCheckStmt = $db->prepare(
+                        "SELECT id FROM subscriptions WHERE user_id = ? AND plan_id = ? AND status = 'active' LIMIT 1"
+                    );
+                    $dupCheckStmt->execute([$userId, $planId]);
+                    if ($dupCheckStmt->rowCount() > 0) {
+                        $db->rollBack();
+                        http_response_code(409);
+                        echo json_encode([
+                            "message"         => "duplicate_subscription",
+                            "plan_id"         => $planId,
+                            "error"           => "You already have an active subscription for this plan. Please confirm if you want to add another."
+                        ]);
+                        exit();
+                    }
+                }
+
+                $subOccasionType   = !empty($item->_subscription->occasion_type)   ? $item->_subscription->occasion_type   : 'Special Occasion';
+                $subOccasionDate   = !empty($item->_subscription->occasion_date)   ? $item->_subscription->occasion_date   : (!empty($data->delivery_date) ? $data->delivery_date : date('Y-m-d', strtotime('+7 days')));
+                $subRecipientName  = !empty($item->_subscription->recipient_name)  ? $item->_subscription->recipient_name  : $data->customer_name;
+                $subRecipientPhone = !empty($data->customer_phone)                 ? $data->customer_phone                 : '';
+
+                // Calculate next delivery date
+                $nextDelivery = $subOccasionDate;
+                if (strtotime($nextDelivery) < time()) {
+                    $nextDelivery = date('Y-m-d', strtotime('+1 year', strtotime($subOccasionDate)));
+                }
+
+                $newSubId = sprintf('%04x%04x-%04x-%04x-%04x-%04x%04x%04x',
+                    mt_rand(0, 0xffff), mt_rand(0, 0xffff), mt_rand(0, 0xffff),
+                    mt_rand(0, 0x0fff) | 0x4000, mt_rand(0, 0x3fff) | 0x8000,
+                    mt_rand(0, 0xffff), mt_rand(0, 0xffff), mt_rand(0, 0xffff)
+                );
+
+                $insSub = $db->prepare("INSERT INTO subscriptions
+                    (id, user_id, plan_id, occasion_type, occasion_date, recipient_name, recipient_phone, delivery_address, city, status, next_delivery_date, total_deliveries, notes)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, 0, ?)");
+                $insSub->execute([
+                    $newSubId, $userId, $planId, $subOccasionType, $subOccasionDate,
+                    $subRecipientName, $subRecipientPhone, $finalAddress, 'Bangalore',
+                    $nextDelivery, "Purchased via Order #{$uuid}"
+                ]);
+            }
         }
 
         // Generate WhatsApp Notification Message
@@ -341,12 +493,23 @@ function cancelOrder($db, $userId, $orderId)
         $items = $itemStmt->fetchAll(PDO::FETCH_ASSOC);
 
         foreach ($items as $item) {
+            // ── INVENTORY RULE: Only restore stock for normal physical products. ────────
+            // Subscriptions and Surprise Experiences have no stock to restore.
+            $cancelProductIdStr = (string)$item['product_id'];
+            $cancelIsProxy = strpos($cancelProductIdStr, 'exp-') === 0
+                          || strpos($cancelProductIdStr, 'surprise-') === 0
+                          || strpos($cancelProductIdStr, 'sub-') === 0
+                          || strpos($cancelProductIdStr, 'subscription-') === 0;
+            if ($cancelIsProxy) {
+                continue; // No stock to restore for subscription / surprise experience items
+            }
+
             // Use two distinct named params (:qty1, :qty2) to avoid PDO duplicate
             // named parameter issues when the same placeholder appears twice.
             $restoreQuery = "UPDATE products
                              SET stock_quantity = stock_quantity + :qty1,
                                  stock_status = IF(stock_quantity + :qty2 > 0, 'in_stock', stock_status)
-                             WHERE id = :id";
+                             WHERE id = :id AND category NOT IN ('surprise_experience', 'subscription')";
             $restoreStmt = $db->prepare($restoreQuery);
             $restoreStmt->bindParam(":qty1", $item['quantity'], PDO::PARAM_INT);
             $restoreStmt->bindParam(":qty2", $item['quantity'], PDO::PARAM_INT);
