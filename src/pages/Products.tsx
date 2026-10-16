@@ -684,7 +684,7 @@ export default function Products() {
                 </div>
 
                 <Button type="submit" variant="secondary" className="w-full h-14 font-bold rounded-full mt-2 hover-lift shadow-md" disabled={custSubmitting}>
-                  {custSubmitting ? 'Submitting...' : '✨ Submit Custom Request'}
+                  {custSubmitting ? 'Submitting...' : 'Submit Custom Request'}
                 </Button>
               </form>
             </div>
