@@ -12,6 +12,17 @@ import { NetworkProvider } from '@/contexts/NetworkContext';
 import ScrollToTop from '@/components/common/ScrollToTop';
 
 const App: React.FC = () => {
+  React.useEffect(() => {
+    // If returning from Cashfree gateway redirect with query params outside hash
+    if (typeof window !== 'undefined' && window.location.search) {
+      const searchParams = new URLSearchParams(window.location.search);
+      const orderId = searchParams.get('order_id') || searchParams.get('cf_id');
+      if (orderId && !window.location.hash.includes('/checkout')) {
+        window.location.hash = `#/checkout?order_id=${encodeURIComponent(orderId)}`;
+      }
+    }
+  }, []);
+
   return (
     <NetworkProvider>
       <Router>

@@ -567,4 +567,20 @@ function authenticate()
     ]);
     exit();
 }
+
+/**
+ * Get Cashfree Configuration
+ */
+function getCashfreeConfig()
+{
+    $env = strtolower((string)(getenv('CASHFREE_ENV') ?: ($_ENV['CASHFREE_ENV'] ?? 'sandbox')));
+    $isProd = ($env === 'production' || $env === 'prod');
+    return [
+        'app_id' => getenv('CASHFREE_APP_ID') ?: ($_ENV['CASHFREE_APP_ID'] ?? ''),
+        'secret_key' => getenv('CASHFREE_SECRET_KEY') ?: ($_ENV['CASHFREE_SECRET_KEY'] ?? ''),
+        'env' => $isProd ? 'production' : 'sandbox',
+        'api_version' => '2023-08-01',
+        'base_url' => $isProd ? 'https://api.cashfree.com/pg' : 'https://sandbox.cashfree.com/pg'
+    ];
+}
 ?>

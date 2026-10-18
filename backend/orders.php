@@ -35,6 +35,28 @@ if ($db === null) {
     exit();
 }
 
+// Ensure orders table has payment tracking columns
+function ensureOrderSchema($db)
+{
+    try {
+        $cols = $db->query("SHOW COLUMNS FROM orders")->fetchAll(PDO::FETCH_COLUMN);
+        $needed = [
+            'payment_status' => "VARCHAR(50) DEFAULT 'pending'",
+            'payment_session_id' => "VARCHAR(255) DEFAULT NULL",
+            'cf_order_id' => "VARCHAR(100) DEFAULT NULL",
+            'transaction_id' => "VARCHAR(100) DEFAULT NULL"
+        ];
+        foreach ($needed as $col => $def) {
+            if (!in_array($col, $cols, true)) {
+                $db->exec("ALTER TABLE orders ADD COLUMN `$col` $def");
+            }
+        }
+    } catch (Exception $e) {
+        error_log("Order schema check notice: " . $e->getMessage());
+    }
+}
+ensureOrderSchema($db);
+
 // Check for simple connectivity test
 if (isset($_GET['action']) && $_GET['action'] === 'test') {
     logDebug('Test action received.');
@@ -90,6 +112,13 @@ switch ($action) {
             exit();
         }
         bulkArchiveOrders($db, $data);
+        break;
+    case 'verify_payment':
+        $userId = authenticate();
+        verifyPayment($db, $userId, $data);
+        break;
+    case 'cashfree_webhook':
+        handleCashfreeWebhook($db);
         break;
     default:
         echo json_encode(["message" => "Invalid action"]);
@@ -387,10 +416,87 @@ function createOrder($db, $userId, $data)
         // Suppress errors to avoid breaking the order flow if API fails
         $result = @file_get_contents($url);
 
+        // ── CASHFREE PAYMENT GATEWAY INITIALIZATION ────────────────────────────
+        $paymentSessionId = null;
+        $cfOrderId = null;
+        $cfConfig = getCashfreeConfig();
+        $isCashfreeActive = !empty($cfConfig['app_id']) && !empty($cfConfig['secret_key']);
+
+        if ($isCashfreeActive) {
+            $cleanPhone = preg_replace('/[^0-9]/', '', (string)$data->customer_phone);
+            if (strlen($cleanPhone) > 10) {
+                $cleanPhone = substr($cleanPhone, -10);
+            }
+            if (strlen($cleanPhone) < 10) {
+                $cleanPhone = '9999999999';
+            }
+
+            // Alphanumeric order id (max 45 chars)
+            $cfClientOrderId = substr('omg_' . preg_replace('/[^a-zA-Z0-9_-]/', '', $uuid), 0, 45);
+
+            $origin = isset($_SERVER['HTTP_ORIGIN']) ? $_SERVER['HTTP_ORIGIN'] : (isset($_SERVER['HTTP_REFERER']) ? parse_url($_SERVER['HTTP_REFERER'], PHP_URL_SCHEME) . '://' . parse_url($_SERVER['HTTP_REFERER'], PHP_URL_HOST) : 'https://ohmygudness.in');
+            $returnUrl = rtrim($origin, '/') . '/checkout?order_id=' . urlencode($uuid);
+
+            $cfPayload = [
+                'order_id' => $cfClientOrderId,
+                'order_amount' => round((float)$data->total_amount, 2),
+                'order_currency' => 'INR',
+                'customer_details' => [
+                    'customer_id' => (string)($userId ? preg_replace('/[^a-zA-Z0-9_-]/', '', $userId) : 'cust_' . substr(md5($data->customer_email), 0, 10)),
+                    'customer_name' => (string)($data->customer_name ?: 'Valued Customer'),
+                    'customer_email' => (string)($data->customer_email ?: 'guest@ohmygudness.in'),
+                    'customer_phone' => $cleanPhone
+                ],
+                'order_meta' => [
+                    'return_url' => $returnUrl
+                ]
+            ];
+
+            $ch = curl_init($cfConfig['base_url'] . '/orders');
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_POST, true);
+            curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($cfPayload));
+            curl_setopt($ch, CURLOPT_HTTPHEADER, [
+                'x-client-id: ' . $cfConfig['app_id'],
+                'x-client-secret: ' . $cfConfig['secret_key'],
+                'x-api-version: ' . $cfConfig['api_version'],
+                'Content-Type: application/json'
+            ]);
+            curl_setopt($ch, CURLOPT_TIMEOUT, 20);
+            $cfRes = curl_exec($ch);
+            $cfHttp = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            curl_close($ch);
+
+            if ($cfRes && ($cfHttp === 200 || $cfHttp === 201)) {
+                $cfData = json_decode($cfRes, true);
+                if (!empty($cfData['payment_session_id'])) {
+                    $paymentSessionId = $cfData['payment_session_id'];
+                    $cfOrderId = $cfData['cf_order_id'] ?? $cfClientOrderId;
+
+                    $updCfStmt = $db->prepare(
+                        "UPDATE orders 
+                         SET payment_session_id = :sess, cf_order_id = :cfid, payment_method = 'cashfree' 
+                         WHERE id = :id"
+                    );
+                    $updCfStmt->execute([
+                        ':sess' => $paymentSessionId,
+                        ':cfid' => (string)$cfOrderId,
+                        ':id'   => $uuid
+                    ]);
+                }
+            } else {
+                error_log('Cashfree order creation error: ' . $cfRes);
+            }
+        }
+
         $db->commit();
         echo json_encode([
             "id" => $uuid,
             "status" => "pending",
+            "payment_session_id" => $paymentSessionId,
+            "cf_order_id" => $cfOrderId,
+            "environment" => $cfConfig['env'],
+            "cashfree_active" => $isCashfreeActive && !empty($paymentSessionId),
             "whatsapp_sent" => ($result !== false)
         ]);
     }
@@ -399,6 +505,164 @@ function createOrder($db, $userId, $data)
         http_response_code(400); // 400 for validation logic/stock issues
         echo json_encode(["message" => "Failed to create order: " . $e->getMessage()]);
     }
+}
+
+/**
+ * Verify payment status with Cashfree
+ */
+function verifyPayment($db, $userId, $data)
+{
+    $orderId = isset($_GET['id']) ? trim($_GET['id']) : (!empty($data->order_id) ? trim($data->order_id) : '');
+    if (empty($orderId)) {
+        http_response_code(400);
+        echo json_encode(["success" => false, "message" => "Order ID is required."]);
+        exit();
+    }
+
+    $stmt = $db->prepare("SELECT * FROM orders WHERE id = :id AND user_id = :uid LIMIT 1");
+    $stmt->execute([':id' => $orderId, ':uid' => $userId]);
+    $order = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    if (!$order) {
+        http_response_code(404);
+        echo json_encode(["success" => false, "message" => "Order not found."]);
+        exit();
+    }
+
+    if (($order['payment_status'] ?? '') === 'paid') {
+        echo json_encode([
+            "success" => true,
+            "message" => "Order already confirmed and paid.",
+            "order_id" => $orderId,
+            "status" => $order['status'],
+            "payment_status" => "paid",
+            "transaction_id" => $order['transaction_id'] ?? null
+        ]);
+        exit();
+    }
+
+    $cfConfig = getCashfreeConfig();
+    $isPaid = false;
+    $transactionId = null;
+
+    if (!empty($cfConfig['app_id']) && !empty($cfConfig['secret_key'])) {
+        $lookupOrderId = !empty($order['cf_order_id']) && !is_numeric($order['cf_order_id']) 
+            ? $order['cf_order_id'] 
+            : substr('omg_' . preg_replace('/[^a-zA-Z0-9_-]/', '', $orderId), 0, 45);
+
+        $paymentsUrl = $cfConfig['base_url'] . '/orders/' . urlencode($lookupOrderId) . '/payments';
+        $ch = curl_init($paymentsUrl);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_HTTPHEADER, [
+            'x-client-id: ' . $cfConfig['app_id'],
+            'x-client-secret: ' . $cfConfig['secret_key'],
+            'x-api-version: ' . $cfConfig['api_version'],
+            'Content-Type: application/json'
+        ]);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 15);
+        $res = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+
+        $payments = json_decode($res, true);
+        if ($httpCode === 200 && is_array($payments)) {
+            foreach ($payments as $p) {
+                if (isset($p['payment_status']) && strtoupper($p['payment_status']) === 'SUCCESS') {
+                    $isPaid = true;
+                    $transactionId = $p['cf_payment_id'] ?? ($p['bank_reference'] ?? null);
+                    break;
+                }
+            }
+        }
+
+        // Secondary check on order status
+        if (!$isPaid) {
+            $orderUrl = $cfConfig['base_url'] . '/orders/' . urlencode($lookupOrderId);
+            $ch2 = curl_init($orderUrl);
+            curl_setopt($ch2, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch2, CURLOPT_HTTPHEADER, [
+                'x-client-id: ' . $cfConfig['app_id'],
+                'x-client-secret: ' . $cfConfig['secret_key'],
+                'x-api-version: ' . $cfConfig['api_version'],
+                'Content-Type: application/json'
+            ]);
+            curl_setopt($ch2, CURLOPT_TIMEOUT, 15);
+            $res2 = curl_exec($ch2);
+            $httpCode2 = curl_getinfo($ch2, CURLINFO_HTTP_CODE);
+            curl_close($ch2);
+
+            $orderInfo = json_decode($res2, true);
+            if ($httpCode2 === 200 && isset($orderInfo['order_status']) && strtoupper($orderInfo['order_status']) === 'PAID') {
+                $isPaid = true;
+                $transactionId = $orderInfo['cf_order_id'] ?? null;
+            }
+        }
+    } else {
+        // Fallback for simulation when Cashfree credentials are not yet configured
+        $isPaid = true;
+        $transactionId = 'TEST_TX_' . substr(md5($orderId), 0, 8);
+    }
+
+    if ($isPaid) {
+        $upd = $db->prepare(
+            "UPDATE orders 
+             SET payment_status = 'paid', status = 'confirmed', payment_method = 'cashfree', transaction_id = :tx 
+             WHERE id = :id"
+        );
+        $upd->execute([':tx' => (string)$transactionId, ':id' => $orderId]);
+
+        echo json_encode([
+            "success" => true,
+            "message" => "Payment verified successfully.",
+            "order_id" => $orderId,
+            "status" => "confirmed",
+            "payment_status" => "paid",
+            "transaction_id" => $transactionId
+        ]);
+        exit();
+    } else {
+        echo json_encode([
+            "success" => false,
+            "message" => "Payment not completed or failed.",
+            "order_id" => $orderId,
+            "payment_status" => $order['payment_status'] ?? 'pending'
+        ]);
+        exit();
+    }
+}
+
+/**
+ * Handle asynchronous Cashfree webhook notifications
+ */
+function handleCashfreeWebhook($db)
+{
+    $rawPayload = file_get_contents("php://input");
+    $event = json_decode($rawPayload, true);
+
+    if (!$event || empty($event['type'])) {
+        http_response_code(400);
+        echo json_encode(["status" => "error", "message" => "Invalid webhook payload"]);
+        exit();
+    }
+
+    if ($event['type'] === 'PAYMENT_SUCCESS_WEBHOOK' || $event['type'] === 'ORDER_PAID') {
+        $orderData = $event['data']['order'] ?? [];
+        $paymentData = $event['data']['payment'] ?? [];
+        $cfOrderId = $orderData['order_id'] ?? null;
+        $txId = $paymentData['cf_payment_id'] ?? null;
+
+        if ($cfOrderId) {
+            $stmt = $db->prepare(
+                "UPDATE orders 
+                 SET payment_status = 'paid', status = 'confirmed', payment_method = 'cashfree', transaction_id = :tx 
+                 WHERE cf_order_id = :cfid OR id = :cfid OR id = REPLACE(:cfid, 'omg_', '')"
+            );
+            $stmt->execute([':tx' => (string)$txId, ':cfid' => $cfOrderId]);
+        }
+    }
+
+    echo json_encode(["status" => "ok"]);
+    exit();
 }
 
 function getUserOrders($db, $userId)

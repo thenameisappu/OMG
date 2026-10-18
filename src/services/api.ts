@@ -224,6 +224,14 @@ export const orderService = {
         const response = await api.post(`/orders.php?action=cancel_order&id=${id}`);
         return { data: response.data, error: null };
     },
+    verifyPayment: async (orderId: string): Promise<{ data: any; error: any }> => {
+        try {
+            const response = await api.post(`/orders.php?action=verify_payment&id=${encodeURIComponent(orderId)}`);
+            return { data: response.data, error: null };
+        } catch (error) {
+            return { data: null, error };
+        }
+    },
 };
 
 // Profile Services

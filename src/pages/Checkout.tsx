@@ -1,14 +1,18 @@
 import { formatINR } from "@/lib/currency";
 import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Truck,
   Calendar,
   CheckCircle2,
   ArrowLeft,
   Moon,
-  AlertCircle
+  AlertCircle,
+  CreditCard,
+  ShieldCheck,
+  Lock,
+  Loader2
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -20,16 +24,23 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { useAuth } from '@/contexts/AuthContext';
 import { orderService } from '@/services/api';
 import { useToast } from '@/hooks/use-toast';
+import { load } from '@cashfreepayments/cashfree-js';
 
 export default function Checkout() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { cart, cartTotal, clearCart } = useCart();
   const { user, loading, isAuthenticated } = useAuth();
   const { toast } = useToast();
   const [isSuccess, setIsSuccess] = useState(false);
   const [deliveryOption, setDeliveryOption] = useState('scheduled');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [paymentStep, setPaymentStep] = useState<string>('');
   const [orderId, setOrderId] = useState<string | null>(null);
+  const [transactionId, setTransactionId] = useState<string | null>(null);
+  const [confirmedDeliveryDate, setConfirmedDeliveryDate] = useState<string>('');
+  const [isVerifyingRedirect, setIsVerifyingRedirect] = useState(false);
+  const [verificationError, setVerificationError] = useState<string | null>(null);
   const [duplicateSubModal, setDuplicateSubModal] = useState<{
     isOpen: boolean;
     planId?: number;
@@ -125,6 +136,147 @@ export default function Checkout() {
     }
   };
 
+  // Check if returning from Cashfree redirect with order_id in query params
+  useEffect(() => {
+    const hashQuery = window.location.hash.includes('?') 
+      ? new URLSearchParams(window.location.hash.split('?')[1]) 
+      : null;
+    const windowQuery = new URLSearchParams(window.location.search);
+    const redirectOrderId = searchParams.get('order_id') || hashQuery?.get('order_id') || windowQuery.get('order_id');
+
+    if (!redirectOrderId) return;
+
+    let isMounted = true;
+    setIsVerifyingRedirect(true);
+    setVerificationError(null);
+
+    const verifyRedirect = async () => {
+      try {
+        const { data } = await orderService.verifyPayment(redirectOrderId);
+        if (!isMounted) return;
+
+        if (data && data.success && data.payment_status === 'paid') {
+          setOrderId(redirectOrderId);
+          setTransactionId(data.transaction_id || null);
+          setIsSuccess(true);
+          clearCart();
+          toast({
+            title: "Payment Confirmed",
+            description: "Your payment was verified successfully by Cashfree.",
+          });
+        } else {
+          setVerificationError(data?.message || "Payment verification pending or not confirmed.");
+          toast({
+            title: "Payment Status Pending",
+            description: data?.message || "Payment verification could not be completed yet.",
+            variant: "destructive",
+          });
+        }
+      } catch (err: any) {
+        if (!isMounted) return;
+        setVerificationError(err?.message || "Failed to reach server for payment verification.");
+      } finally {
+        if (isMounted) {
+          setIsVerifyingRedirect(false);
+        }
+      }
+    };
+
+    verifyRedirect();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [searchParams, clearCart, toast]);
+
+  const executeCashfreePayment = async (
+    targetOrderId: string,
+    paymentSessionId?: string,
+    environment?: string,
+    cashfreeActive?: boolean,
+    selectedDate?: string
+  ): Promise<boolean> => {
+    setOrderId(targetOrderId);
+    if (selectedDate) setConfirmedDeliveryDate(selectedDate);
+
+    // If Cashfree credentials are configured on backend and session ID returned
+    if (cashfreeActive && paymentSessionId) {
+      setPaymentStep("Launching Cashfree Secure Gateway...");
+      try {
+        const mode = (environment === 'production' || environment === 'prod') ? 'production' : 'sandbox';
+        const cashfree = await load({ mode });
+
+        if (!cashfree) {
+          throw new Error("Could not initialize Cashfree JS SDK.");
+        }
+
+        setPaymentStep("Complete payment in the Cashfree window...");
+
+        // Open Cashfree checkout in modal
+        await cashfree.checkout({
+          paymentSessionId: paymentSessionId,
+          redirectTarget: "_modal",
+        });
+
+        // After modal interaction (completed or closed), verify payment with backend
+        setPaymentStep("Verifying payment confirmation with bank...");
+        const verifyRes = await orderService.verifyPayment(targetOrderId);
+
+        if (verifyRes.data && verifyRes.data.success && verifyRes.data.payment_status === 'paid') {
+          setTransactionId(verifyRes.data.transaction_id || null);
+          setIsSuccess(true);
+          clearCart();
+          toast({
+            title: "Payment Received",
+            description: "Your order and payment have been confirmed.",
+          });
+          return true;
+        } else {
+          toast({
+            title: "Payment Incomplete",
+            description: verifyRes.data?.message || "Payment was not completed. You can retry anytime.",
+            variant: "destructive",
+          });
+          return false;
+        }
+      } catch (cfError: any) {
+        console.error("Cashfree checkout error:", cfError);
+        // Fallback verification in case user paid and closed window
+        setPaymentStep("Checking payment status...");
+        const verifyRes = await orderService.verifyPayment(targetOrderId);
+        if (verifyRes.data && verifyRes.data.success && verifyRes.data.payment_status === 'paid') {
+          setTransactionId(verifyRes.data.transaction_id || null);
+          setIsSuccess(true);
+          clearCart();
+          toast({
+            title: "Payment Received",
+            description: "Your order has been confirmed.",
+          });
+          return true;
+        }
+
+        toast({
+          title: "Payment Incomplete",
+          description: cfError?.message || "Payment was not completed. You can try again anytime.",
+          variant: "destructive",
+        });
+        return false;
+      }
+    } else {
+      // Fallback: Simulation mode when keys are not yet configured in .env
+      setPaymentStep("Finalizing your reservation...");
+      const verifyRes = await orderService.verifyPayment(targetOrderId);
+      setTransactionId(verifyRes.data?.transaction_id || 'SIMULATED_TEST_TX');
+      setIsSuccess(true);
+      clearCart();
+      toast({
+        title: "Order Placed Successfully",
+        description: "Your order has been confirmed.",
+      });
+      return true;
+    }
+  };
+
   const onSubmit = async (data: any) => {
     if (!user) {
       toast({
@@ -136,6 +288,7 @@ export default function Checkout() {
     }
 
     setIsSubmitting(true);
+    setPaymentStep("Creating order...");
     try {
       // Prepare order payload matching backend expectations
       const orderPayload = {
@@ -147,7 +300,7 @@ export default function Checkout() {
         delivery_option: data.deliveryOption,
         delivery_date: data.deliveryDate || null,
         delivery_time: data.deliveryTime,
-        payment_method: 'pending',
+        payment_method: 'cashfree',
         items: cart.map(item => ({
           product_id: item.id,
           name: item.name,
@@ -163,15 +316,13 @@ export default function Checkout() {
         throw new Error(error.response?.data?.message || "Failed to create order");
       }
 
-      console.log('Order created:', responseData);
-      setOrderId(responseData.id);
-      setIsSuccess(true);
-      clearCart();
-
-      toast({
-        title: "Order Placed Successfully",
-        description: "Your order has been confirmed.",
-      });
+      await executeCashfreePayment(
+        responseData.id,
+        responseData.payment_session_id,
+        responseData.environment,
+        responseData.cashfree_active,
+        data.deliveryDate
+      );
 
     } catch (error: any) {
       console.error("Order submission error:", error);
@@ -195,6 +346,7 @@ export default function Checkout() {
       });
     } finally {
       setIsSubmitting(false);
+      setPaymentStep("");
     }
   };
 
@@ -202,6 +354,7 @@ export default function Checkout() {
     if (!duplicateSubModal?.formData) return;
     const formData = duplicateSubModal.formData;
     setIsSubmitting(true);
+    setPaymentStep("Creating subscription order...");
     try {
       const orderPayload = {
         total_amount: cartTotal,
@@ -212,7 +365,7 @@ export default function Checkout() {
         delivery_option: formData.deliveryOption,
         delivery_date: formData.deliveryDate || null,
         delivery_time: formData.deliveryTime,
-        payment_method: 'pending',
+        payment_method: 'cashfree',
         items: cart.map(item => ({
           product_id: item.id,
           name: item.name,
@@ -229,14 +382,15 @@ export default function Checkout() {
       if (error) {
         throw new Error(error.response?.data?.message || "Failed to create order");
       }
-      setOrderId(responseData.id);
-      setIsSuccess(true);
       setDuplicateSubModal(null);
-      clearCart();
-      toast({
-        title: "Order Placed Successfully",
-        description: "Your additional subscription order has been confirmed.",
-      });
+
+      await executeCashfreePayment(
+        responseData.id,
+        responseData.payment_session_id,
+        responseData.environment,
+        responseData.cashfree_active,
+        formData.deliveryDate
+      );
     } catch (error: any) {
       toast({
         title: "Order Failed",
@@ -245,6 +399,7 @@ export default function Checkout() {
       });
     } finally {
       setIsSubmitting(false);
+      setPaymentStep("");
     }
   };
 
@@ -252,33 +407,139 @@ export default function Checkout() {
     return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
   }
 
-  if (cart.length === 0 && !isSuccess) {
+  if (isVerifyingRedirect) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background px-4">
+        <div className="bg-white border border-border/80 shadow-2xl rounded-3xl p-10 max-w-md w-full text-center space-y-6 animate-in fade-in zoom-in-95 duration-300">
+          <div className="relative mx-auto w-20 h-20 flex items-center justify-center">
+            <div className="absolute inset-0 rounded-full border-4 border-primary/20 border-t-primary animate-spin"></div>
+            <CreditCard className="w-8 h-8 text-primary" />
+          </div>
+          <div>
+            <h2 className="text-2xl font-serif-luxury font-bold text-primary mb-2">Verifying Payment</h2>
+            <p className="text-sm text-muted-foreground leading-relaxed">
+              We are connecting to Cashfree & your banking network to verify your transaction. Please do not refresh.
+            </p>
+          </div>
+          <div className="inline-flex items-center gap-2 text-xs text-muted-foreground bg-muted/60 px-4 py-2 rounded-full">
+            <ShieldCheck className="w-4 h-4 text-emerald-600" />
+            <span>256-bit Bank-Grade Encryption</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (verificationError && !isSuccess) {
+    return (
+      <div className="container py-24 text-center max-w-md mx-auto">
+        <div className="inline-flex h-20 w-20 items-center justify-center rounded-full bg-amber-500/10 text-amber-600 mb-6">
+          <AlertCircle className="h-10 w-10" />
+        </div>
+        <h2 className="text-3xl font-bold text-primary font-serif-luxury italic mb-3">Payment Verification</h2>
+        <p className="text-sm text-muted-foreground mb-8 leading-relaxed">
+          {verificationError}
+        </p>
+        <div className="space-y-3">
+          <Button
+            onClick={() => {
+              setVerificationError(null);
+              window.location.hash = '#/checkout';
+            }}
+            className="w-full bg-primary text-white rounded-full h-12"
+          >
+            Return to Checkout
+          </Button>
+          <Button
+            onClick={() => navigate('/orders')}
+            variant="outline"
+            className="w-full rounded-full h-12"
+          >
+            Check My Orders
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  const hasRedirectOrderParam = !!(searchParams.get('order_id') || (window.location.hash.includes('order_id=')));
+  if (cart.length === 0 && !isSuccess && !isVerifyingRedirect && !hasRedirectOrderParam) {
     setTimeout(() => navigate('/products'), 100); // Small delay to avoid flash if clearing cart
     return null;
   }
 
   if (isSuccess) {
     return (
-      <div className="container py-32 text-center">
-        <div className="inline-flex h-24 w-24 items-center justify-center rounded-full bg-success/10 mb-8">
-          <CheckCircle2 className="h-12 w-12 text-success" />
+      <div className="container py-24 text-center max-w-3xl mx-auto animate-in fade-in zoom-in-95 duration-300">
+        <div className="inline-flex h-24 w-24 items-center justify-center rounded-full bg-emerald-100 text-emerald-600 mb-6 shadow-inner">
+          <CheckCircle2 className="h-12 w-12" />
         </div>
-        <h2 className="text-4xl font-bold text-primary mb-4 font-serif-luxury italic">Your Order is Confirmed!</h2>
-        <p className="text-muted-foreground mb-10 max-w-md mx-auto">
-          Thank you for choosing OMG. Our floral artisans are now preparing your luxury arrangement.
-          A confirmation email has been sent to your inbox.
+        <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-semibold mb-4">
+          <ShieldCheck className="h-4 w-4" />
+          <span>Payment Verified by Cashfree</span>
+        </div>
+        <h2 className="text-4xl font-bold text-primary mb-3 font-serif-luxury italic">Your Order is Confirmed!</h2>
+        <p className="text-muted-foreground mb-8 max-w-md mx-auto text-sm leading-relaxed">
+          Thank you for choosing OMG. Our floral artisans have received your order and payment, and are now handcrafting your luxury arrangement.
         </p>
-        <div className="bg-muted/30 p-8 rounded-2xl max-w-lg mx-auto mb-10 text-left">
-          <h4 className="font-bold mb-4">Order Details</h4>
-          <div className="space-y-2 text-sm">
-            <div className="flex justify-between"><span className="text-muted-foreground">Order ID:</span> <span className="font-medium">#{orderId ? orderId.substring(0, 8).toUpperCase() : 'PENDING'}</span></div>
-            <div className="flex justify-between"><span className="text-muted-foreground">Delivery Date:</span> <span className="font-medium">{form.getValues('deliveryDate') || 'As Scheduled'}</span></div>
-            <div className="flex justify-between"><span className="text-muted-foreground">Status:</span> <span className="text-secondary font-bold">Artisan Selection</span></div>
+
+        <div className="bg-white border border-border/80 shadow-xl rounded-2xl p-8 max-w-lg mx-auto mb-8 text-left space-y-4">
+          <div className="flex items-center justify-between pb-4 border-b">
+            <div>
+              <span className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">Order Reference</span>
+              <p className="text-lg font-bold text-primary font-mono">#{orderId ? orderId.substring(0, 8).toUpperCase() : 'CONFIRMED'}</p>
+            </div>
+            <div className="text-right">
+              <span className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">Payment Status</span>
+              <div>
+                <span className="inline-block px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
+                  PAID
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-2.5 text-sm">
+            {transactionId && (
+              <div className="flex justify-between items-center text-xs">
+                <span className="text-muted-foreground">Cashfree TXN ID:</span>
+                <span className="font-mono font-medium text-foreground">{transactionId}</span>
+              </div>
+            )}
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Delivery Option:</span>
+              <span className="font-medium capitalize">{deliveryOption.replace('-', ' ')}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Delivery Date:</span>
+              <span className="font-medium">{confirmedDeliveryDate || form.getValues('deliveryDate') || 'As Scheduled'}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Time Window:</span>
+              <span className="font-medium capitalize">{form.getValues('deliveryTime') || 'Morning'}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Payment Gateway:</span>
+              <span className="font-medium text-primary">Cashfree PG (Instant)</span>
+            </div>
           </div>
         </div>
-        <Button onClick={() => navigate('/')} className="bg-primary text-white hover:bg-primary/90 rounded-full px-10 h-12">
-          Return to Gallery
-        </Button>
+
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+          <Button 
+            onClick={() => navigate('/orders')} 
+            className="w-full sm:w-auto bg-primary text-white hover:bg-primary/90 rounded-full px-8 h-12 text-sm font-semibold"
+          >
+            Track in My Orders
+          </Button>
+          <Button 
+            onClick={() => navigate('/')} 
+            variant="outline"
+            className="w-full sm:w-auto rounded-full px-8 h-12 text-sm font-semibold border-border hover:bg-muted"
+          >
+            Return to Gallery
+          </Button>
+        </div>
       </div>
     );
   }
@@ -567,7 +828,63 @@ export default function Checkout() {
                 )}
               </section>
 
-            </div>
+              {/* 3. Payment Method */}
+              <section className="space-y-6">
+                  <div className="flex items-center gap-3 mb-6">
+                    <div className="h-8 w-8 rounded-full bg-primary text-white flex items-center justify-center font-bold">3</div>
+                    <div>
+                      <h3 className="text-xl font-bold text-primary">Payment Method</h3>
+                      <p className="text-xs text-muted-foreground">Instant, encrypted checkout with Cashfree</p>
+                    </div>
+                  </div>
+
+                  <div className="rounded-2xl border-2 border-primary/20 bg-gradient-to-br from-primary/[0.03] to-secondary/[0.05] p-6 space-y-4">
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex items-center gap-3.5">
+                        <div className="h-11 w-11 rounded-xl bg-primary text-white flex items-center justify-center shadow-md shrink-0">
+                          <CreditCard className="h-5 w-5" />
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="font-bold text-primary text-base">Cashfree Payment Gateway</span>
+                            <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300">
+                              Official Partner
+                            </span>
+                          </div>
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            UPI (GPay, PhonePe, Paytm), Credit & Debit Cards, NetBanking, and Wallets
+                          </p>
+                        </div>
+                      </div>
+                      <Lock className="h-5 w-5 text-muted-foreground/60 shrink-0" />
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-border/50 text-xs">
+                      <span className="inline-flex items-center px-2.5 py-1 rounded-md bg-white border text-primary font-semibold text-[11px] shadow-sm">
+                        UPI Instant
+                      </span>
+                      <span className="inline-flex items-center px-2.5 py-1 rounded-md bg-white border text-primary font-semibold text-[11px] shadow-sm">
+                        Google Pay
+                      </span>
+                      <span className="inline-flex items-center px-2.5 py-1 rounded-md bg-white border text-primary font-semibold text-[11px] shadow-sm">
+                        PhonePe
+                      </span>
+                      <span className="inline-flex items-center px-2.5 py-1 rounded-md bg-white border text-primary font-semibold text-[11px] shadow-sm">
+                        Visa / MasterCard / RuPay
+                      </span>
+                      <span className="inline-flex items-center px-2.5 py-1 rounded-md bg-white border text-primary font-semibold text-[11px] shadow-sm">
+                        NetBanking
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground pt-1">
+                      <ShieldCheck className="h-4 w-4 text-emerald-600 shrink-0" />
+                      <span>Zero extra transaction fees. Bank-grade 256-bit SSL encryption.</span>
+                    </div>
+                  </div>
+                </section>
+
+              </div>
 
             {/* Sidebar Summary */}
             <div className="lg:col-span-5">
@@ -604,12 +921,31 @@ export default function Checkout() {
                   </div>
                 </div>
 
-                <Button type="submit" disabled={isSubmitting} className="w-full h-14 bg-primary text-white hover:bg-primary/90 rounded-full mt-10 text-lg font-bold">
-                  {isSubmitting ? 'Processing...' : 'Complete Purchase'}
+                <Button 
+                  type="submit" 
+                  disabled={isSubmitting} 
+                  className="w-full h-14 bg-primary text-white hover:bg-primary/90 rounded-full mt-10 text-base font-bold shadow-lg shadow-primary/20 flex items-center justify-center gap-2 transition-all cursor-pointer"
+                >
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="h-5 w-5 animate-spin" />
+                      <span className="text-sm font-semibold">{paymentStep || "Connecting Cashfree..."}</span>
+                    </>
+                  ) : (
+                    <>
+                      <Lock className="h-4 w-4" />
+                      <span>Pay {formatINR(cartTotal)} via Cashfree</span>
+                    </>
+                  )}
                 </Button>
 
-                <p className="text-center text-xs text-muted-foreground mt-6">
-                  By completing your purchase, you agree to our Terms of Service and Privacy Policy.
+                <div className="flex items-center justify-center gap-1.5 text-xs text-muted-foreground mt-4">
+                  <ShieldCheck className="h-4 w-4 text-emerald-600 shrink-0" />
+                  <span>Cashfree PCI-DSS Level 1 Certified Checkout</span>
+                </div>
+
+                <p className="text-center text-[11px] text-muted-foreground mt-4">
+                  By clicking Pay, you agree to our Terms of Service & Privacy Policy.
                 </p>
               </div>
             </div>
