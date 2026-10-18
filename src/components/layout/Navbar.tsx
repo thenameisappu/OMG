@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { ShoppingCart, Menu, Search, Heart, User, LogOut, Phone, Sparkles, MapPin, PackageCheck } from 'lucide-react';
+import { ShoppingCart, Menu, Heart, User, LogOut, Phone, Sparkles, MapPin, PackageCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import {
@@ -14,6 +14,7 @@ import { cn } from '@/lib/utils';
 import { useCart } from '@/contexts/CartContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useWishlist } from '@/contexts/WishlistContext';
+import { SearchAutocomplete } from './SearchAutocomplete';
 
 const navItems = [
   { name: "Oh My Bloom's", href: '/products?category=flower-arrangements' },
@@ -25,20 +26,11 @@ const navItems = [
 
 export default function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
   const location = useLocation();
   const navigate = useNavigate();
   const { cartCount } = useCart();
   const { wishlistCount } = useWishlist();
   const { user, signOut, isAuthenticated } = useAuth();
-
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (searchQuery.trim()) {
-      navigate(`/products?search=${encodeURIComponent(searchQuery)}`);
-      setSearchQuery('');
-    }
-  };
 
   const handleProfileClick = () => {
     navigate('/login');
@@ -91,16 +83,7 @@ export default function Navbar() {
 
           {/* Desktop Search */}
           <div className="hidden lg:flex items-center relative">
-            <form onSubmit={handleSearch} className="relative">
-              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <input
-                type="search"
-                placeholder="Search luxury flowers, hampers, moments..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="h-10 w-80 rounded-full border border-input bg-muted/20 text-foreground pl-10 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-secondary focus:border-secondary transition-all"
-              />
-            </form>
+            <SearchAutocomplete autoExpand />
           </div>
         </div>
 
@@ -219,16 +202,7 @@ export default function Navbar() {
 
       {/* Mobile Search Bar */}
       <div className="lg:hidden border-t border-border bg-white px-4 py-2">
-        <form onSubmit={handleSearch} className="relative">
-          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <input
-            type="search"
-            placeholder="Search flowers, hampers..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="h-9 w-full rounded-full border border-input bg-muted/20 text-foreground pl-10 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-secondary focus:border-secondary transition-all"
-          />
-        </form>
+        <SearchAutocomplete placeholder="Search flowers, hampers, occasions..." />
       </div>
 
       {/* Category Bar - Desktop only, horizontally scrollable */}
