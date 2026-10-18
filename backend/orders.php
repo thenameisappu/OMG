@@ -483,9 +483,14 @@ function createOrder($db, $userId, $data)
                         ':cfid' => (string)$cfOrderId,
                         ':id'   => $uuid
                     ]);
+                } else {
+                    throw new Exception("Cashfree did not return a valid payment session ID.");
                 }
             } else {
                 error_log('Cashfree order creation error: ' . $cfRes);
+                $cfErr = json_decode($cfRes, true);
+                $errMsg = !empty($cfErr['message']) ? $cfErr['message'] : 'Payment gateway rejected order creation.';
+                throw new Exception("Payment Gateway Error: " . $errMsg);
             }
         }
 

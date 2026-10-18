@@ -12,7 +12,8 @@ import {
   CreditCard,
   ShieldCheck,
   Lock,
-  Loader2
+  Loader2,
+  Check
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -856,7 +857,14 @@ export default function Checkout() {
                           </p>
                         </div>
                       </div>
-                      <Lock className="h-5 w-5 text-muted-foreground/60 shrink-0" />
+                      <div className="flex items-center gap-2 shrink-0">
+                        <span className="hidden sm:inline-flex text-[11px] font-semibold text-emerald-800 bg-emerald-100/80 px-2.5 py-0.5 rounded-full border border-emerald-300">
+                          Active
+                        </span>
+                        <div className="h-6 w-6 rounded-full bg-primary text-white flex items-center justify-center shadow-sm" title="Selected Payment Option">
+                          <Check className="h-3.5 w-3.5" />
+                        </div>
+                      </div>
                     </div>
 
                     <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-border/50 text-xs">
