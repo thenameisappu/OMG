@@ -264,17 +264,12 @@ export default function Checkout() {
         return false;
       }
     } else {
-      // Fallback: Simulation mode when keys are not yet configured in .env
-      setPaymentStep("Finalizing your reservation...");
-      const verifyRes = await orderService.verifyPayment(targetOrderId);
-      setTransactionId(verifyRes.data?.transaction_id || 'SIMULATED_TEST_TX');
-      setIsSuccess(true);
-      clearCart();
       toast({
-        title: "Order Placed Successfully",
-        description: "Your order has been confirmed.",
+        title: "Payment Gateway Error",
+        description: "Cashfree payment session could not be established. Please try again.",
+        variant: "destructive",
       });
-      return true;
+      return false;
     }
   };
 

@@ -573,7 +573,7 @@ function authenticate()
  */
 function getCashfreeConfig()
 {
-    $env = strtolower((string)(getenv('CASHFREE_ENV') ?: ($_ENV['CASHFREE_ENV'] ?? 'sandbox')));
+    $env = strtolower((string)(getenv('CASHFREE_ENV') ?: ($_ENV['CASHFREE_ENV'] ?? 'production')));
     $isProd = ($env === 'production' || $env === 'prod');
     return [
         'app_id' => getenv('CASHFREE_APP_ID') ?: ($_ENV['CASHFREE_APP_ID'] ?? ''),

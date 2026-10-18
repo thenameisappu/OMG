@@ -603,9 +603,12 @@ function verifyPayment($db, $userId, $data)
             }
         }
     } else {
-        // Fallback for simulation when Cashfree credentials are not yet configured
-        $isPaid = true;
-        $transactionId = 'TEST_TX_' . substr(md5($orderId), 0, 8);
+        http_response_code(500);
+        echo json_encode([
+            "success" => false,
+            "message" => "Cashfree credentials are not configured on the server."
+        ]);
+        exit();
     }
 
     if ($isPaid) {
