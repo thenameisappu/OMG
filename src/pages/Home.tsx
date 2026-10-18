@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowRight, Star, Truck, Calendar, Clock, Sparkles, ChevronLeft, ChevronRight, Heart, Gift, Award, Zap, Quote, MapPin, Flame } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -8,6 +8,43 @@ import { getProducts } from '@/db/api';
 import { testimonialService } from '@/services/api';
 import { WishlistButton } from '@/components/common/WishlistButton';
 import { TeamShowcase } from '@/components/TeamShowcase';
+import { mockProducts } from '@/data/mockProducts';
+
+// Category Definitions for Homepage Collections with dynamic rotation
+const CATEGORY_SECTIONS = [
+  {
+    id: 'flower-arrangements',
+    title: "Oh My Bloom's",
+    subtitle: "Fresh Floral Bouquets & Luxury Stems",
+    link: "/products?category=flower-arrangements",
+    categoryKeys: ['flower-arrangements', 'blooms', 'bloom'],
+    fallbackImage: "https://miaoda-site-img.s3cdn.medo.dev/images/KLing_8fb5dcf8-22bd-4fbd-98ba-1611bfcdcc4d.jpg",
+  },
+  {
+    id: 'gift-hampers',
+    title: "Oh My Love's",
+    subtitle: "Curated Hampers & Gourmet Treats",
+    link: "/products?category=gift-hampers",
+    categoryKeys: ['gift-hampers', 'hampers', 'loves', 'love'],
+    fallbackImage: "https://miaoda-site-img.s3cdn.medo.dev/images/KLing_3556e18d-69b0-4c22-93c1-29efba584217.jpg",
+  },
+  {
+    id: 'occasions',
+    title: "Oh My Moment's",
+    subtitle: "Celebration Bundles & Occasion Styling",
+    link: "/products?category=occasions",
+    categoryKeys: ['occasions', 'celebrations', 'moments', 'moment'],
+    fallbackImage: "https://miaoda-site-img.s3cdn.medo.dev/images/KLing_6bbe1cd4-2103-4b1e-b55e-83ffbca65dd2.jpg",
+  },
+  {
+    id: 'signature-collection',
+    title: "Oh My Signature's",
+    subtitle: "Rare Exotic Blooms & Bespoke Vessels",
+    link: "/products?category=signature-collection",
+    categoryKeys: ['signature-collection', 'signatures', 'signature'],
+    fallbackImage: "https://miaoda-site-img.s3cdn.medo.dev/images/KLing_03fde315-7935-4968-98e6-d7b417bd3057.jpg",
+  },
+];
 
 // Sample testimonials fallback
 const SAMPLE_TESTIMONIALS = [
@@ -121,6 +158,7 @@ function partitionHomeProducts(products: any[]) {
 }
 
 export default function Home() {
+  const [allProducts, setAllProducts] = useState<any[]>(mockProducts);
   const [newlyLaunchedProducts, setNewlyLaunchedProducts] = useState<any[]>([]);
   const [featuredProducts, setFeaturedProducts] = useState<any[]>([]);
   const [bestSellerProducts, setBestSellerProducts] = useState<any[]>([]);
@@ -146,18 +184,62 @@ export default function Home() {
       try {
         setProductsLoading(true);
         const data = await getProducts();
-        const partitioned = partitionHomeProducts(Array.isArray(data) ? data : []);
+        const rawProducts = Array.isArray(data) && data.length > 0 ? data : mockProducts;
+        setAllProducts(rawProducts);
+        const partitioned = partitionHomeProducts(rawProducts);
         setNewlyLaunchedProducts(partitioned.newlyLaunched);
         setFeaturedProducts(partitioned.featured);
         setBestSellerProducts(partitioned.bestSellers);
       } catch (error) {
         console.error('Error fetching home products:', error);
+        setAllProducts(mockProducts);
+        const partitioned = partitionHomeProducts(mockProducts);
+        setNewlyLaunchedProducts(partitioned.newlyLaunched);
+        setFeaturedProducts(partitioned.featured);
+        setBestSellerProducts(partitioned.bestSellers);
       } finally {
         setProductsLoading(false);
       }
     }
     loadProductsData();
   }, []);
+
+  // Category image dynamic rotation: changes every 3 days based on calendar epoch
+  const ROTATION_DAYS = 3;
+  const currentRotationCycle = Math.floor(Math.floor(Date.now() / (1000 * 60 * 60 * 24)) / ROTATION_DAYS);
+
+  const categoryCardsData = useMemo(() => {
+    return CATEGORY_SECTIONS.map((cat, idx) => {
+      // Find matching products in this category that have valid images
+      const matchingProducts = allProducts.filter((p) => {
+        if (!p) return false;
+        const pCat = String(p.category || '').toLowerCase().trim();
+        const hasImg = !!(p.image || (Array.isArray(p.images) && p.images.length > 0));
+        return hasImg && cat.categoryKeys.some((k) => pCat === k.toLowerCase().trim());
+      });
+
+      if (matchingProducts.length === 0) {
+        return {
+          ...cat,
+          image: cat.fallbackImage,
+          hoverImage: undefined,
+        };
+      }
+
+      // Rotate deterministically every ROTATION_DAYS based on calendar cycle
+      const selectedIndex = (currentRotationCycle + idx) % matchingProducts.length;
+      const selected = matchingProducts[selectedIndex];
+
+      const image = selected.image || (Array.isArray(selected.images) ? selected.images[0] : null) || cat.fallbackImage;
+      const hoverImage = selected.hover_image || (Array.isArray(selected.images) && selected.images.length > 1 ? selected.images[1] : undefined);
+
+      return {
+        ...cat,
+        image,
+        hoverImage,
+      };
+    });
+  }, [allProducts, currentRotationCycle]);
 
   // Load testimonials
   useEffect(() => {
@@ -373,30 +455,16 @@ export default function Home() {
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 md:gap-8">
-            <CategoryCard
-              title="Oh My Bloom's"
-              image="https://miaoda-site-img.s3cdn.medo.dev/images/KLing_8fb5dcf8-22bd-4fbd-98ba-1611bfcdcc4d.jpg"
-              link="/products?category=flower-arrangements"
-              subtitle="Fresh Floral Bouquets & Luxury Stems"
-            />
-            <CategoryCard
-              title="Oh My Love's"
-              image="https://miaoda-site-img.s3cdn.medo.dev/images/KLing_3556e18d-69b0-4c22-93c1-29efba584217.jpg"
-              link="/products?category=gift-hampers"
-              subtitle="Curated Hampers & Gourmet Treats"
-            />
-            <CategoryCard
-              title="Oh My Moment's"
-              image="https://miaoda-site-img.s3cdn.medo.dev/images/KLing_6bbe1cd4-2103-4b1e-b55e-83ffbca65dd2.jpg"
-              link="/products?category=occasions"
-              subtitle="Celebration Bundles & Occasion Styling"
-            />
-            <CategoryCard
-              title="Oh My Signature's"
-              image="https://miaoda-site-img.s3cdn.medo.dev/images/KLing_03fde315-7935-4968-98e6-d7b417bd3057.jpg"
-              link="/products?category=signature-collection"
-              subtitle="Rare Exotic Blooms & Bespoke Vessels"
-            />
+            {categoryCardsData.map((cat) => (
+              <CategoryCard
+                key={cat.id}
+                title={cat.title}
+                subtitle={cat.subtitle}
+                image={cat.image}
+                hoverImage={cat.hoverImage}
+                link={cat.link}
+              />
+            ))}
           </div>
         </div>
       </section>
@@ -814,13 +882,36 @@ function HeroParticles() {
   return <canvas ref={canvasRef} className="absolute inset-0 pointer-events-none z-10" />;
 }
 
-function CategoryCard({ title, subtitle, image, link, className }: { title: string; subtitle?: string; image: string; link: string; className?: string }) {
+function CategoryCard({
+  title,
+  subtitle,
+  image,
+  hoverImage,
+  link,
+  className
+}: {
+  title: string;
+  subtitle?: string;
+  image: string;
+  hoverImage?: string;
+  link: string;
+  className?: string;
+}) {
+  const [isHovered, setIsHovered] = useState(false);
+  const displayImage = (isHovered && hoverImage) ? hoverImage : image;
+
   return (
-    <Link to={link} className={cn("group relative overflow-hidden rounded-2xl aspect-[4/3] hover-lift luxury-shadow", className)}>
+    <Link
+      to={link}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      className={cn("group relative overflow-hidden rounded-2xl aspect-[4/3] hover-lift luxury-shadow block", className)}
+    >
       <img
-        src={image}
+        src={displayImage}
         alt={title}
-        className="h-full w-full object-cover transition-all duration-1000 ease-out group-hover:brightness-110"
+        loading="lazy"
+        className="h-full w-full object-cover transition-all duration-700 ease-out group-hover:scale-105 group-hover:brightness-110"
       />
       <div className="absolute inset-0 bg-gradient-to-t from-primary/90 via-primary/30 to-transparent transition-opacity duration-700 group-hover:opacity-80" />
       <div className="absolute bottom-0 left-0 right-0 p-8">
