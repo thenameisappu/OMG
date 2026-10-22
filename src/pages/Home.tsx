@@ -157,6 +157,93 @@ function partitionHomeProducts(products: any[]) {
   return { newlyLaunched, featured, bestSellers };
 }
 
+// Hero carousel slides data with tailored content and dynamic options per slide
+interface HeroSlide {
+  image: string;
+  badgeIcon: React.ComponentType<{ className?: string }>;
+  badgeText: string;
+  titlePrefix: string;
+  titleHighlight: string;
+  description: string;
+  buttons: Array<{
+    text: string;
+    link: string;
+    primary?: boolean;
+  }>;
+  features: Array<{
+    icon: React.ComponentType<{ className?: string }>;
+    text: string;
+  }>;
+}
+
+const HERO_SLIDES: HeroSlide[] = [
+  {
+    image: "https://miaoda-site-img.s3cdn.medo.dev/images/KLing_1820e6cd-672c-474f-a014-772dcd375172.jpg",
+    badgeIcon: Sparkles,
+    badgeText: "Bangalore's Premier Floral & Surprise House",
+    titlePrefix: "Elevating the Art of",
+    titleHighlight: "Giving",
+    description: "Exquisite bouquets, curated hampers, and bespoke surprise services for life's most precious moments.",
+    buttons: [
+      { text: "Shop Collection", link: "/products" },
+      { text: "Plan a Surprise", link: "/surprise-services" },
+      { text: "About Us", link: "/about" },
+    ],
+    features: [
+      { icon: Zap, text: "2-Hour Express Delivery" },
+      { icon: Award, text: "Master Florist Crafted" },
+    ],
+  },
+  {
+    image: "https://miaoda-site-img.s3cdn.medo.dev/images/KLing_8fb5dcf8-22bd-4fbd-98ba-1611bfcdcc4d.jpg",
+    badgeIcon: Heart,
+    badgeText: "Oh My Bloom's • Artisanal Fresh Florals",
+    titlePrefix: "Handcrafted Luxury",
+    titleHighlight: "Blooms",
+    description: "Farm-direct Dutch roses, exotic lilies, and bespoke hand-tied arrangements styled fresh daily.",
+    buttons: [
+      { text: "Explore Bouquets", link: "/products?category=flower-arrangements", primary: true },
+      { text: "Shop Best Sellers", link: "/products" },
+    ],
+    features: [
+      { icon: Sparkles, text: "100% Farm-Direct Fresh" },
+      { icon: Clock, text: "Midnight Delivery Available" },
+    ],
+  },
+  {
+    image: "https://miaoda-site-img.s3cdn.medo.dev/images/KLing_3556e18d-69b0-4c22-93c1-29efba584217.jpg",
+    badgeIcon: Gift,
+    badgeText: "Oh My Love's • Curated Luxury Hampers",
+    titlePrefix: "Curated Hampers of",
+    titleHighlight: "Affection",
+    description: "Artisanal chocolates, gourmet treats, and keepsake hampers hand-packaged for premium celebrations.",
+    buttons: [
+      { text: "Browse Hampers", link: "/products?category=gift-hampers", primary: true },
+      { text: "Custom Gift Boxes", link: "/products" },
+    ],
+    features: [
+      { icon: Award, text: "Hand-Selected Gourmet Goods" },
+      { icon: Zap, text: "Same-Day Gift Dispatch" },
+    ],
+  },
+  {
+    image: "https://miaoda-site-img.s3cdn.medo.dev/images/KLing_6bbe1cd4-2103-4b1e-b55e-83ffbca65dd2.jpg",
+    badgeIcon: Flame,
+    badgeText: "Oh My Moment's • Bespoke Surprise Experiences",
+    titlePrefix: "Unforgettable Surprise",
+    titleHighlight: "Moments",
+    description: "Candlelit walkways, private rooftop dining, secret proposals, and live musicians planned to perfection.",
+    buttons: [
+      { text: "Explore Experiences", link: "/surprise-services", primary: true },
+      { text: "Interactive Planner", link: "/surprise-services#interactive-builder" },
+    ],
+    features: [
+      { icon: Heart, text: "Discreet VIP Coordination" },
+      { icon: Sparkles, text: "Full Decor & Live Serenade" },
+    ],
+  },
+];
+
 export default function Home() {
   const [allProducts, setAllProducts] = useState<any[]>(mockProducts);
   const [newlyLaunchedProducts, setNewlyLaunchedProducts] = useState<any[]>([]);
@@ -164,14 +251,38 @@ export default function Home() {
   const [bestSellerProducts, setBestSellerProducts] = useState<any[]>([]);
   const [productsLoading, setProductsLoading] = useState(true);
   
-  // Hero carousel state
+  // Hero carousel state & swipe handlers
   const [currentHeroImage, setCurrentHeroImage] = useState(0);
-  const heroImages = [
-    "https://miaoda-site-img.s3cdn.medo.dev/images/KLing_1820e6cd-672c-474f-a014-772dcd375172.jpg",
-    "https://miaoda-site-img.s3cdn.medo.dev/images/KLing_8fb5dcf8-22bd-4fbd-98ba-1611bfcdcc4d.jpg",
-    "https://miaoda-site-img.s3cdn.medo.dev/images/KLing_3556e18d-69b0-4c22-93c1-29efba584217.jpg",
-    "https://miaoda-site-img.s3cdn.medo.dev/images/KLing_6bbe1cd4-2103-4b1e-b55e-83ffbca65dd2.jpg",
-  ];
+  const [isHeroPaused, setIsHeroPaused] = useState(false);
+  const touchStartXRef = useRef<number | null>(null);
+  const touchEndXRef = useRef<number | null>(null);
+
+  const nextHeroSlide = () => {
+    setCurrentHeroImage((prev) => (prev + 1) % HERO_SLIDES.length);
+  };
+
+  const prevHeroSlide = () => {
+    setCurrentHeroImage((prev) => (prev - 1 + HERO_SLIDES.length) % HERO_SLIDES.length);
+  };
+
+  const handleHeroTouchStart = (e: React.TouchEvent) => {
+    touchStartXRef.current = e.targetTouches[0].clientX;
+    touchEndXRef.current = null;
+  };
+
+  const handleHeroTouchMove = (e: React.TouchEvent) => {
+    touchEndXRef.current = e.targetTouches[0].clientX;
+  };
+
+  const handleHeroTouchEnd = () => {
+    if (touchStartXRef.current === null || touchEndXRef.current === null) return;
+    const diff = touchStartXRef.current - touchEndXRef.current;
+    if (diff > 40) {
+      nextHeroSlide();
+    } else if (diff < -40) {
+      prevHeroSlide();
+    }
+  };
   
   // Testimonials state
   const [testimonials, setTestimonials] = useState<any[]>(SAMPLE_TESTIMONIALS);
@@ -259,13 +370,14 @@ export default function Home() {
     loadTestimonials();
   }, []);
 
-  // Auto-advance hero carousel every 6 seconds
+  // Auto-advance hero carousel every 6 seconds (pauses on hover)
   useEffect(() => {
+    if (isHeroPaused) return;
     const timer = setInterval(() => {
-      setCurrentHeroImage((prev) => (prev + 1) % heroImages.length);
+      nextHeroSlide();
     }, 6000);
     return () => clearInterval(timer);
-  }, [heroImages.length]);
+  }, [isHeroPaused]);
 
   // Testimonials carousel logic
   const [visibleTestimonialCount, setVisibleTestimonialCount] = useState(() => window.innerWidth >= 1024 ? 3 : window.innerWidth >= 640 ? 2 : 1);
@@ -329,83 +441,130 @@ export default function Home() {
         </div>
       </div>
 
-      {/* Hero Section with Live Canvas Particles & Image Carousel */}
-      <section className="relative h-[70vh] md:h-[90vh] w-full overflow-hidden animate-fade-in">
+      {/* Hero Section with Live Canvas Particles & Horizontal Sliding Card Track */}
+      <section
+        className="relative h-[50vh] sm:h-[56vh] md:h-[62vh] min-h-[440px] max-h-[560px] w-full overflow-hidden animate-fade-in group select-none"
+        onMouseEnter={() => setIsHeroPaused(true)}
+        onMouseLeave={() => setIsHeroPaused(false)}
+        onTouchStart={handleHeroTouchStart}
+        onTouchMove={handleHeroTouchMove}
+        onTouchEnd={handleHeroTouchEnd}
+      >
         <HeroParticles />
 
-        {/* Hero Image Carousel Background */}
-        <div className="absolute inset-0">
-          {heroImages.map((image, index) => (
-            <img
-              key={index}
-              src={image}
-              alt={`Hero Background ${index + 1}`}
-              className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-1500 ease-in-out ${
-                index === currentHeroImage ? 'opacity-100' : 'opacity-0'
-              }`}
-            />
-          ))}
-          <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/40 to-transparent" />
+        {/* Horizontal Sliding Track of Individual Cards */}
+        <div
+          className="flex h-full w-full transition-transform duration-700 ease-out will-change-transform"
+          style={{
+            transform: `translateX(-${currentHeroImage * 100}%)`,
+          }}
+        >
+          {HERO_SLIDES.map((slide, index) => {
+            const BadgeIcon = slide.badgeIcon;
+            return (
+              <div
+                key={index}
+                className="w-full h-full flex-shrink-0 relative overflow-hidden"
+              >
+                {/* Card Background Image */}
+                <img
+                  src={slide.image}
+                  alt={`Hero Card ${index + 1}`}
+                  className="absolute inset-0 h-full w-full object-cover select-none pointer-events-none"
+                  draggable={false}
+                />
+                {/* Card Luxury Dark Gradient Overlay */}
+                <div className="absolute inset-0 bg-gradient-to-r from-black/85 via-black/55 to-transparent pointer-events-none" />
+
+                {/* Card Content Container */}
+                <div className="container relative z-20 flex h-full items-center">
+                  <div className="w-full max-w-2xl py-4 sm:py-6 space-y-3 sm:space-y-4 md:space-y-4.5">
+                    {/* Category / House Badge */}
+                    <div className="inline-flex items-center gap-2 rounded-full border border-secondary/40 bg-secondary/20 px-3.5 py-1 sm:px-4 sm:py-1.5 text-xs sm:text-sm font-semibold text-secondary backdrop-blur-md shadow-lg">
+                      <BadgeIcon className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-secondary animate-pulse" />
+                      <span>{slide.badgeText}</span>
+                    </div>
+
+                    {/* Headline */}
+                    <h1 className="text-2xl sm:text-4xl md:text-5xl lg:text-6xl font-bold tracking-tight text-white leading-[1.12] drop-shadow-xl font-serif">
+                      {slide.titlePrefix}{" "}
+                      <span className="text-secondary italic">{slide.titleHighlight}</span>
+                    </h1>
+
+                    {/* Description */}
+                    <p className="text-xs sm:text-sm md:text-base text-white/90 max-w-xl leading-relaxed drop-shadow-md font-light">
+                      {slide.description}
+                    </p>
+
+                    {/* Action Buttons tailored to each slide */}
+                    <div className="flex flex-wrap items-center gap-2.5 sm:gap-3 pt-1 sm:pt-2">
+                      {slide.buttons.map((btn, btnIdx) => (
+                        <Link key={btnIdx} to={btn.link} className="w-auto">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className={cn(
+                              "h-9 sm:h-10 px-4 sm:px-6 text-xs sm:text-sm font-bold transition-all rounded-full shadow-md",
+                              btn.primary
+                                ? "bg-secondary text-primary border-secondary hover:bg-secondary/90 hover:scale-105"
+                                : "text-white border-secondary/60 bg-black/35 backdrop-blur-md hover:bg-secondary hover:text-primary"
+                            )}
+                          >
+                            {btn.text}
+                          </Button>
+                        </Link>
+                      ))}
+                    </div>
+
+                    {/* Micro Feature Badges */}
+                    <div className="flex flex-wrap items-center gap-4 sm:gap-6 pt-1 text-white/80 text-[11px] sm:text-xs md:text-sm font-medium">
+                      {slide.features.map((feat, featIdx) => {
+                        const FeatIcon = feat.icon;
+                        return (
+                          <span key={featIdx} className="flex items-center gap-1.5 sm:gap-2">
+                            <FeatIcon className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-secondary" /> {feat.text}
+                          </span>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
         </div>
 
-        <div className="container relative z-20 flex h-full items-center">
-          <div className="max-w-2xl space-y-8 animate-slide-up">
-            <div className="inline-flex items-center gap-2 rounded-full border border-secondary/40 bg-secondary/20 px-5 py-2 text-sm font-semibold text-secondary backdrop-blur-md shadow-lg">
-              <Sparkles className="h-4 w-4 text-secondary animate-pulse" />
-              <span>Bangalore's Premier Floral & Surprise House</span>
-            </div>
+        {/* Left Arrow Button (Moves card from left to right) */}
+        <button
+          onClick={prevHeroSlide}
+          className="absolute left-3 sm:left-5 top-1/2 -translate-y-1/2 z-30 p-2 sm:p-2.5 rounded-full bg-black/45 hover:bg-secondary hover:text-primary text-white border border-white/25 backdrop-blur-md transition-all shadow-xl hover:scale-110 active:scale-95"
+          aria-label="Previous hero card"
+        >
+          <ChevronLeft className="h-4 w-4 sm:h-5 sm:w-5" />
+        </button>
 
-            <h1 className="text-3xl sm:text-5xl md:text-7xl font-bold tracking-tight text-white leading-[1.1] drop-shadow-xl font-serif">
-              Elevating the Art of <span className="text-secondary italic">Giving</span>
-            </h1>
+        {/* Right Arrow Button (Moves next card into view) */}
+        <button
+          onClick={nextHeroSlide}
+          className="absolute right-3 sm:right-5 top-1/2 -translate-y-1/2 z-30 p-2 sm:p-2.5 rounded-full bg-black/45 hover:bg-secondary hover:text-primary text-white border border-white/25 backdrop-blur-md transition-all shadow-xl hover:scale-110 active:scale-95"
+          aria-label="Next hero card"
+        >
+          <ChevronRight className="h-4 w-4 sm:h-5 sm:w-5" />
+        </button>
 
-            <p className="text-base md:text-xl lg:text-2xl text-white/90 max-w-xl leading-relaxed drop-shadow-md font-light">
-              Exquisite bouquets, curated hampers, and bespoke surprise services for life's most precious moments.
-            </p>
-
-            <div className="flex flex-col sm:flex-row flex-wrap gap-4 pt-4">
-              <Link to="/products" className="w-full sm:w-auto">
-                <Button size="lg" variant="outline" className="w-full sm:w-auto h-14 px-8 text-base font-bold text-white border-secondary/60 bg-black/30 backdrop-blur-md hover:bg-secondary hover:text-primary transition-all rounded-full">
-                  Shop Collection
-                </Button>
-              </Link>
-              <Link to="/surprise-services" className="w-full sm:w-auto">
-                <Button size="lg" variant="outline" className="w-full sm:w-auto h-14 px-8 text-base font-bold text-white border-secondary/60 bg-black/30 backdrop-blur-md hover:bg-secondary hover:text-primary transition-all rounded-full">
-                  Plan a Surprise
-                </Button>
-              </Link>
-              <Link to="/about" className="w-full sm:w-auto">
-                <Button size="lg" variant="outline" className="w-full sm:w-auto h-14 px-8 text-base font-bold text-white border-secondary/60 bg-black/30 backdrop-blur-md hover:bg-secondary hover:text-primary transition-all rounded-full">
-                  About Us
-                </Button>
-              </Link>
-            </div>
-
-            {/* Micro Feature Badges */}
-            <div className="flex items-center gap-6 pt-4 text-white/80 text-xs md:text-sm font-medium">
-              <span className="flex items-center gap-2">
-                <Zap className="h-4 w-4 text-secondary" /> 2-Hour Express Delivery
-              </span>
-              <span className="flex items-center gap-2">
-                <Award className="h-4 w-4 text-secondary" /> Master Florist Crafted
-              </span>
-            </div>
-
-            {/* Hero Image Carousel Indicators */}
-            <div className="flex items-center gap-2 pt-8">
-              {heroImages.map((_, index) => (
-                <button
-                  key={index}
-                  onClick={() => setCurrentHeroImage(index)}
-                  className={cn(
-                    "h-2 rounded-full transition-all duration-300",
-                    index === currentHeroImage ? "bg-secondary w-6" : "bg-white/40 w-2 hover:bg-white/60"
-                  )}
-                  aria-label={`View hero image ${index + 1}`}
-                />
-              ))}
-            </div>
-          </div>
+        {/* Hero Carousel Indicators */}
+        <div className="absolute bottom-4 sm:bottom-6 left-6 sm:left-12 lg:left-24 z-30 flex items-center gap-2">
+          {HERO_SLIDES.map((_, index) => (
+            <button
+              key={index}
+              onClick={() => setCurrentHeroImage(index)}
+              className={cn(
+                "h-2 rounded-full transition-all duration-300 shadow-md",
+                index === currentHeroImage ? "bg-secondary w-6" : "bg-white/40 w-2 hover:bg-white/60"
+              )}
+              aria-label={`View hero card ${index + 1}`}
+            />
+          ))}
         </div>
       </section>
 
