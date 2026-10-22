@@ -8,6 +8,7 @@ import { getProducts } from '@/db/api';
 import { testimonialService } from '@/services/api';
 import { WishlistButton } from '@/components/common/WishlistButton';
 import { TeamShowcase } from '@/components/TeamShowcase';
+import { WorldOfBloomsReels } from '@/components/WorldOfBloomsReels';
 import { mockProducts } from '@/data/mockProducts';
 
 // Category Definitions for Homepage Collections with dynamic rotation
@@ -676,72 +677,8 @@ export default function Home() {
         viewAllLink="/products"
       />
 
-      {/* Gallery Section */}
-      <section className="py-24 bg-white">
-        <div className="container text-center mb-16 space-y-4">
-          <span className="text-secondary font-bold text-xs uppercase tracking-widest">Visual Diary</span>
-          <h2 className="text-4xl md:text-5xl font-bold tracking-tight text-primary font-serif">Our World of Blooms</h2>
-          <div className="h-1 w-24 bg-secondary mx-auto rounded-full" />
-          <p className="text-lg text-muted-foreground max-w-2xl mx-auto leading-relaxed">
-            A glimpse into our handcrafted creations, bespoke surprises, and floral setups.
-          </p>
-        </div>
-
-        <div className="container">
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 md:gap-6">
-            <div className="md:col-span-2 md:row-span-2 overflow-hidden rounded-2xl luxury-shadow hover-lift group relative">
-              <img
-                src="https://miaoda-site-img.s3cdn.medo.dev/images/KLing_66ade087-5eac-4fb3-83db-431e8df6b554.jpg"
-                alt="Luxury Flower Arrangement"
-                className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity p-8 flex items-end">
-                <span className="text-white font-bold text-xl">Grand Rose Archways</span>
-              </div>
-            </div>
-            <div className="overflow-hidden rounded-2xl luxury-shadow hover-lift group relative">
-              <img
-                src="https://miaoda-site-img.s3cdn.medo.dev/images/KLing_c023c54c-4d4a-425e-aee3-ef5a6118cf40.jpg"
-                alt="Premium Gift Hamper"
-                className="w-full h-64 object-cover transition-transform duration-700 group-hover:scale-110"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity p-6 flex items-end">
-                <span className="text-white font-bold text-base">Curated Gift Boxes</span>
-              </div>
-            </div>
-            <div className="overflow-hidden rounded-2xl luxury-shadow hover-lift group relative">
-              <img
-                src="https://miaoda-site-img.s3cdn.medo.dev/images/KLing_72323cbd-096f-46c9-91cf-bd7a3ac90808.jpg"
-                alt="Romantic Rose Arrangement"
-                className="w-full h-64 object-cover transition-transform duration-700 group-hover:scale-110"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity p-6 flex items-end">
-                <span className="text-white font-bold text-base">Velvet Crimson Roses</span>
-              </div>
-            </div>
-            <div className="overflow-hidden rounded-2xl luxury-shadow hover-lift group relative">
-              <img
-                src="https://miaoda-site-img.s3cdn.medo.dev/images/KLing_965d1a2d-371b-4b3f-b293-31d0d3bbfe15.jpg"
-                alt="Birthday Celebration Flowers"
-                className="w-full h-64 object-cover transition-transform duration-700 group-hover:scale-110"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity p-6 flex items-end">
-                <span className="text-white font-bold text-base">Birthday Bloom Bundles</span>
-              </div>
-            </div>
-            <div className="md:col-span-2 md:row-span-2 overflow-hidden rounded-2xl luxury-shadow hover-lift group relative">
-              <img
-                src="https://miaoda-site-img.s3cdn.medo.dev/images/KLing_14558096-74be-4c1a-a8a2-e0334e6050d9.jpg"
-                alt="Luxury Floral Event Decoration"
-                className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity p-8 flex items-end">
-                <span className="text-white font-bold text-xl">Event & Venue Styling</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
+      {/* World of Blooms - Instagram Reels Interactive Section */}
+      <WorldOfBloomsReels />
 
       {/* About Us - Executive Team Spotlight Section */}
       <section className="py-16 md:py-24 bg-[#FAF6F0]/70 dark:bg-muted/10 border-y border-[#EADBCE] dark:border-border relative overflow-hidden">
