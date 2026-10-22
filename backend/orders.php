@@ -422,6 +422,10 @@ function createOrder($db, $userId, $data)
         $cfConfig = getCashfreeConfig();
         $isCashfreeActive = !empty($cfConfig['app_id']) && !empty($cfConfig['secret_key']);
 
+        if (!$isCashfreeActive) {
+            throw new Exception("Cashfree payment credentials are not configured on the server. Please set CASHFREE_APP_ID and CASHFREE_SECRET_KEY in your .env file.");
+        }
+
         if ($isCashfreeActive) {
             $cleanPhone = preg_replace('/[^0-9]/', '', (string)$data->customer_phone);
             if (strlen($cleanPhone) > 10) {
@@ -465,7 +469,14 @@ function createOrder($db, $userId, $data)
             curl_setopt($ch, CURLOPT_TIMEOUT, 20);
             $cfRes = curl_exec($ch);
             $cfHttp = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            $cfErrno = curl_errno($ch);
+            $cfErrMsg = curl_error($ch);
             curl_close($ch);
+
+            if ($cfErrno) {
+                error_log('Cashfree cURL error: ' . $cfErrMsg);
+                throw new Exception("Payment Gateway Connection Error: " . $cfErrMsg);
+            }
 
             if ($cfRes && ($cfHttp === 200 || $cfHttp === 201)) {
                 $cfData = json_decode($cfRes, true);

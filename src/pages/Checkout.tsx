@@ -266,7 +266,9 @@ export default function Checkout() {
     } else {
       toast({
         title: "Payment Gateway Error",
-        description: "Cashfree payment session could not be established. Please try again.",
+        description: !cashfreeActive
+          ? "Cashfree credentials are not configured on the backend server. Please verify CASHFREE_APP_ID and CASHFREE_SECRET_KEY in the server .env configuration."
+          : "Cashfree payment session could not be established. Please try again.",
         variant: "destructive",
       });
       return false;

@@ -363,10 +363,10 @@ export default function Products() {
 
         {/* Product Grid — auto-fills columns based on available width */}
         <div
-          className="gap-4 md:gap-5"
+          className="gap-3 sm:gap-4 md:gap-5"
           style={{
             display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fill, minmax(min(240px, 100%), 1fr))'
+            gridTemplateColumns: 'repeat(auto-fill, minmax(min(205px, 100%), 1fr))'
           }}
         >
           {filteredProducts.map((product, index) => (
@@ -766,7 +766,7 @@ function ProductCard({ product }: { product: any }) {
 
       {/* Card body — padding scales with container width */}
       <div className="product-card-body flex flex-col flex-1">
-        <div className="flex justify-between items-center mb-1.5">
+        <div className="flex justify-between items-center mb-1">
           <span className="text-[10px] font-bold uppercase tracking-wider text-secondary bg-secondary/10 px-2 py-0.5 rounded truncate max-w-[65%]">
             {product.category ? product.category.replace('-', ' ') : 'Bloom'}
           </span>
@@ -777,16 +777,16 @@ function ProductCard({ product }: { product: any }) {
         </div>
 
         <Link to={`/product/${product.slug}`} className="hover:text-secondary transition-colors mb-1">
-          <h3 className="product-card-title font-bold font-serif text-primary line-clamp-2 leading-snug">{product.name}</h3>
+          <h3 className="product-card-title font-bold font-serif text-primary line-clamp-1 leading-snug">{product.name}</h3>
         </Link>
 
-        <p className="text-xs text-muted-foreground line-clamp-2 mb-3 leading-relaxed flex-1">
+        <p className="text-[11px] sm:text-xs text-muted-foreground line-clamp-2 mb-2.5 leading-relaxed flex-1">
           {product.description}
         </p>
 
-        <div className="mt-auto flex items-center justify-between pt-2.5 border-t border-border/50">
+        <div className="mt-auto flex items-center justify-between pt-2 border-t border-border/50">
           <span className="product-card-price font-bold text-primary">{formatINR(product.price)}</span>
-          <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded whitespace-nowrap">
+          <span className="text-[9px] sm:text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded whitespace-nowrap">
             Same-Day
           </span>
         </div>

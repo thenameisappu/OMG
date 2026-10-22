@@ -74,7 +74,7 @@ export default function Wishlist() {
             </Link>
           </Card>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3.5 sm:gap-4 md:gap-5">
             {wishlistItems.map((item) => {
               const p = item.products ? {
                 id: item.product_id || item.id,
@@ -95,13 +95,13 @@ export default function Wishlist() {
                       />
                     </div>
                   </Link>
-                  <div className="p-5 flex flex-col flex-1">
+                  <div className="p-3.5 sm:p-4 flex flex-col flex-1">
                     <Link to={`/product/${p.slug}`}>
-                      <h3 className="font-bold text-base font-serif text-primary mb-2 line-clamp-1 hover:text-secondary transition-colors">
+                      <h3 className="font-bold text-sm font-serif text-primary mb-1 line-clamp-1 hover:text-secondary transition-colors">
                         {p.name}
                       </h3>
                     </Link>
-                    <p className="text-xl font-bold text-primary mb-4">
+                    <p className="text-base font-bold text-primary mb-3">
                       {formatINR(p.price)}
                     </p>
                     <div className="flex gap-2 mt-auto">

@@ -454,7 +454,7 @@ export default function Home() {
             </Link>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 md:gap-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-5">
             {categoryCardsData.map((cat) => (
               <CategoryCard
                 key={cat.id}
@@ -905,7 +905,7 @@ function CategoryCard({
       to={link}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
-      className={cn("group relative overflow-hidden rounded-2xl aspect-[4/3] hover-lift luxury-shadow block", className)}
+      className={cn("group relative overflow-hidden rounded-2xl aspect-[4/5] hover-lift luxury-shadow block", className)}
     >
       <img
         src={displayImage}
@@ -913,13 +913,13 @@ function CategoryCard({
         loading="lazy"
         className="h-full w-full object-cover transition-all duration-700 ease-out group-hover:scale-105 group-hover:brightness-110"
       />
-      <div className="absolute inset-0 bg-gradient-to-t from-primary/90 via-primary/30 to-transparent transition-opacity duration-700 group-hover:opacity-80" />
-      <div className="absolute bottom-0 left-0 right-0 p-8">
-        {subtitle && <p className="text-secondary/90 text-xs font-bold uppercase tracking-widest mb-1">{subtitle}</p>}
-        <h3 className="text-3xl font-bold font-serif text-white mb-2 group-hover:text-secondary transition-colors duration-500">{title}</h3>
-        <div className="flex items-center text-white/90 group-hover:text-secondary transition-colors duration-500 font-semibold text-sm">
+      <div className="absolute inset-0 bg-gradient-to-t from-primary/95 via-primary/35 to-transparent transition-opacity duration-700 group-hover:opacity-85" />
+      <div className="absolute bottom-0 left-0 right-0 p-4 sm:p-5">
+        {subtitle && <p className="text-secondary/90 text-[10px] font-bold uppercase tracking-wider mb-1 line-clamp-1">{subtitle}</p>}
+        <h3 className="text-xl sm:text-2xl font-bold font-serif text-white mb-1.5 group-hover:text-secondary transition-colors duration-500">{title}</h3>
+        <div className="flex items-center text-white/90 group-hover:text-secondary transition-colors duration-500 font-semibold text-xs">
           <span>Explore Collection</span>
-          <ArrowRight className="h-4 w-4 ml-2 transform group-hover:translate-x-2 transition-transform duration-500" />
+          <ArrowRight className="h-3.5 w-3.5 ml-1.5 transform group-hover:translate-x-1.5 transition-transform duration-500" />
         </div>
       </div>
     </Link>
@@ -967,13 +967,21 @@ function ProductSectionCarousel({
   viewAllLink = "/products"
 }: ProductSectionCarouselProps) {
   const [currentSlide, setCurrentSlide] = useState(0);
-  const [visibleCount, setVisibleCount] = useState(() => 
-    typeof window !== 'undefined' ? (window.innerWidth >= 1024 ? 3 : window.innerWidth >= 640 ? 2 : 1) : 3
-  );
+  const getVisibleCount = () => {
+    if (typeof window === 'undefined') return 4;
+    const w = window.innerWidth;
+    if (w >= 1400) return 5;
+    if (w >= 1024) return 4;
+    if (w >= 768) return 3;
+    if (w >= 480) return 2;
+    return 1;
+  };
+
+  const [visibleCount, setVisibleCount] = useState(getVisibleCount);
 
   useEffect(() => {
     const onResize = () => {
-      setVisibleCount(window.innerWidth >= 1024 ? 3 : window.innerWidth >= 640 ? 2 : 1);
+      setVisibleCount(getVisibleCount());
       setCurrentSlide(0);
     };
     window.addEventListener('resize', onResize);
@@ -1038,7 +1046,7 @@ function ProductSectionCarousel({
                 <div
                   key={product.id}
                   style={{ width: `${100 / visibleCount}%`, flexShrink: 0 }}
-                  className="px-2 md:px-3"
+                  className="px-1.5 sm:px-2 md:px-2.5"
                 >
                   <ProductCard product={product} badgeType={badgeType} />
                 </div>
@@ -1052,17 +1060,17 @@ function ProductSectionCarousel({
           <>
             <button
               onClick={prevSlide}
-              className="absolute -left-4 md:-left-6 top-1/2 -translate-y-1/2 bg-white/95 hover:bg-secondary hover:text-primary p-2.5 md:p-3 rounded-full shadow-lg transition-all hover:scale-110 z-10 border border-border"
+              className="absolute -left-3 md:-left-5 top-1/2 -translate-y-1/2 bg-white/95 hover:bg-secondary hover:text-primary p-2 md:p-2.5 rounded-full shadow-lg transition-all hover:scale-110 z-10 border border-border"
               aria-label={`Previous ${title} slide`}
             >
-              <ChevronLeft className="h-5 w-5 md:h-6 md:w-6 text-primary" />
+              <ChevronLeft className="h-4 w-4 md:h-5 md:w-5 text-primary" />
             </button>
             <button
               onClick={nextSlide}
-              className="absolute -right-4 md:-right-6 top-1/2 -translate-y-1/2 bg-white/95 hover:bg-secondary hover:text-primary p-2.5 md:p-3 rounded-full shadow-lg transition-all hover:scale-110 z-10 border border-border"
+              className="absolute -right-3 md:-right-5 top-1/2 -translate-y-1/2 bg-white/95 hover:bg-secondary hover:text-primary p-2 md:p-2.5 rounded-full shadow-lg transition-all hover:scale-110 z-10 border border-border"
               aria-label={`Next ${title} slide`}
             >
-              <ChevronRight className="h-5 w-5 md:h-6 md:w-6 text-primary" />
+              <ChevronRight className="h-4 w-4 md:h-5 md:w-5 text-primary" />
             </button>
 
             {/* Dot Indicators */}
@@ -1147,22 +1155,22 @@ function ProductCard({ product, badgeType }: { product: any; badgeType?: 'new' |
       </Link>
       {/* Body scales via CSS container queries (product-card-* classes in index.css) */}
       <div className="product-card-body flex flex-col flex-1">
-        <div className="flex justify-between items-start mb-2">
-          <Link to={`/product/${product.slug}`} className="hover:text-secondary transition-colors flex-1 min-w-0 pr-2">
-            <h3 className="product-card-title font-bold font-serif text-primary line-clamp-2 leading-snug">{product.name}</h3>
+        <div className="flex justify-between items-start mb-1.5">
+          <Link to={`/product/${product.slug}`} className="hover:text-secondary transition-colors flex-1 min-w-0 pr-1.5">
+            <h3 className="product-card-title font-bold font-serif text-primary line-clamp-1 leading-snug">{product.name}</h3>
           </Link>
           <div className="flex items-center text-amber-500 flex-shrink-0">
-            <Star className="h-3.5 w-3.5 fill-current" />
-            <span className="text-xs font-bold ml-1 text-muted-foreground">{getProductRating(product)}</span>
+            <Star className="h-3 w-3 fill-current" />
+            <span className="text-[11px] font-bold ml-1 text-muted-foreground">{getProductRating(product)}</span>
           </div>
         </div>
-        <p className="text-xs text-muted-foreground line-clamp-2 mb-4 flex-1 leading-relaxed">
+        <p className="text-[11px] sm:text-xs text-muted-foreground line-clamp-2 mb-2.5 flex-1 leading-relaxed">
           {product.description}
         </p>
-        <div className="flex items-center justify-between mt-auto pt-3 border-t border-border/50">
+        <div className="flex items-center justify-between mt-auto pt-2 border-t border-border/50">
           <span className="product-card-price font-bold text-primary">{formatINR(product.price)}</span>
           <Link to={`/product/${product.slug}`}>
-            <Button variant="outline" className="border-secondary text-secondary hover:bg-secondary hover:text-primary rounded-full px-3 md:px-5 text-xs font-bold transition-all">
+            <Button variant="outline" className="border-secondary text-secondary hover:bg-secondary hover:text-primary rounded-full px-2.5 sm:px-3.5 h-7 sm:h-7.5 text-[11px] sm:text-xs font-bold transition-all">
               View
             </Button>
           </Link>

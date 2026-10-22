@@ -573,11 +573,17 @@ function authenticate()
  */
 function getCashfreeConfig()
 {
-    $env = strtolower((string)(getenv('CASHFREE_ENV') ?: ($_ENV['CASHFREE_ENV'] ?? 'production')));
-    $isProd = ($env === 'production' || $env === 'prod');
+    $appId = (string)(getenv('CASHFREE_APP_ID') ?: ($_ENV['CASHFREE_APP_ID'] ?? ''));
+    $secretKey = (string)(getenv('CASHFREE_SECRET_KEY') ?: ($_ENV['CASHFREE_SECRET_KEY'] ?? ''));
+    $envSetting = strtolower((string)(getenv('CASHFREE_ENV') ?: ($_ENV['CASHFREE_ENV'] ?? '')));
+
+    // Auto-detect sandbox if app_id starts with TEST or if CASHFREE_ENV is explicitly sandbox/test
+    $isSandbox = ($envSetting === 'sandbox' || $envSetting === 'test' || strpos($appId, 'TEST') === 0);
+    $isProd = !$isSandbox && ($envSetting === 'production' || $envSetting === 'prod');
+
     return [
-        'app_id' => getenv('CASHFREE_APP_ID') ?: ($_ENV['CASHFREE_APP_ID'] ?? ''),
-        'secret_key' => getenv('CASHFREE_SECRET_KEY') ?: ($_ENV['CASHFREE_SECRET_KEY'] ?? ''),
+        'app_id' => $appId,
+        'secret_key' => $secretKey,
         'env' => $isProd ? 'production' : 'sandbox',
         'api_version' => '2023-08-01',
         'base_url' => $isProd ? 'https://api.cashfree.com/pg' : 'https://sandbox.cashfree.com/pg'

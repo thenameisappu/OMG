@@ -264,23 +264,36 @@ All colors MUST be HSL.
   /* Card body padding & text scale based on card width, not viewport width */
 
   .product-card-body {
-    padding: 0.875rem;
+    padding: 0.75rem;
   }
 
   .product-card-title {
-    font-size: 0.85rem;
-    line-height: 1.3;
+    font-size: 0.825rem;
+    line-height: 1.25;
   }
 
   .product-card-price {
-    font-size: 1rem;
+    font-size: 0.95rem;
     font-weight: 800;
   }
 
   /* Small card (≥ 180px) */
   @container productcard (min-width: 180px) {
     .product-card-body {
-      padding: 1rem;
+      padding: 0.75rem;
+    }
+    .product-card-title {
+      font-size: 0.85rem;
+    }
+    .product-card-price {
+      font-size: 0.95rem;
+    }
+  }
+
+  /* Medium card (≥ 240px) */
+  @container productcard (min-width: 240px) {
+    .product-card-body {
+      padding: 0.875rem;
     }
     .product-card-title {
       font-size: 0.9rem;
@@ -290,42 +303,29 @@ All colors MUST be HSL.
     }
   }
 
-  /* Medium card (≥ 260px) */
-  @container productcard (min-width: 260px) {
+  /* Large card (≥ 300px) */
+  @container productcard (min-width: 300px) {
     .product-card-body {
-      padding: 1.125rem;
+      padding: 1rem;
     }
     .product-card-title {
-      font-size: 1rem;
+      font-size: 0.95rem;
     }
     .product-card-price {
       font-size: 1.15rem;
     }
   }
 
-  /* Large card (≥ 340px) */
-  @container productcard (min-width: 340px) {
+  /* Extra-large card (≥ 380px) */
+  @container productcard (min-width: 380px) {
     .product-card-body {
-      padding: 1.375rem;
+      padding: 1.125rem;
     }
     .product-card-title {
-      font-size: 1.1rem;
+      font-size: 1.05rem;
     }
     .product-card-price {
-      font-size: 1.3rem;
-    }
-  }
-
-  /* Extra-large card (≥ 420px) */
-  @container productcard (min-width: 420px) {
-    .product-card-body {
-      padding: 1.625rem;
-    }
-    .product-card-title {
       font-size: 1.25rem;
-    }
-    .product-card-price {
-      font-size: 1.5rem;
     }
   }
 }
