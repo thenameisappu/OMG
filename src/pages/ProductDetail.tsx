@@ -250,10 +250,10 @@ export default function ProductDetail() {
 
         {/* 2-Column Main Layout (Balanced 50/50 Desktop Split) */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 lg:gap-8 items-start w-full">
-          {/* Left Column: Product Gallery (Adjusted for Screen View) */}
-          <div className="lg:col-span-6 max-w-[340px] sm:max-w-[380px] lg:max-w-[410px] flex flex-col justify-start w-full shrink-0 mx-auto lg:mx-0">
-            {/* Main Product Image (Strict 3:4 Aspect Ratio) */}
-            <div className="w-full aspect-[3/4] rounded-2xl sm:rounded-[24px] overflow-hidden bg-neutral-100 relative shadow-sm border border-neutral-200/80 shrink-0 group">
+          {/* Left Column: Product Gallery */}
+          <div className="lg:col-span-6 max-w-[360px] sm:max-w-[420px] lg:max-w-[480px] flex flex-col justify-start w-full shrink-0 mx-auto lg:mx-0">
+            {/* Main Product Image (Square Aspect Ratio) */}
+            <div className="w-full aspect-square rounded-2xl sm:rounded-[24px] overflow-hidden bg-neutral-100 relative shadow-sm border border-neutral-200/80 shrink-0 group">
               <img
                 src={images[activeImage] || images[0]}
                 alt={product.name}
