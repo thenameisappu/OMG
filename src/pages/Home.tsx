@@ -444,7 +444,7 @@ export default function Home() {
 
       {/* Hero Section with Live Canvas Particles & Horizontal Sliding Card Track */}
       <section
-        className="relative h-[50vh] sm:h-[56vh] md:h-[62vh] min-h-[440px] max-h-[560px] w-full overflow-hidden animate-fade-in group select-none"
+        className="relative h-[55vh] sm:h-[62vh] md:h-[68vh] lg:h-[75vh] min-h-[420px] max-h-[760px] w-full overflow-hidden animate-fade-in group select-none"
         onMouseEnter={() => setIsHeroPaused(true)}
         onMouseLeave={() => setIsHeroPaused(false)}
         onTouchStart={handleHeroTouchStart}
@@ -487,7 +487,7 @@ export default function Home() {
                     </div>
 
                     {/* Headline */}
-                    <h1 className="text-2xl sm:text-4xl md:text-5xl lg:text-6xl font-bold tracking-tight text-white leading-[1.12] drop-shadow-xl font-serif">
+                    <h1 className="text-[clamp(1.75rem,4.5vw,3.75rem)] font-bold tracking-tight text-white leading-[1.12] drop-shadow-xl font-serif">
                       {slide.titlePrefix}{" "}
                       <span className="text-secondary italic">{slide.titleHighlight}</span>
                     </h1>

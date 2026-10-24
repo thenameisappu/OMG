@@ -20,17 +20,17 @@ export default {
             padding: {
                 DEFAULT: '1rem',
                 sm: '1.25rem',
-                md: '1.5rem',
+                md: '1.75rem',
                 lg: '2rem',
                 xl: '2.5rem',
                 '2xl': '3rem',
             },
             screens: {
-                sm: '640px',
-                md: '768px',
-                lg: '1024px',
-                xl: '1280px',
-                '2xl': '1440px',
+                sm: '100%',
+                md: '100%',
+                lg: '100%',
+                xl: '100%',
+                '2xl': '1680px',
             }
         },
         extend: {

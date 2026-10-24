@@ -77,7 +77,28 @@ All colors MUST be HSL.
     overflow-x: hidden;
     width: 100%;
     -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
     scroll-behavior: smooth;
+    font-size: 16px;
+  }
+
+  /* Auto-scaling device breakpoints: scales UI elements proportionally */
+  @media (max-width: 380px) {
+    html {
+      font-size: 14.5px; /* Compact mobile screens */
+    }
+  }
+
+  @media (min-width: 1920px) {
+    html {
+      font-size: 17.5px; /* Large desktop computer screens */
+    }
+  }
+
+  @media (min-width: 2560px) {
+    html {
+      font-size: 19.5px; /* 2K & 4K Ultra-wide displays */
+    }
   }
 
   body {
@@ -89,6 +110,16 @@ All colors MUST be HSL.
     font-feature-settings: "rlig" 1, "calt" 1;
     font-synthesis-weight: none;
     text-rendering: optimizeLegibility;
+  }
+
+  /* Fully fluid auto-adjusting container across mobile, tablet, laptop, and desktop computer */
+  .container {
+    width: 100% !important;
+    max-width: min(100%, 1680px) !important;
+    padding-left: clamp(1rem, 3.5vw, 2.5rem) !important;
+    padding-right: clamp(1rem, 3.5vw, 2.5rem) !important;
+    margin-left: auto !important;
+    margin-right: auto !important;
   }
 
   img, video, canvas, svg {
