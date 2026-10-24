@@ -111,7 +111,7 @@ export default function Cart() {
 
           {/* Order Summary Card */}
           <div className="lg:col-span-5">
-            <div className="bg-primary text-white p-8 rounded-3xl sticky top-28 border border-secondary/20 shadow-2xl">
+            <div className="bg-primary text-white p-5 sm:p-6 md:p-8 rounded-3xl sticky top-28 border border-secondary/20 shadow-2xl">
               <h3 className="text-2xl font-bold font-serif mb-6 text-white">Order Summary</h3>
               
               <div className="space-y-3 mb-6 text-sm text-white/80 border-b border-white/10 pb-6">

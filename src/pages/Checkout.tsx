@@ -543,17 +543,17 @@ export default function Checkout() {
   }
 
   return (
-    <div className="bg-background min-h-screen py-16">
+    <div className="bg-background min-h-screen py-8 sm:py-12 md:py-16">
       <div className="container">
-        <div className="flex items-center gap-4 mb-10">
+        <div className="flex items-center gap-3 sm:gap-4 mb-6 sm:mb-10">
           <Button variant="ghost" size="icon" onClick={() => navigate('/cart')}>
             <ArrowLeft className="h-5 w-5" />
           </Button>
-          <h1 className="text-4xl font-bold text-primary font-serif-luxury italic">Secured Checkout</h1>
+          <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-primary font-serif-luxury italic">Secured Checkout</h1>
         </div>
 
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="grid grid-cols-1 lg:grid-cols-12 gap-12">
+          <form onSubmit={form.handleSubmit(onSubmit)} className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12">
             {/* Form Sections */}
             <div className="lg:col-span-7 space-y-12">
               {/* Personal Details */}
@@ -893,7 +893,7 @@ export default function Checkout() {
 
             {/* Sidebar Summary */}
             <div className="lg:col-span-5">
-              <div className="bg-white luxury-shadow rounded-2xl p-8 border sticky top-28">
+              <div className="bg-white luxury-shadow rounded-2xl p-5 sm:p-6 md:p-8 border sticky top-28">
                 <h3 className="text-xl font-bold mb-8">Order Overview</h3>
                 <div className="space-y-6 max-h-[400px] overflow-y-auto mb-8 pr-2">
                   {cart.map((item) => (

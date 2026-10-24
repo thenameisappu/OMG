@@ -279,7 +279,7 @@ export default function Subscriptions() {
               Occasion-Timed Floral Subscriptions
             </div>
 
-            <h1 className="text-5xl md:text-7xl font-bold font-serif tracking-tight text-white mb-6 leading-[1.08]">
+            <h1 className="text-3xl sm:text-5xl md:text-7xl font-bold font-serif tracking-tight text-white mb-6 leading-[1.08]">
               Never Miss<br />
               <span className="bg-gradient-to-r from-rose-400 via-pink-400 to-amber-400 bg-clip-text text-transparent italic">
                 a Special Moment

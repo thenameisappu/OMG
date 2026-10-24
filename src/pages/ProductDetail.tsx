@@ -251,7 +251,7 @@ export default function ProductDetail() {
         {/* 2-Column Main Layout (Balanced 50/50 Desktop Split) */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 lg:gap-8 items-start w-full">
           {/* Left Column: Product Gallery */}
-          <div className="lg:col-span-6 max-w-[360px] sm:max-w-[420px] lg:max-w-[480px] flex flex-col justify-start w-full shrink-0 mx-auto lg:mx-0">
+          <div className="lg:col-span-6 max-w-full sm:max-w-[480px] lg:max-w-[540px] flex flex-col justify-start w-full shrink-0 mx-auto lg:mx-0">
             {/* Main Product Image (Square Aspect Ratio) */}
             <div className="w-full aspect-square rounded-2xl sm:rounded-[24px] overflow-hidden bg-neutral-100 relative shadow-sm border border-neutral-200/80 shrink-0 group">
               <img

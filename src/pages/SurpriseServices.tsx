@@ -334,7 +334,7 @@ export default function SurpriseServices() {
               Bespoke Surprise & Event Styling
             </div>
 
-            <h1 className="text-5xl md:text-7xl lg:text-8xl font-bold font-serif tracking-tight text-white mb-8 leading-[1.08]">
+            <h1 className="text-3xl sm:text-5xl md:text-7xl lg:text-8xl font-bold font-serif tracking-tight text-white mb-8 leading-[1.08]">
               Mastering the Art of <br />
               <span className="gold-gradient-text italic font-serif">Unforgettable Magic</span>
             </h1>

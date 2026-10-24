@@ -744,18 +744,18 @@ export default function Home() {
           <button
             onClick={prevTestimonialSlide}
             disabled={testimonials.length === 0}
-            className="absolute -left-4 md:-left-6 top-1/2 -translate-y-1/2 bg-white hover:bg-secondary hover:text-primary p-2.5 md:p-3 rounded-full shadow-lg transition-all hover:scale-110 z-10 border border-border disabled:opacity-30"
+            className="absolute left-1 sm:-left-3 md:-left-5 top-1/2 -translate-y-1/2 bg-white/95 hover:bg-secondary hover:text-primary p-2 md:p-3 rounded-full shadow-lg transition-all hover:scale-110 z-20 border border-border disabled:opacity-30"
             aria-label="Previous testimonial"
           >
-            <ChevronLeft className="h-5 w-5 md:h-6 md:w-6 text-primary" />
+            <ChevronLeft className="h-4 w-4 md:h-5 md:w-5 text-primary" />
           </button>
           <button
             onClick={nextTestimonialSlide}
             disabled={testimonials.length === 0}
-            className="absolute -right-4 md:-right-6 top-1/2 -translate-y-1/2 bg-white hover:bg-secondary hover:text-primary p-2.5 md:p-3 rounded-full shadow-lg transition-all hover:scale-110 z-10 border border-border disabled:opacity-30"
+            className="absolute right-1 sm:-right-3 md:-right-5 top-1/2 -translate-y-1/2 bg-white/95 hover:bg-secondary hover:text-primary p-2 md:p-3 rounded-full shadow-lg transition-all hover:scale-110 z-20 border border-border disabled:opacity-30"
             aria-label="Next testimonial"
           >
-            <ChevronRight className="h-5 w-5 md:h-6 md:w-6 text-primary" />
+            <ChevronRight className="h-4 w-4 md:h-5 md:w-5 text-primary" />
           </button>
 
           {/* Dot Indicators */}
@@ -1063,7 +1063,7 @@ function ProductSectionCarousel({
   viewAllLink = "/products"
 }: ProductSectionCarouselProps) {
   const [currentSlide, setCurrentSlide] = useState(0);
-  const getVisibleCount = () => {
+  const getResponsiveVisibleCount = () => {
     if (typeof window === 'undefined') return 4;
     const w = window.innerWidth;
     if (w >= 1400) return 5;
@@ -1073,11 +1073,11 @@ function ProductSectionCarousel({
     return 1;
   };
 
-  const [visibleCount, setVisibleCount] = useState(getVisibleCount);
+  const [visibleCount, setVisibleCount] = useState(getResponsiveVisibleCount);
 
   useEffect(() => {
     const onResize = () => {
-      setVisibleCount(getVisibleCount());
+      setVisibleCount(getResponsiveVisibleCount());
       setCurrentSlide(0);
     };
     window.addEventListener('resize', onResize);
@@ -1156,14 +1156,14 @@ function ProductSectionCarousel({
           <>
             <button
               onClick={prevSlide}
-              className="absolute -left-3 md:-left-5 top-1/2 -translate-y-1/2 bg-white/95 hover:bg-secondary hover:text-primary p-2 md:p-2.5 rounded-full shadow-lg transition-all hover:scale-110 z-10 border border-border"
+              className="absolute left-1 sm:-left-3 md:-left-5 top-1/2 -translate-y-1/2 bg-white/95 hover:bg-secondary hover:text-primary p-2 md:p-3 rounded-full shadow-lg transition-all hover:scale-110 z-20 border border-border"
               aria-label={`Previous ${title} slide`}
             >
               <ChevronLeft className="h-4 w-4 md:h-5 md:w-5 text-primary" />
             </button>
             <button
               onClick={nextSlide}
-              className="absolute -right-3 md:-right-5 top-1/2 -translate-y-1/2 bg-white/95 hover:bg-secondary hover:text-primary p-2 md:p-2.5 rounded-full shadow-lg transition-all hover:scale-110 z-10 border border-border"
+              className="absolute right-1 sm:-right-3 md:-right-5 top-1/2 -translate-y-1/2 bg-white/95 hover:bg-secondary hover:text-primary p-2 md:p-3 rounded-full shadow-lg transition-all hover:scale-110 z-20 border border-border"
               aria-label={`Next ${title} slide`}
             >
               <ChevronRight className="h-4 w-4 md:h-5 md:w-5 text-primary" />
