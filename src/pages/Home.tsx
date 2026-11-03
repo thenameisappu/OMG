@@ -585,7 +585,7 @@ export default function Home() {
 
         {/* Hero Carousel Indicators */}
         <div className="absolute bottom-4 sm:bottom-6 left-6 sm:left-12 lg:left-24 z-30 flex items-center gap-2">
-          {HERO_SLIDES.map((_, index) => (
+          {heroSlides.map((_, index) => (
             <button
               key={index}
               onClick={() => setCurrentHeroImage(index)}
