@@ -35,6 +35,60 @@
     }
 })();
 
+/**
+ * omgGetEnv()
+ * Robust environment variable resolver for Hostinger, LiteSpeed, Apache, and CLI.
+ * Hostinger hPanel injects variables configured under "Environment variables" into
+ * the web server request environment, primarily accessible via $_SERVER or $_ENV.
+ */
+if (!function_exists('omgGetEnv')) {
+    function omgGetEnv(string $key, string $default = ''): string
+    {
+        // 1. Direct $_SERVER lookup (primary on Hostinger / LiteSpeed / FastCGI)
+        if (isset($_SERVER[$key]) && (string)$_SERVER[$key] !== '') {
+            return (string)$_SERVER[$key];
+        }
+
+        // 2. Direct $_ENV lookup
+        if (isset($_ENV[$key]) && (string)$_ENV[$key] !== '') {
+            return (string)$_ENV[$key];
+        }
+
+        // 3. getenv()
+        $val = getenv($key);
+        if ($val !== false && (string)$val !== '') {
+            return (string)$val;
+        }
+
+        // 4. apache_getenv() if module loaded
+        if (function_exists('apache_getenv')) {
+            $aVal = @apache_getenv($key);
+            if ($aVal !== false && (string)$aVal !== '') {
+                return (string)$aVal;
+            }
+        }
+
+        // 5. Case-insensitive lookup (e.g. cashfree_app_id vs CASHFREE_APP_ID)
+        $upper = strtoupper($key);
+        if (isset($_SERVER[$upper]) && (string)$_SERVER[$upper] !== '') {
+            return (string)$_SERVER[$upper];
+        }
+        if (isset($_ENV[$upper]) && (string)$_ENV[$upper] !== '') {
+            return (string)$_ENV[$upper];
+        }
+
+        $lower = strtolower($key);
+        if (isset($_SERVER[$lower]) && (string)$_SERVER[$lower] !== '') {
+            return (string)$_SERVER[$lower];
+        }
+        if (isset($_ENV[$lower]) && (string)$_ENV[$lower] !== '') {
+            return (string)$_ENV[$lower];
+        }
+
+        return $default;
+    }
+}
+
 date_default_timezone_set('Asia/Kolkata');
 
 if (session_status() === PHP_SESSION_NONE) {
@@ -218,10 +272,10 @@ class Database
 
     public function __construct()
     {
-        $this->host = (getenv('DB_HOST') !== false && getenv('DB_HOST') !== '') ? getenv('DB_HOST') : (isset($_ENV['DB_HOST']) ? $_ENV['DB_HOST'] : 'localhost');
-        $this->db_name = (getenv('DB_NAME') !== false && getenv('DB_NAME') !== '') ? getenv('DB_NAME') : (isset($_ENV['DB_NAME']) ? $_ENV['DB_NAME'] : 'omg_db');
-        $this->username = (getenv('DB_USER') !== false && getenv('DB_USER') !== '') ? getenv('DB_USER') : (isset($_ENV['DB_USER']) ? $_ENV['DB_USER'] : 'root');
-        $this->password = (getenv('DB_PASS') !== false) ? getenv('DB_PASS') : (isset($_ENV['DB_PASS']) ? $_ENV['DB_PASS'] : '');
+        $this->host = omgGetEnv('DB_HOST', 'localhost');
+        $this->db_name = omgGetEnv('DB_NAME', 'omg_db');
+        $this->username = omgGetEnv('DB_USER', 'root');
+        $this->password = omgGetEnv('DB_PASS', '');
     }
 
     public function getConnection()
@@ -571,15 +625,27 @@ function authenticate()
 /**
  * Get Cashfree Configuration
  */
+/**
+ * Get Cashfree Configuration
+ * Seamlessly resolves CASHFREE_APP_ID, CASHFREE_SECRET_KEY, and CASHFREE_ENV
+ * from Hostinger's Environment Variables panel, $_SERVER, $_ENV, or getenv().
+ */
 function getCashfreeConfig()
 {
-    $appId = (string)(getenv('CASHFREE_APP_ID') ?: ($_ENV['CASHFREE_APP_ID'] ?? ''));
-    $secretKey = (string)(getenv('CASHFREE_SECRET_KEY') ?: ($_ENV['CASHFREE_SECRET_KEY'] ?? ''));
-    $envSetting = strtolower((string)(getenv('CASHFREE_ENV') ?: ($_ENV['CASHFREE_ENV'] ?? '')));
+    $appId = trim(omgGetEnv('CASHFREE_APP_ID'));
+    $secretKey = trim(omgGetEnv('CASHFREE_SECRET_KEY'));
+    $envSetting = strtolower(trim(omgGetEnv('CASHFREE_ENV')));
 
-    // Auto-detect sandbox if app_id starts with TEST or if CASHFREE_ENV is explicitly sandbox/test
-    $isSandbox = ($envSetting === 'sandbox' || $envSetting === 'test' || strpos($appId, 'TEST') === 0);
-    $isProd = !$isSandbox && ($envSetting === 'production' || $envSetting === 'prod');
+    // Determine environment (production vs sandbox):
+    if ($envSetting === 'production' || $envSetting === 'prod') {
+        $isProd = true;
+    } elseif ($envSetting === 'sandbox' || $envSetting === 'test') {
+        $isProd = false;
+    } else {
+        // Auto-detect based on App ID prefix:
+        // Cashfree sandbox App IDs start with 'TEST' (e.g. TEST1029384...)
+        $isProd = !empty($appId) && strpos(strtoupper($appId), 'TEST') !== 0;
+    }
 
     return [
         'app_id' => $appId,

@@ -5,13 +5,13 @@ require_once __DIR__ . '/config.php';
 function getSmtpConfig()
 {
     return [
-        'host' => getenv('SMTP_HOST') ?: ($_ENV['SMTP_HOST'] ?? ''),
-        'port' => (int) (getenv('SMTP_PORT') ?: ($_ENV['SMTP_PORT'] ?? 465)),
-        'user' => getenv('SMTP_USER') ?: ($_ENV['SMTP_USER'] ?? ''),
-        'pass' => getenv('SMTP_PASS') ?: ($_ENV['SMTP_PASS'] ?? ''),
-        'from' => getenv('SMTP_FROM') ?: ($_ENV['SMTP_FROM'] ?? 'info@ohmygudness.in'),
-        'from_name' => getenv('SMTP_FROM_NAME') ?: ($_ENV['SMTP_FROM_NAME'] ?? 'OH MY GUDNESS'),
-        'secure' => strtolower(getenv('SMTP_SECURE') ?: ($_ENV['SMTP_SECURE'] ?? 'ssl'))
+        'host' => omgGetEnv('SMTP_HOST'),
+        'port' => (int) (omgGetEnv('SMTP_PORT', '465')),
+        'user' => omgGetEnv('SMTP_USER'),
+        'pass' => omgGetEnv('SMTP_PASS'),
+        'from' => omgGetEnv('SMTP_FROM', 'info@ohmygudness.in'),
+        'from_name' => omgGetEnv('SMTP_FROM_NAME', 'OH MY GUDNESS'),
+        'secure' => strtolower(omgGetEnv('SMTP_SECURE', 'ssl'))
     ];
 }
 

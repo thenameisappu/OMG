@@ -117,6 +117,24 @@ switch ($action) {
         $userId = authenticate();
         verifyPayment($db, $userId, $data);
         break;
+    case 'cashfree_status':
+        $cfConfig = getCashfreeConfig();
+        $isConfigured = !empty($cfConfig['app_id']) && !empty($cfConfig['secret_key']);
+        echo json_encode([
+            "status" => "ok",
+            "cashfree_configured" => $isConfigured,
+            "environment" => $cfConfig['env'],
+            "base_url" => $cfConfig['base_url'],
+            "app_id_detected" => !empty($cfConfig['app_id']),
+            "app_id_preview" => !empty($cfConfig['app_id']) ? (substr($cfConfig['app_id'], 0, 8) . '...' . (strlen($cfConfig['app_id']) > 12 ? substr($cfConfig['app_id'], -4) : '')) : null,
+            "secret_key_detected" => !empty($cfConfig['secret_key']),
+            "detection_sources" => [
+                "server_has_app_id" => isset($_SERVER['CASHFREE_APP_ID']) && $_SERVER['CASHFREE_APP_ID'] !== '',
+                "env_has_app_id" => isset($_ENV['CASHFREE_APP_ID']) && $_ENV['CASHFREE_APP_ID'] !== '',
+                "getenv_has_app_id" => (getenv('CASHFREE_APP_ID') !== false && getenv('CASHFREE_APP_ID') !== ''),
+            ]
+        ]);
+        break;
     case 'cashfree_webhook':
         handleCashfreeWebhook($db);
         break;
@@ -423,7 +441,7 @@ function createOrder($db, $userId, $data)
         $isCashfreeActive = !empty($cfConfig['app_id']) && !empty($cfConfig['secret_key']);
 
         if (!$isCashfreeActive) {
-            throw new Exception("Cashfree payment credentials are not configured on the server. Please set CASHFREE_APP_ID and CASHFREE_SECRET_KEY in your .env file.");
+            throw new Exception("Cashfree payment credentials are not configured on the server. Please verify CASHFREE_APP_ID and CASHFREE_SECRET_KEY under Hostinger > Websites > Environment variables.");
         }
 
         if ($isCashfreeActive) {
@@ -617,7 +635,7 @@ function verifyPayment($db, $userId, $data)
         http_response_code(500);
         echo json_encode([
             "success" => false,
-            "message" => "Cashfree credentials are not configured on the server."
+            "message" => "Cashfree credentials are not configured on the server. Please verify CASHFREE_APP_ID and CASHFREE_SECRET_KEY under Hostinger > Websites > Environment variables."
         ]);
         exit();
     }
