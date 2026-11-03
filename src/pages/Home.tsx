@@ -794,7 +794,7 @@ export default function Home() {
 
         <div className="container relative">
           {/* Carousel Track */}
-          <div className="overflow-hidden" onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd}>
+          <div className="overflow-hidden" onTouchStart={handleTestTouchStart} onTouchMove={handleTestTouchMove} onTouchEnd={handleTestTouchEnd}>
             {testimonialsLoading ? (
               <div className="flex items-center justify-center min-h-[300px]">
                 <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-secondary"></div>
@@ -1239,7 +1239,7 @@ function ProductSectionCarousel({
 
       <div className="container relative">
         {/* Carousel Track */}
-        <div className="overflow-hidden">
+        <div className="overflow-hidden" onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd}>
           {loading && products.length === 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
               {[0, 1, 2, 3].map((i) => (
