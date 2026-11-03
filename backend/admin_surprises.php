@@ -225,7 +225,7 @@ if (isset($_POST['action']) && $_POST['action'] === 'save_experience') {
     $features_json = json_encode($featureList);
 
     if (empty($error)) {
-        if ($title && $base_price > 0 && $image) {
+        if ($title && $image) {
             if ($id) {
                 $stmt = $db->prepare("UPDATE `surprise_experiences` SET `title` = :title, `subtitle` = :subtitle, `description` = :description, `badge` = :badge, `base_price` = :base_price, `image` = :image, `features` = :features, `display_order` = :display_order, `is_active` = :is_active WHERE `id` = :id");
                 $stmt->execute([
@@ -257,7 +257,7 @@ if (isset($_POST['action']) && $_POST['action'] === 'save_experience') {
                 $message = "New Base Experience created successfully!";
             }
         } else {
-            $error = "Title, Base Price, and an Image are required.";
+            $error = "Title and an Image are required.";
         }
     }
 }
@@ -394,7 +394,7 @@ require_once 'admin_header.php';
                                 </h4>
                             </div>
                             <span
-                                class="text-lg font-bold text-amber-600">₹<?php echo number_format($exp['base_price']); ?></span>
+                                class="text-sm font-bold text-amber-600"><?php echo ($exp['base_price'] > 0) ? ("₹" . number_format($exp['base_price'])) : "<span class=\"text-xs px-2 py-0.5 rounded bg-amber-50 text-amber-800 font-semibold border border-amber-200\">Custom Quote</span>"; ?></span>
                         </div>
                         <p class="text-xs text-slate-500 italic"><?php echo htmlspecialchars($exp['subtitle']); ?></p>
                         <p class="text-xs text-slate-600 line-clamp-2"><?php echo htmlspecialchars($exp['description']); ?>
@@ -473,7 +473,7 @@ require_once 'admin_header.php';
                             <td class="py-3.5 px-4 text-xs text-slate-600 max-w-xs">
                                 <?php echo htmlspecialchars($upg['description']); ?>
                             </td>
-                            <td class="py-3.5 px-4 font-bold text-amber-600">₹<?php echo number_format($upg['price']); ?>
+                            <td class="py-3.5 px-4 font-bold text-amber-600"><?php echo ($upg['price'] > 0) ? ("₹" . number_format($upg['price'])) : "<span class=\"text-xs text-slate-400 italic font-normal\">Custom Quote</span>"; ?>
                             </td>
                             <td class="py-3.5 px-4 text-xs">
                                 <span
@@ -532,9 +532,8 @@ require_once 'admin_header.php';
             </div>
             <div class="grid grid-cols-2 gap-3">
                 <div>
-                    <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">Base Price
-                        (₹)</label>
-                    <input type="number" step="0.01" id="exp_price" name="base_price" required
+                    <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">Base Price (₹ - Optional / Bespoke Quote)</label>
+                    <input type="number" step="0.01" id="exp_price" name="base_price"
                         class="w-full px-4 py-2 rounded-xl border border-slate-300 text-sm outline-none focus:ring-2 focus:ring-amber-500">
                 </div>
                 <div>
@@ -637,9 +636,8 @@ require_once 'admin_header.php';
             </div>
             <div class="grid grid-cols-2 gap-3">
                 <div>
-                    <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">Price
-                        (₹)</label>
-                    <input type="number" step="0.01" id="upg_price" name="price" required
+                    <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">Price (₹ - Optional)</label>
+                    <input type="number" step="0.01" id="upg_price" name="price"
                         class="w-full px-4 py-2 rounded-xl border border-slate-300 text-sm outline-none focus:ring-2 focus:ring-amber-500">
                 </div>
                 <div>

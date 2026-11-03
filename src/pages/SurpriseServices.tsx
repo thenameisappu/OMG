@@ -112,14 +112,7 @@ export default function SurpriseServices() {
     }
   }, [searchParams]);
 
-  // Requirement 5: Calculate estimated total price dynamically
-  const baseCost = selectedPackage ? (selectedPackage.base_price || selectedPackage.basePrice || 0) : 0;
-  const addonsCost = selectedAddons.reduce((sum, upgId) => {
-    const upg = upgrades.find(u => u.id === upgId);
-    return sum + (upg ? (upg.price || 0) : 0);
-  }, 0);
-  const totalPrice = baseCost + addonsCost;
-
+  // Selection handling without prices or checkout routing
   const toggleAddon = (upgId: number) => {
     setSelectedAddons(prev =>
       prev.includes(upgId) ? prev.filter(id => id !== upgId) : [...prev, upgId]
@@ -171,12 +164,23 @@ export default function SurpriseServices() {
   };
 
   const scrollToFormWithPackage = (pkgTitle: string) => {
+    const matched = packages.find(p => p.title === pkgTitle);
+    if (matched) setSelectedPackage(matched);
+
+    const selectedAddonNames = selectedAddons
+      .map(id => upgrades.find(u => u.id === id)?.name)
+      .filter(Boolean);
+    const upgradeSummary = selectedAddonNames.length > 0 
+      ? selectedAddonNames.join(', ') 
+      : 'Standard Inclusions (No add-ons)';
+
     setFormData(prev => ({
       ...prev,
       eventType: pkgTitle,
-      message: `I'm interested in booking the "${pkgTitle}" package (Estimated Total: ₹${totalPrice.toLocaleString('en-IN')}). Please contact me with details.`
+      serviceName: upgradeSummary,
+      message: `I'm interested in reserving the "${pkgTitle}" bespoke experience with additional requirements: ${upgradeSummary}. Please contact me with availability and custom proposal details.`
     }));
-    formRef.current?.scrollIntoView({ behavior: 'smooth' });
+    formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
 
   const handleReserveExperience = () => {
@@ -187,29 +191,22 @@ export default function SurpriseServices() {
       .filter(Boolean);
 
     const upgradeSummary = selectedAddonNames.length > 0 
-      ? ` (with ${selectedAddonNames.join(', ')})` 
-      : '';
+      ? selectedAddonNames.join(', ') 
+      : 'Standard Inclusions (No add-ons)';
 
-    const experienceItem = {
-      id: `exp-${selectedPackage.id || 'pkg'}-${Date.now()}`,
-      name: `${selectedPackage.title}${upgradeSummary}`,
-      slug: `surprise-${(selectedPackage.title || 'experience').toLowerCase().replace(/[^a-z0-9]+/g, '-')}`,
-      description: `Bespoke Experience Reservation: ${selectedPackage.title}. Upgrades: ${selectedAddonNames.join(', ') || 'Standard Included'}. Full on-site coordination & master florist styling included.`,
-      price: totalPrice,
-      category: 'occasions',
-      image: selectedPackage.image || 'https://images.unsplash.com/photo-1515934751635-c81c6bc9a2d8?w=800&q=80',
-      stock_status: 'in_stock' as const,
-      stock_quantity: 99,
-      is_active: 1,
-      quantity: 1,
-    };
+    setFormData(prev => ({
+      ...prev,
+      eventType: selectedPackage.title,
+      serviceName: upgradeSummary,
+      message: `I would like to reserve the "${selectedPackage.title}" experience with additional requirements: ${upgradeSummary}. Please contact me to discuss availability and customize our celebration.`
+    }));
 
-    addToCart(experienceItem as any, 1);
     toast({
-      title: "✨ Experience Reserved!",
-      description: `Proceeding to checkout for ${selectedPackage.title}...`,
+      title: "✨ Experience & Requirements Selected!",
+      description: `"${selectedPackage.title}" and your selected upgrades have been auto-filled below.`,
     });
-    navigate('/checkout');
+
+    formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
 
   const validateForm = () => {
@@ -263,12 +260,23 @@ export default function SurpriseServices() {
         .filter(Boolean)
         .join(', ');
 
-      const data = await inquiryService.submit({
-        ...formData,
-        estimatedCost: totalPrice,
-        selectedPackage: selectedPackage ? selectedPackage.title : 'Custom',
-        addons: selectedAddonNames || 'None selected'
-      });
+      const payload = {
+        name: formData.name,
+        email: formData.email,
+        contactNo: formData.contactNo,
+        eventType: formData.eventType || (selectedPackage ? selectedPackage.title : 'Surprise Event'),
+        package_name: selectedPackage ? selectedPackage.title : formData.eventType,
+        selectedPackage: selectedPackage ? selectedPackage.title : formData.eventType,
+        upgrades: selectedAddonNames || formData.serviceName || 'Standard Inclusions',
+        addons: selectedAddonNames || formData.serviceName || 'Standard Inclusions',
+        serviceName: selectedAddonNames || formData.serviceName || 'Standard Inclusions',
+        address: formData.address,
+        city: formData.city || 'Bengaluru',
+        pincode: pincode,
+        message: formData.message,
+      };
+
+      const data = await inquiryService.submit(payload);
 
       if (data.error) throw new Error(data.error);
 
@@ -413,11 +421,13 @@ export default function SurpriseServices() {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {packages.map((pkg) => {
                       const isSelected = selectedPackage && selectedPackage.id === pkg.id;
-                      const price = pkg.base_price || pkg.basePrice || 0;
                       return (
                         <div
                           key={pkg.id}
-                          onClick={() => setSelectedPackage(pkg)}
+                          onClick={() => {
+                            setSelectedPackage(pkg);
+                            setFormData(prev => ({ ...prev, eventType: pkg.title }));
+                          }}
                           className={cn(
                             "p-5 rounded-2xl cursor-pointer transition-all duration-300 relative border flex flex-col justify-between",
                             isSelected
@@ -432,14 +442,15 @@ export default function SurpriseServices() {
                               </div>
                             )}
                             <div className="flex justify-between items-start mb-2">
-                              {pkg.badge && (
+                              {pkg.badge ? (
                                 <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-amber-400/20 text-amber-300 border border-amber-400/30">
                                   {pkg.badge}
                                 </span>
+                              ) : (
+                                <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-300 border border-emerald-500/20">
+                                  Bespoke Experience
+                                </span>
                               )}
-                              <span className="text-lg font-bold text-amber-400 ml-auto">
-                                ₹{price.toLocaleString('en-IN')}
-                              </span>
                             </div>
                             <h4 className="text-lg font-bold text-white mb-2">{pkg.title}</h4>
                             {pkg.subtitle && <p className="text-xs text-amber-200/80 italic mb-2">{pkg.subtitle}</p>}
@@ -468,7 +479,6 @@ export default function SurpriseServices() {
                       {upgrades.map((addon) => {
                         const IconComponent = ICON_MAP[addon.icon] || Sparkles;
                         const isSelected = selectedAddons.includes(addon.id);
-                        const price = addon.price || 0;
                         return (
                           <div
                             key={addon.id}
@@ -489,7 +499,9 @@ export default function SurpriseServices() {
                                 {addon.description && (
                                   <p className="text-[11px] text-emerald-100/60 line-clamp-1">{addon.description}</p>
                                 )}
-                                <p className="text-xs text-amber-400/90 font-medium">+₹{price.toLocaleString('en-IN')}</p>
+                                <span className="text-[11px] font-medium text-amber-300/80">
+                                  {isSelected ? '✓ Upgrade Added' : '+ Select Optional Upgrade'}
+                                </span>
                               </div>
                             </div>
                             <div className={cn("w-5 h-5 rounded-full border flex items-center justify-center text-xs font-bold shrink-0 ml-2", isSelected ? "border-amber-400 bg-amber-400 text-black" : "border-white/30")}>
@@ -502,66 +514,88 @@ export default function SurpriseServices() {
                   </div>
                 </div>
 
-                {/* Estimate Summary Card */}
+                {/* Custom Experience Summary Card */}
                 <div className="lg:col-span-5 sticky top-28">
                   {selectedPackage && (
-                    <div className="bg-[#0B1A13] p-8 rounded-3xl border border-amber-500/30 shadow-2xl relative overflow-hidden">
+                    <div className="bg-[#0B1A13] p-8 rounded-3xl border border-amber-500/30 shadow-2xl relative overflow-hidden space-y-6">
                       <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/10 rounded-full blur-2xl pointer-events-none" />
 
-                      <div className="aspect-video rounded-xl overflow-hidden mb-6 border border-amber-500/20 relative">
+                      <div className="aspect-video rounded-xl overflow-hidden border border-amber-500/20 relative">
                         <img
                           src={selectedPackage.image}
                           alt={selectedPackage.title}
                           className="w-full h-full object-cover"
                         />
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-transparent" />
                         <div className="absolute bottom-3 left-4 right-4 flex justify-between items-center text-white">
                           <span className="text-sm font-bold font-serif">{selectedPackage.title}</span>
-                          <span className="text-xs bg-amber-500 text-black px-2 py-0.5 rounded font-bold uppercase">Included</span>
+                          <span className="text-xs bg-amber-500 text-black px-2 py-0.5 rounded font-bold uppercase tracking-wider">Selected</span>
                         </div>
                       </div>
 
-                      <h3 className="text-2xl font-bold font-serif text-white mb-4">Estimated Summary</h3>
+                      <div>
+                        <h3 className="text-2xl font-bold font-serif text-white">Your Bespoke Selection</h3>
+                        <p className="text-xs text-emerald-100/60 mt-1">Review your selected package & additional requirements below</p>
+                      </div>
 
-                      <div className="space-y-3 border-b border-white/10 pb-6 mb-6 text-sm text-emerald-100/80">
-                        <div className="flex justify-between">
-                          <span>{selectedPackage.title}</span>
-                          <span className="font-semibold text-white">₹{(selectedPackage.base_price || selectedPackage.basePrice || 0).toLocaleString('en-IN')}</span>
+                      <div className="space-y-3 border-y border-white/10 py-5 text-sm text-emerald-100/80">
+                        {/* Base Package */}
+                        <div className="p-3 rounded-xl bg-white/5 border border-amber-500/20">
+                          <span className="text-[10px] uppercase tracking-wider text-amber-400/90 font-bold block mb-1">Base Package</span>
+                          <span className="text-white font-serif font-bold text-base block">{selectedPackage.title}</span>
+                          {selectedPackage.subtitle && (
+                            <p className="text-xs text-emerald-100/70 italic mt-0.5">{selectedPackage.subtitle}</p>
+                          )}
                         </div>
-                        {selectedAddons.map(id => {
-                          const addon = upgrades.find(a => a.id === id);
-                          if (!addon) return null;
-                          return (
-                            <div key={id} className="flex justify-between text-xs text-amber-300/90">
-                              <span>+ {addon.name}</span>
-                              <span>₹{(addon.price || 0).toLocaleString('en-IN')}</span>
+
+                        {/* Selected Upgrades */}
+                        <div className="pt-2">
+                          <span className="text-[10px] uppercase tracking-wider text-amber-400/90 font-bold block mb-2">
+                            Additional Requirements ({selectedAddons.length})
+                          </span>
+                          {selectedAddons.length === 0 ? (
+                            <p className="text-xs text-emerald-100/50 italic bg-white/5 p-3 rounded-xl border border-white/5">
+                              No additional upgrades selected. Standard luxury decor, flowers & secret coordination are included.
+                            </p>
+                          ) : (
+                            <div className="space-y-1.5">
+                              {selectedAddons.map(id => {
+                                const addon = upgrades.find(a => a.id === id);
+                                if (!addon) return null;
+                                return (
+                                  <div key={id} className="flex items-center gap-2 text-xs text-white bg-amber-500/15 border border-amber-400/30 px-3 py-2 rounded-xl">
+                                    <Sparkles className="h-3.5 w-3.5 text-amber-400 shrink-0" />
+                                    <span className="font-medium">{addon.name}</span>
+                                  </div>
+                                );
+                              })}
                             </div>
-                          );
-                        })}
+                          )}
+                        </div>
                       </div>
 
-                      <div className="flex items-baseline justify-between mb-8">
-                        <div>
-                          <p className="text-xs text-emerald-200/60 uppercase tracking-widest font-semibold">Estimated Total</p>
-                          <p className="text-xs text-amber-400 italic">Includes on-site styling & coordination</p>
+                      <div className="p-4 rounded-2xl bg-gradient-to-br from-amber-500/10 via-amber-400/5 to-transparent border border-amber-500/30">
+                        <div className="flex items-center gap-2 text-amber-300 font-bold text-sm mb-1">
+                          <ShieldCheck className="h-4 w-4 text-amber-400" />
+                          <span>Custom Bespoke Proposal</span>
                         </div>
-                        <p className="text-3xl font-extrabold gold-gradient-text">
-                          ₹{totalPrice.toLocaleString('en-IN')}
+                        <p className="text-xs text-emerald-100/70 leading-relaxed">
+                          Zero obligation consultation. Our secret architect prepares a bespoke quote tailored to your venue, date, and vision.
                         </p>
                       </div>
 
                       <Button
                         size="lg"
-                        className="w-full h-14 rounded-full bg-gradient-to-r from-amber-400 to-amber-600 text-black font-bold text-base hover:brightness-110 shadow-lg gold-glow"
+                        className="w-full h-14 rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-600 text-black font-extrabold text-base hover:brightness-110 shadow-lg gold-glow"
                         onClick={handleReserveExperience}
                       >
                         Reserve This Custom Experience
                         <ArrowRight className="ml-2 h-5 w-5" />
                       </Button>
 
-                      <p className="text-[11px] text-center text-emerald-200/50 mt-4 flex items-center justify-center gap-1">
-                        <ShieldCheck className="h-4 w-4 text-amber-400" />
-                        Zero Obligation • Instant Specialist Callback
+                      <p className="text-[11px] text-center text-emerald-200/50 flex items-center justify-center gap-1.5">
+                        <PhoneCall className="h-3.5 w-3.5 text-amber-400" />
+                        Discreet Callback within 2 Hours • 100% Confidential
                       </p>
                     </div>
                   )}
@@ -678,6 +712,49 @@ export default function SurpriseServices() {
               </div>
 
               <form onSubmit={handleSubmit} className="space-y-6">
+                {/* Auto-filled Selection Highlight Banner */}
+                <div className="p-5 rounded-2xl bg-gradient-to-r from-amber-500/15 via-amber-400/10 to-transparent border border-amber-400/30 relative">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
+                    <div className="flex items-center gap-2">
+                      <Sparkles className="h-4 w-4 text-amber-400" />
+                      <span className="text-xs uppercase font-bold tracking-widest text-amber-300">
+                        Selected Experience & Requirements
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => builderRef.current?.scrollIntoView({ behavior: 'smooth' })}
+                      className="text-xs text-amber-400 hover:text-amber-300 underline font-medium flex items-center gap-1 self-start sm:self-auto cursor-pointer"
+                    >
+                      <Sliders className="h-3.5 w-3.5" /> Modify Selection Above
+                    </button>
+                  </div>
+
+                  <div className="space-y-2">
+                    <div className="flex flex-wrap items-baseline gap-2">
+                      <span className="text-xs font-semibold text-emerald-200/70">Base Package:</span>
+                      <span className="text-sm font-bold text-white font-serif">{formData.eventType || (selectedPackage ? selectedPackage.title : 'Proposal Planning & Surprise')}</span>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-xs font-semibold text-emerald-200/70">Additional Requirements:</span>
+                      {selectedAddons.length > 0 ? (
+                        selectedAddons.map(id => {
+                          const upg = upgrades.find(u => u.id === id);
+                          if (!upg) return null;
+                          return (
+                            <span key={id} className="text-xs px-2.5 py-0.5 rounded-full bg-amber-400/20 text-amber-200 border border-amber-400/30 font-medium">
+                              + {upg.name}
+                            </span>
+                          );
+                        })
+                      ) : (
+                        <span className="text-xs text-emerald-100/60 italic">
+                          Standard Luxury Inclusions (No extra upgrades selected)
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-2">
                     <label className="text-xs font-bold text-amber-200/90 uppercase tracking-wider">
