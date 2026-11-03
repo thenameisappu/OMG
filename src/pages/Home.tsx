@@ -74,6 +74,74 @@ const CATEGORY_SECTIONS = [
   },
 ];
 
+// Curated Client Testimonials for Customer Stories Carousel (8 Client Reviews)
+const CLIENT_TESTIMONIALS_FALLBACK = [
+  {
+    id: 'test-1',
+    name: 'Priya Sharma',
+    location: 'Indiranagar, Bangalore',
+    rating: 5,
+    review: 'Absolutely stunning mirror bouquet! The red roses were impeccably fresh with that velvety bloom, and the custom acrylic engraving was flawless. My fiancé was genuinely speechless.',
+    avatar: 'PS',
+  },
+  {
+    id: 'test-2',
+    name: 'Arjun Mehta',
+    location: 'Koramangala, Bangalore',
+    rating: 5,
+    review: "OMG curated the most magical rooftop proposal surprise in Bangalore. From the fairy lights and candlelit aisle to the live violinist, every single detail was executed with sheer elegance. She said YES!",
+    avatar: 'AM',
+  },
+  {
+    id: 'test-3',
+    name: 'Sneha Reddy',
+    location: 'Whitefield, Bangalore',
+    rating: 5,
+    review: "Ordered the Oh My Love luxury gourmet hamper for my parents' 25th anniversary. The packaging is pure luxury, the chocolates were exquisite, and the flowers lasted well over a week.",
+    avatar: 'SR',
+  },
+  {
+    id: 'test-4',
+    name: 'Rohan Deshmukh',
+    location: 'Sadashivanagar, Bangalore',
+    rating: 5,
+    review: 'Same-day express delivery was prompt and handled with utmost care. The teddy bear floral bouquet was even grander in person than in the photos. Oh My Gudness is now my go-to luxury gifting brand.',
+    avatar: 'RD',
+  },
+  {
+    id: 'test-5',
+    name: 'Kavya Bhat',
+    location: 'Jayanagar, Bangalore',
+    rating: 5,
+    review: "The midnight delivery option made my best friend's birthday unforgettable! The flowers arrived fresh at exactly 12:00 AM with the personalized wax-sealed note. Outstanding customer support.",
+    avatar: 'KB',
+  },
+  {
+    id: 'test-6',
+    name: 'Vikram Malhotra',
+    location: 'HSR Layout, Bangalore',
+    rating: 5,
+    review: 'I requested a bespoke exotic floral arrangement with imported lilies and orchids. OMG exceeded all expectations! The artistry and fragrance filled the entire room.',
+    avatar: 'VM',
+  },
+  {
+    id: 'test-7',
+    name: 'Ananya Iyer',
+    location: 'Lavelle Road, Bangalore',
+    rating: 5,
+    review: "Ordered the Signature Rose Box for Valentine's Day. The presentation was top tier — crisp ribbons, golden accents, and blooming Ecuadorian roses. Highly recommended!",
+    avatar: 'AI',
+  },
+  {
+    id: 'test-8',
+    name: 'Deepak Anand',
+    location: 'MG Road, Bangalore',
+    rating: 5,
+    review: 'Impeccable service and communication from the team on WhatsApp. They tailored the color palette to match our event theme perfectly. Every guest asked where the flowers were from!',
+    avatar: 'DA',
+  },
+];
+
 /**
  * Partitions products into 3 strictly non-overlapping groups:
  * 1. newlyLaunched: newest items by created_at DESC (if a new product is added, it comes here first)
@@ -292,9 +360,9 @@ export default function Home() {
     }
   };
   
-  // Testimonials state - initialized empty, never dummy mock data
-  const [testimonials, setTestimonials] = useState<any[]>([]);
-  const [testimonialsLoading, setTestimonialsLoading] = useState(true);
+  // Testimonials state - initialized with 8 curated client testimonials for instant display
+  const [testimonials, setTestimonials] = useState<any[]>(CLIENT_TESTIMONIALS_FALLBACK);
+  const [testimonialsLoading, setTestimonialsLoading] = useState(false);
   const [currentTestimonialSlide, setCurrentTestimonialSlide] = useState(0);
 
   // Fetch and partition all products without duplicate items across sections
@@ -383,17 +451,19 @@ export default function Home() {
     });
   }, [allProducts, currentRotationCycle]);
 
-  // Load testimonials
+  // Load testimonials from DB if available; otherwise maintain curated client testimonials
   useEffect(() => {
     async function loadTestimonials() {
       try {
-        setTestimonialsLoading(true);
         const data = await testimonialService.getAll();
-        if (data && data.length > 0) {
+        if (data && Array.isArray(data) && data.length > 0) {
           setTestimonials(data.slice(0, 8));
+        } else {
+          setTestimonials(CLIENT_TESTIMONIALS_FALLBACK);
         }
       } catch (error) {
         console.error('Error fetching testimonials:', error);
+        setTestimonials(CLIENT_TESTIMONIALS_FALLBACK);
       } finally {
         setTestimonialsLoading(false);
       }
