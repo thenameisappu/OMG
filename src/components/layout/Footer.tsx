@@ -60,8 +60,8 @@ export default function Footer() {
           </div>
       </div>
 
-      <div className="container grid grid-cols-2 md:grid-cols-4 gap-8 border-b border-border pb-12">
-        <div className="space-y-4">
+      <div className="container grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-8 border-b border-border pb-12">
+        <div className="space-y-4 sm:col-span-2 md:col-span-1">
           <div className="flex items-center gap-2">
             <img
               src="/images/logo/footer-logo.png"

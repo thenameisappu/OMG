@@ -305,7 +305,8 @@ export default function Products() {
 
   const currentBanner = categoryBanners[currentCategory];
 
-  if (loading) {
+  if (loading && products.length === 0) {
+    // Only block if we have zero cached products to display
     return (
       <div className="min-h-screen bg-white flex flex-col justify-center items-center py-32">
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-secondary mb-4"></div>
@@ -318,7 +319,7 @@ export default function Products() {
     <div className="min-h-screen bg-white">
       {/* Category Banner Header */}
       {currentBanner ? (
-        <div className="relative h-[40vh] md:h-[55vh] flex items-center justify-center overflow-hidden bg-primary">
+        <div className="relative h-[32vh] sm:h-[40vh] md:h-[55vh] min-h-[240px] flex items-center justify-center overflow-hidden bg-primary">
           <div className="absolute inset-0">
             <img
               src={currentBanner.image}
@@ -333,7 +334,7 @@ export default function Products() {
               <ChevronRight className="h-3.5 w-3.5" />
               <span>Shop Collection</span>
             </div>
-            <h1 className="text-3xl sm:text-5xl md:text-7xl font-bold font-serif tracking-tight mb-3 md:mb-4 drop-shadow-xl">
+            <h1 className="text-2xl sm:text-4xl md:text-6xl font-bold font-serif tracking-tight mb-2 md:mb-4 drop-shadow-xl">
               {currentBanner.title}
             </h1>
             <p className="text-lg md:text-xl text-white/90 max-w-2xl mx-auto leading-relaxed font-light drop-shadow">
@@ -360,7 +361,7 @@ export default function Products() {
       <div className={`container ${(currentCategory === 'occasions' || currentCategory === 'custom-orders') ? 'pt-12 pb-0' : 'py-14'}`}>
         {/* Toolbar */}
         <div className="flex flex-col gap-4 md:flex-row justify-between items-start md:items-center mb-10 border-b border-border pb-6">
-          <div className="flex flex-wrap gap-2 justify-start w-full md:w-auto">
+          <div className="flex gap-1.5 sm:gap-2 overflow-x-auto scrollbar-hide py-1 w-full md:w-auto md:flex-wrap pb-2 -mx-1 px-1">
             {categories.map((cat) => (
               <button
                 key={cat.slug}
@@ -399,34 +400,22 @@ export default function Products() {
           </div>
         </div>
 
-        {/* Product Grid — auto-fills columns based on available width */}
+        {/* Product Grid — 2 columns on mobile, 3 on tablet, 4 on desktop */}
         {loading && products.length === 0 ? (
-          <div
-            className="gap-3 sm:gap-4 md:gap-5"
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fill, minmax(min(205px, 100%), 1fr))'
-            }}
-          >
+          <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2.5 sm:gap-4 md:gap-5">
             {[0, 1, 2, 3, 4, 5, 6, 7].map((i) => (
-              <div key={i} className="bg-white border border-border/60 rounded-2xl overflow-hidden p-3.5 space-y-3.5 animate-pulse">
+              <div key={i} className="bg-white border border-border/60 rounded-2xl overflow-hidden p-2.5 sm:p-3.5 space-y-2.5 sm:space-y-3.5 animate-pulse">
                 <div className="aspect-square bg-muted/40 rounded-xl w-full" />
                 <div className="space-y-2">
-                  <div className="h-3.5 bg-muted/50 rounded w-3/4" />
-                  <div className="h-3 bg-muted/30 rounded w-1/2" />
-                  <div className="h-5 bg-muted/40 rounded w-1/3 mt-2" />
+                  <div className="h-3 bg-muted/50 rounded w-3/4" />
+                  <div className="h-2.5 bg-muted/30 rounded w-1/2" />
+                  <div className="h-4 bg-muted/40 rounded w-1/3 mt-2" />
                 </div>
               </div>
             ))}
           </div>
         ) : (
-          <div
-            className="gap-3 sm:gap-4 md:gap-5"
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fill, minmax(min(205px, 100%), 1fr))'
-            }}
-          >
+          <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2.5 sm:gap-4 md:gap-5">
             {filteredProducts.map((product, index) => (
               <div key={product.id} className="animate-slide-up" style={{ animationDelay: `${(index % 12) * 0.04}s` }}>
                 <ProductCard product={product} />

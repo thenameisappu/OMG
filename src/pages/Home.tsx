@@ -410,6 +410,27 @@ export default function Home() {
     return () => clearInterval(timer);
   }, [isHeroPaused]);
 
+  // Testimonials touch swipe for mobile
+  const testTouchStartXRef = useRef<number | null>(null);
+  const testTouchEndXRef = useRef<number | null>(null);
+
+  const handleTestTouchStart = (e: React.TouchEvent) => {
+    testTouchStartXRef.current = e.targetTouches[0].clientX;
+    testTouchEndXRef.current = null;
+  };
+  const handleTestTouchMove = (e: React.TouchEvent) => {
+    testTouchEndXRef.current = e.targetTouches[0].clientX;
+  };
+  const handleTestTouchEnd = () => {
+    if (testTouchStartXRef.current === null || testTouchEndXRef.current === null) return;
+    const diff = testTouchStartXRef.current - testTouchEndXRef.current;
+    if (diff > 35) {
+      nextTestimonialSlide();
+    } else if (diff < -35) {
+      prevTestimonialSlide();
+    }
+  };
+
   // Testimonials carousel logic
   const [visibleTestimonialCount, setVisibleTestimonialCount] = useState(() => window.innerWidth >= 1024 ? 3 : window.innerWidth >= 640 ? 2 : 1);
 
@@ -600,43 +621,43 @@ export default function Home() {
       </section>
 
       {/* Services Stats Bar */}
-      <section className="bg-primary py-16 border-y border-secondary/20 relative z-20">
-        <div className="container grid grid-cols-2 md:grid-cols-4 gap-8 text-center text-white">
-          <div className="space-y-2 animate-scale-in p-4 rounded-xl hover:bg-white/5 transition-colors">
-            <Truck className="h-9 w-9 mx-auto text-secondary" />
-            <h3 className="text-base font-bold">Same-Day Express</h3>
-            <p className="text-xs text-white/70">Bangalore & Surrounding Areas</p>
+      <section className="bg-primary py-8 sm:py-12 md:py-16 border-y border-secondary/20 relative z-20">
+        <div className="container grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-6 md:gap-8 text-center text-white">
+          <div className="space-y-1.5 sm:space-y-2 animate-scale-in p-2.5 sm:p-4 rounded-xl hover:bg-white/5 transition-colors">
+            <Truck className="h-7 w-7 sm:h-9 sm:w-9 mx-auto text-secondary" />
+            <h3 className="text-xs sm:text-base font-bold">Same-Day Express</h3>
+            <p className="text-[10px] sm:text-xs text-white/70">Bangalore & Surrounding</p>
           </div>
           <div className="space-y-2 animate-scale-in p-4 rounded-xl hover:bg-white/5 transition-colors" style={{ animationDelay: '0.1s' }}>
-            <Calendar className="h-9 w-9 mx-auto text-secondary" />
-            <h3 className="text-base font-bold">Scheduled Delivery</h3>
-            <p className="text-xs text-white/70">Midnight & Custom Time Slots</p>
+            <Calendar className="h-7 w-7 sm:h-9 sm:w-9 mx-auto text-secondary" />
+            <h3 className="text-xs sm:text-base font-bold">Scheduled Delivery</h3>
+            <p className="text-[10px] sm:text-xs text-white/70">Midnight & Custom Slots</p>
           </div>
           <div className="space-y-2 animate-scale-in p-4 rounded-xl hover:bg-white/5 transition-colors" style={{ animationDelay: '0.2s' }}>
-            <Sparkles className="h-9 w-9 mx-auto text-secondary" />
-            <h3 className="text-base font-bold">Bespoke Surprises</h3>
-            <p className="text-xs text-white/70">Secret On-Site Coordination</p>
+            <Sparkles className="h-7 w-7 sm:h-9 sm:w-9 mx-auto text-secondary" />
+            <h3 className="text-xs sm:text-base font-bold">Bespoke Surprises</h3>
+            <p className="text-[10px] sm:text-xs text-white/70">Secret Coordination</p>
           </div>
           <div className="space-y-2 animate-scale-in p-4 rounded-xl hover:bg-white/5 transition-colors" style={{ animationDelay: '0.3s' }}>
-            <Clock className="h-9 w-9 mx-auto text-secondary" />
-            <h3 className="text-base font-bold">24/7 Specialist Care</h3>
-            <p className="text-xs text-white/70">Dedicated Concierge Support</p>
+            <Clock className="h-7 w-7 sm:h-9 sm:w-9 mx-auto text-secondary" />
+            <h3 className="text-xs sm:text-base font-bold">24/7 Specialist Care</h3>
+            <p className="text-[10px] sm:text-xs text-white/70">Dedicated Concierge</p>
           </div>
         </div>
       </section>
 
       {/* Categories Section */}
-      <section className="relative py-24 overflow-hidden">
+      <section className="relative py-12 sm:py-16 md:py-24 overflow-hidden">
         {/* Background that transitions with scroll */}
         <div className="absolute inset-0 -z-10">
           <div className="absolute inset-0 bg-gradient-to-b from-white via-secondary/5 to-white" />
         </div>
 
         <div className="container">
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-16 gap-4">
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-8 sm:mb-12 md:mb-16 gap-3 sm:gap-4">
             <div className="space-y-3">
               <span className="text-secondary font-bold text-xs tracking-widest">Curated Collections</span>
-              <h2 className="text-4xl md:text-5xl font-bold tracking-tight text-primary font-serif">Explore Our Collections</h2>
+              <h2 className="text-2xl sm:text-4xl md:text-5xl font-bold tracking-tight text-primary font-serif">Explore Our Collections</h2>
               <p className="text-lg text-muted-foreground">Handcrafted designs for life's unforgettable chapters</p>
             </div>
             <Link to="/products" className="text-secondary text-lg font-bold flex items-center gap-2 hover:underline hover:gap-3 transition-all">
@@ -646,7 +667,7 @@ export default function Home() {
 
           {/* Collection Grid or Luxury Shimmer Skeletons */}
           {productsLoading && allProducts.length === 0 ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-5">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4 lg:gap-5">
               {[0, 1, 2, 3].map((idx) => (
                 <div
                   key={idx}
@@ -673,7 +694,7 @@ export default function Home() {
               </Button>
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-5">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4 lg:gap-5">
               {categoryCardsData.map((cat) => (
                 <CategoryCard
                   key={cat.id}
@@ -762,7 +783,7 @@ export default function Home() {
 
       {/* Testimonials Carousel Section */}
       <section className="py-16 md:py-24 bg-white border-y border-border">
-        <div className="container text-center mb-10 md:mb-16 space-y-4">
+        <div className="container text-center mb-6 sm:mb-10 md:mb-16 space-y-2 sm:space-y-4">
           <span className="text-secondary font-bold text-xs uppercase tracking-widest">Customer Stories</span>
           <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold tracking-tight text-primary font-serif">What Our Customers Say</h2>
           <div className="h-1 w-24 bg-secondary mx-auto rounded-full" />
@@ -773,7 +794,7 @@ export default function Home() {
 
         <div className="container relative">
           {/* Carousel Track */}
-          <div className="overflow-hidden">
+          <div className="overflow-hidden" onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd}>
             {testimonialsLoading ? (
               <div className="flex items-center justify-center min-h-[300px]">
                 <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-secondary"></div>
@@ -1083,12 +1104,12 @@ function CategoryCard({
         </div>
       )}
       <div className="absolute inset-0 bg-gradient-to-t from-primary/95 via-primary/35 to-transparent transition-opacity duration-700 group-hover:opacity-85 pointer-events-none" />
-      <div className="absolute bottom-0 left-0 right-0 p-4 sm:p-5 pointer-events-none">
-        {subtitle && <p className="text-secondary/90 text-[10px] font-bold uppercase tracking-wider mb-1 line-clamp-1">{subtitle}</p>}
-        <h3 className="text-xl sm:text-2xl font-bold font-serif text-white mb-1.5 group-hover:text-secondary transition-colors duration-500">{title}</h3>
-        <div className="flex items-center text-white/90 group-hover:text-secondary transition-colors duration-500 font-semibold text-xs">
-          <span>Explore Collection</span>
-          <ArrowRight className="h-3.5 w-3.5 ml-1.5 transform group-hover:translate-x-1.5 transition-transform duration-500" />
+      <div className="absolute bottom-0 left-0 right-0 p-2.5 sm:p-4 md:p-5 pointer-events-none">
+        {subtitle && <p className="text-secondary/90 text-[8px] sm:text-[10px] font-bold uppercase tracking-wider mb-0.5 sm:mb-1 line-clamp-1">{subtitle}</p>}
+        <h3 className="text-sm sm:text-xl lg:text-2xl font-bold font-serif text-white mb-0.5 sm:mb-1.5 group-hover:text-secondary transition-colors duration-500 line-clamp-1">{title}</h3>
+        <div className="flex items-center text-white/90 group-hover:text-secondary transition-colors duration-500 font-semibold text-[10px] sm:text-xs">
+          <span>Explore</span>
+          <ArrowRight className="h-3 w-3 sm:h-3.5 sm:w-3.5 ml-1 transform group-hover:translate-x-1.5 transition-transform duration-500" />
         </div>
       </div>
     </Link>
@@ -1136,6 +1157,27 @@ function ProductSectionCarousel({
   viewAllLink = "/products"
 }: ProductSectionCarouselProps) {
   const [currentSlide, setCurrentSlide] = useState(0);
+  const touchStartXRef = useRef<number | null>(null);
+  const touchEndXRef = useRef<number | null>(null);
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartXRef.current = e.targetTouches[0].clientX;
+    touchEndXRef.current = null;
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    touchEndXRef.current = e.targetTouches[0].clientX;
+  };
+
+  const handleTouchEnd = () => {
+    if (touchStartXRef.current === null || touchEndXRef.current === null) return;
+    const diff = touchStartXRef.current - touchEndXRef.current;
+    if (diff > 35) {
+      nextSlide();
+    } else if (diff < -35) {
+      prevSlide();
+    }
+  };
   const getResponsiveVisibleCount = () => {
     if (typeof window === 'undefined') return 4;
     const w = window.innerWidth;
@@ -1182,13 +1224,13 @@ function ProductSectionCarousel({
   };
 
   return (
-    <section id={id} className={cn("py-16 md:py-24 border-y border-border/60 transition-colors", bgColor)}>
+    <section id={id} className={cn("py-10 sm:py-16 md:py-24 border-y border-border/60 transition-colors", bgColor)}>
       <div className="container text-center mb-10 md:mb-16 space-y-4">
         <div className="inline-flex items-center justify-center gap-1.5 text-secondary font-bold text-xs uppercase tracking-widest">
           {taglineIcon}
           <span>{tagline}</span>
         </div>
-        <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold tracking-tight text-primary font-serif">{title}</h2>
+        <h2 className="text-2xl sm:text-4xl lg:text-5xl font-bold tracking-tight text-primary font-serif">{title}</h2>
         <div className="h-1 w-24 bg-secondary mx-auto rounded-full" />
         <p className="text-base md:text-lg text-muted-foreground max-w-2xl mx-auto leading-relaxed">
           {description}

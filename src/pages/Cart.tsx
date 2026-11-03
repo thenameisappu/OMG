@@ -57,8 +57,8 @@ export default function Cart() {
           <div className="lg:col-span-7 space-y-6">
             <div className="space-y-4">
               {cart.map((item) => (
-                <div key={item.id} className="flex gap-5 p-5 rounded-2xl bg-white luxury-shadow border border-border hover:border-secondary/30 transition-all">
-                  <div className="h-28 w-28 shrink-0 overflow-hidden rounded-xl bg-muted border border-border">
+                <div key={item.id} className="flex gap-3 sm:gap-5 p-3.5 sm:p-5 rounded-2xl bg-white luxury-shadow border border-border hover:border-secondary/30 transition-all">
+                  <div className="h-20 w-20 sm:h-28 sm:w-28 shrink-0 overflow-hidden rounded-xl bg-muted border border-border">
                     <img src={item.image} alt={item.name} className="h-full w-full object-cover" />
                   </div>
                   <div className="flex-1 flex flex-col justify-between">

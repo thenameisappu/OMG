@@ -427,51 +427,53 @@ export default function ProductDetail() {
             </div>
 
             {/* Action Row: Quantity + Add to Bag + Buy Now */}
-            <div className="flex flex-wrap sm:flex-nowrap items-center gap-2.5 sm:gap-3 w-full pt-1">
-              {/* Quantity Selector */}
-              <div className="flex items-center justify-between h-11 px-3.5 border border-border rounded-full bg-white shadow-2xs w-32 shrink-0">
-                <button
+            <div className="space-y-2.5 w-full pt-1">
+              <div className="flex items-center gap-2.5 w-full">
+                {/* Quantity Selector */}
+                <div className="flex items-center justify-between h-11 px-3 border border-border rounded-full bg-white shadow-2xs w-28 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => setQuantity(q => Math.max(1, q - 1))}
+                    className="text-muted-foreground hover:text-primary transition-colors p-1"
+                    aria-label="Decrease quantity"
+                  >
+                    <Minus className="h-3.5 w-3.5" />
+                  </button>
+                  <span className="font-bold text-sm text-primary">{quantity}</span>
+                  <button
+                    type="button"
+                    onClick={() => setQuantity(q => q + 1)}
+                    className="text-muted-foreground hover:text-primary transition-colors p-1"
+                    aria-label="Increase quantity"
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+
+                {/* Add to Bag Button */}
+                <Button
                   type="button"
-                  onClick={() => setQuantity(q => Math.max(1, q - 1))}
-                  className="text-muted-foreground hover:text-primary transition-colors p-1"
-                  aria-label="Decrease quantity"
+                  variant="outline"
+                  className="flex-1 h-11 rounded-full border-2 border-secondary text-secondary hover:bg-secondary hover:text-primary font-bold text-xs sm:text-sm uppercase tracking-wider shadow-2xs transition-colors whitespace-nowrap px-3"
+                  onClick={handleAddToCart}
                 >
-                  <Minus className="h-4 w-4" />
-                </button>
-                <span className="font-bold text-sm text-primary">{quantity}</span>
-                <button
-                  type="button"
-                  onClick={() => setQuantity(q => q + 1)}
-                  className="text-muted-foreground hover:text-primary transition-colors p-1"
-                  aria-label="Increase quantity"
-                >
-                  <Plus className="h-4 w-4" />
-                </button>
+                  Add to Bag
+                </Button>
               </div>
 
-              {/* Add to Bag Button */}
-              <Button
-                type="button"
-                variant="outline"
-                className="flex-1 h-11 rounded-full border-2 border-secondary text-secondary hover:bg-secondary hover:text-primary font-bold text-xs sm:text-sm uppercase tracking-wider shadow-2xs transition-colors whitespace-nowrap px-4"
-                onClick={handleAddToCart}
-              >
-                Add to Bag
-              </Button>
-
-              {/* Buy Now Button */}
+              {/* Full-width Buy Now Button for comfortable thumb tap on mobile */}
               <Button
                 type="button"
                 variant="secondary"
-                className="flex-1 h-11 rounded-full font-bold text-xs sm:text-sm uppercase tracking-wider bg-secondary text-primary hover:bg-secondary/90 shadow-2xs gold-glow transition-all whitespace-nowrap px-4"
+                className="w-full h-12 rounded-full font-bold text-xs sm:text-sm uppercase tracking-wider bg-secondary text-primary hover:bg-secondary/90 shadow-md gold-glow transition-all whitespace-nowrap"
                 onClick={handleBuyNow}
               >
-                Buy Now
+                Instant Buy Now
               </Button>
             </div>
 
             {/* Side-by-Side Feature Cards (Express Delivery & Farm Fresh Stems) */}
-            <div className="grid grid-cols-2 gap-3 pt-1">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3 pt-1">
               <div className="p-3.5 rounded-2xl border border-border bg-white flex items-center gap-3">
                 <Truck className="h-5 w-5 text-secondary shrink-0" />
                 <div>

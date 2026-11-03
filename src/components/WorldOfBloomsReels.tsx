@@ -106,7 +106,7 @@ export function WorldOfBloomsReels() {
       <div className="absolute bottom-0 left-0 w-96 h-96 bg-secondary/5 rounded-full blur-3xl pointer-events-none" />
 
       {/* Header */}
-      <div className="container text-center mb-12 md:mb-16 space-y-3 relative z-10">
+      <div className="container text-center mb-6 sm:mb-10 md:mb-16 space-y-2 sm:space-y-3 relative z-10">
         <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold tracking-tight text-primary font-serif">
           Our World of Blooms
         </h2>
@@ -375,7 +375,7 @@ function ReelDetailsModal({
       <DialogContent className="max-w-4xl p-0 overflow-hidden bg-white dark:bg-card border-secondary/20 shadow-2xl">
         <div className="grid grid-cols-1 md:grid-cols-12 max-h-[88vh] overflow-y-auto md:overflow-hidden">
           {/* Left Column: Vertical 9:16 Video Player */}
-          <div className="md:col-span-5 bg-black relative flex items-center justify-center aspect-[9/16] md:max-h-[82vh]">
+          <div className="md:col-span-5 bg-black relative flex items-center justify-center aspect-[9/16] max-h-[46vh] sm:max-h-[50vh] md:max-h-[82vh] mx-auto w-full">
             <video
               ref={modalVideoRef}
               src={reel.videoUrl}

@@ -200,9 +200,53 @@ export default function Navbar() {
         </div>
       </div>
 
-      {/* Mobile Search Bar */}
-      <div className="lg:hidden border-t border-border bg-white px-4 py-2">
+      {/* Mobile Search Bar & Fast-Access Category Chips */}
+      <div className="lg:hidden border-t border-border bg-white px-3 sm:px-4 py-2 space-y-2">
         <SearchAutocomplete placeholder="Search flowers, hampers, occasions..." />
+
+        {/* Horizontal Touch-Scrollable Category Chips on Mobile */}
+        <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-hide py-0.5 -mx-3 px-3 sm:-mx-4 sm:px-4">
+          <Link
+            to="/products"
+            className={cn(
+              "px-3 py-1 rounded-full text-[11px] font-bold whitespace-nowrap transition-all shrink-0",
+              location.pathname === '/products' && !location.search
+                ? "bg-primary text-secondary shadow-xs ring-1 ring-secondary/50"
+                : "bg-muted/80 text-foreground/80 hover:bg-secondary/15"
+            )}
+          >
+            All Collections
+          </Link>
+          {navItems.map((item) => {
+            const isActive = location.pathname + location.search === item.href;
+            return (
+              <Link
+                key={item.name}
+                to={item.href}
+                className={cn(
+                  "px-3 py-1 rounded-full text-[11px] font-bold whitespace-nowrap transition-all shrink-0",
+                  isActive
+                    ? "bg-primary text-secondary shadow-xs ring-1 ring-secondary/50"
+                    : "bg-muted/80 text-foreground/80 hover:bg-secondary/15"
+                )}
+              >
+                {item.name}
+              </Link>
+            );
+          })}
+          <Link
+            to="/surprise-services"
+            className={cn(
+              "px-3 py-1 rounded-full text-[11px] font-bold whitespace-nowrap transition-all shrink-0 flex items-center gap-1",
+              location.pathname === '/surprise-services'
+                ? "bg-primary text-amber-300 shadow-xs ring-1 ring-amber-400/50"
+                : "bg-amber-50 text-amber-900 border border-amber-200/80 hover:bg-amber-100"
+            )}
+          >
+            <Sparkles className="h-3 w-3 text-amber-500" />
+            Surprises
+          </Link>
+        </div>
       </div>
 
       {/* Category Bar - Desktop only, horizontally scrollable */}
