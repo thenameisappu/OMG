@@ -152,7 +152,7 @@ export default function Login() {
         <div className="hidden lg:flex lg:col-span-6 relative bg-primary items-center justify-center p-12 overflow-hidden">
           <div className="absolute inset-0">
             <img
-              src="https://miaoda-site-img.s3cdn.medo.dev/images/KLing_03fde315-7935-4968-98e6-d7b417bd3057.jpg"
+              src="https://images.unsplash.com/photo-1563241527-3004b7be0ffd?w=1600&q=80"
               alt="Luxury Floral Signature"
               className="w-full h-full object-cover opacity-40 filter brightness-75 scale-105"
             />

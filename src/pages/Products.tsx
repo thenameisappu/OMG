@@ -43,6 +43,38 @@ import { Badge } from '@/components/ui/badge';
 import { useCart } from '@/contexts/CartContext';
 import { WishlistButton } from '@/components/common/WishlistButton';
 
+const DB_PRODUCTS_CACHE_KEY = 'omg_db_products_cache_v2';
+
+function isRealProduct(p: any): boolean {
+  if (!p || typeof p !== 'object') return false;
+  if (p.is_active !== undefined && (p.is_active === 0 || p.is_active === '0' || p.is_active === false)) {
+    return false;
+  }
+  const img = String(p.image || (Array.isArray(p.images) && p.images[0]) || '');
+  if (!img || img.trim().length === 0) return false;
+  if (img.includes('miaoda-site-img') || img.includes('KLing_')) return false;
+  return true;
+}
+
+function getInitialCachedProducts(category: string): any[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = localStorage.getItem(DB_PRODUCTS_CACHE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        const valid = parsed.filter(isRealProduct);
+        if (category === 'all') return valid;
+        return valid.filter((p) => {
+          const pCat = String(p.category || '').toLowerCase().trim();
+          return pCat === category.toLowerCase().trim();
+        });
+      }
+    }
+  } catch {}
+  return [];
+}
+
 const categories = [
   { name: 'All Collections', slug: 'all' },
   { name: "Oh My Bloom's", slug: 'flower-arrangements' },
@@ -59,7 +91,7 @@ const MOMENT_SERVICES_DATA = [
     subtitle: 'Romantic Milestone & Secret "YES!" Moments',
     tag: 'MOST CELEBRATED',
     icon: Heart,
-    image: 'https://miaoda-site-img.s3cdn.medo.dev/images/KLing_0d1f5bf9-c3e6-4678-b943-f496a294145d.jpg',
+    image: 'https://images.unsplash.com/photo-1515934751635-c81c6bc9a2d8?w=800&q=80',
     desc: 'Intimate candlelit walkways, grand floral arches, "MARRY ME" illumination, and secret on-site orchestration for that breathtaking, cinematic "YES" moment.',
     highlights: ['50+ Pure Wax Pillar Candles', 'Bespoke Fresh Rose Archway', 'Secret Coordinator & Timing Cue', 'Complimentary Champagne Setup'],
     itinerary: '1. Secret Itinerary Design → 2. Hidden Venue Transformation → 3. The Grand Reveal & Emotion',
@@ -71,7 +103,7 @@ const MOMENT_SERVICES_DATA = [
     subtitle: 'Doorstep Magic at the Stroke of 00:00',
     tag: 'POPULAR CHOICE',
     icon: Moon,
-    image: 'https://miaoda-site-img.s3cdn.medo.dev/images/KLing_71ed4da9-9ce1-4430-b4a5-15e4fbfc8ba3.jpg',
+    image: 'https://images.unsplash.com/photo-1519741497674-611481863552?w=800&q=80',
     desc: 'Coordinated doorstep delivery at precisely 00:00 midnight with live acoustic guitarist serenade, balloon ceiling transformations, fresh blooms, and luxury gourmet treats.',
     highlights: ['Guaranteed 00:00 Sharp Delivery', 'Live Acoustic Guitarist/Singer', 'Helium Balloon Ceiling Bouquet', 'Luxury Cake & Bloom Pairing'],
     itinerary: '1. Secret Delivery Route → 2. Midnight Doorbell & Live Serenade → 3. Midnight Unwrapping',
@@ -83,7 +115,7 @@ const MOMENT_SERVICES_DATA = [
     subtitle: 'Bespoke Floral & Venue Architecture',
     tag: 'SIGNATURE CRAFT',
     icon: Sparkles,
-    image: 'https://miaoda-site-img.s3cdn.medo.dev/images/KLing_14558096-74be-4c1a-a8a2-e0334e6050d9.jpg',
+    image: 'https://images.unsplash.com/photo-1519225421980-715cb0215aed?w=800&q=80',
     desc: 'Complete high-fashion floral and decor transformation for private dinner parties, luxury anniversaries, intimate terrace gatherings, and milestone galas.',
     highlights: ['Full Room Floral Canopy', 'Architectural Table Centrepieces', 'Mood Lighting & Warm Ambience', 'Custom Color Palette Styling'],
     itinerary: '1. Venue Inspection & Moodboard → 2. Floral Production → 3. On-Site Complete Styling',
@@ -119,7 +151,7 @@ const MOMENT_SERVICES_DATA = [
     subtitle: 'Customized Keepsakes & Luxury Hampers',
     tag: 'ULTRA LUXURY',
     icon: Gift,
-    image: 'https://miaoda-site-img.s3cdn.medo.dev/images/KLing_c023c54c-4d4a-425e-aee3-ef5a6118cf40.jpg',
+    image: 'https://images.unsplash.com/photo-1549465220-1a8b9238cd48?w=800&q=80',
     desc: 'Handmade velvet keepsakes, engraved crystal flutes, artisan European chocolates, and rare botanical blooms curated exclusively for your milestone.',
     highlights: ['Custom Engraving & Leather Tags', 'Handmade Velvet Presentation Box', 'Artisan Gourmet Pairings', 'Personalized Calligraphy Letter'],
     itinerary: '1. Taste & Preference Curation → 2. Artisan Packaging → 3. White-Glove Hand Delivery',
@@ -134,29 +166,35 @@ export default function Products() {
   const currentCategory = searchParams.get('category') || 'all';
   const searchQuery = searchParams.get('search') || '';
   const [sortBy, setSortBy] = useState('featured');
-  const [products, setProducts] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const initialCached = useMemo(() => getInitialCachedProducts(currentCategory), [currentCategory]);
+  const [products, setProducts] = useState<any[]>(initialCached);
+  const [loading, setLoading] = useState(initialCached.length === 0);
   const [activeExperienceModal, setActiveExperienceModal] = useState<any | null>(null);
 
   useEffect(() => {
     async function loadProducts() {
       try {
-        setLoading(true);
+        if (products.length === 0) {
+          setLoading(true);
+        }
         const data = await getProducts(currentCategory);
-        setProducts(data);
+        if (Array.isArray(data)) {
+          const valid = data.filter(isRealProduct);
+          setProducts(valid);
+          if (currentCategory === 'all' && valid.length > 0) {
+            try {
+              localStorage.setItem(DB_PRODUCTS_CACHE_KEY, JSON.stringify(valid));
+            } catch {}
+          }
+        }
       } catch (error) {
         console.error('Error loading products:', error);
-        toast({
-          title: "Error Loading Products",
-          description: "Failed to fetch collection catalog.",
-          variant: "destructive",
-        });
       } finally {
         setLoading(false);
       }
     }
     loadProducts();
-  }, [currentCategory, toast]);
+  }, [currentCategory]);
 
   const [custForm, setCustForm] = useState({
     name: user?.name || '',
@@ -239,27 +277,27 @@ export default function Products() {
 
   const categoryBanners: Record<string, { image: string; title: string; description: string }> = {
     'flower-arrangements': {
-      image: 'https://miaoda-site-img.s3cdn.medo.dev/images/KLing_39a052aa-4054-4588-bf17-098a96cfcd2b.jpg',
+      image: 'https://images.unsplash.com/photo-1563241527-3004b7be0ffd?w=1600&q=80',
       title: "Oh My Bloom's",
       description: 'Exquisite floral arrangements crafted with fresh farm-direct stems by master florists for life\'s finest moments.'
     },
     'gift-hampers': {
-      image: 'https://miaoda-site-img.s3cdn.medo.dev/images/KLing_032564d4-e9a3-41be-b09c-95d6ef79e302.jpg',
+      image: 'https://images.unsplash.com/photo-1549465220-1a8b9238cd48?w=1600&q=80',
       title: "Oh My Love's",
       description: 'Curated luxury hampers featuring artisan delicacies, fine wines, and velvet ribbons designed to express your deepest sentiment.'
     },
     'signature-collection': {
-      image: 'https://miaoda-site-img.s3cdn.medo.dev/images/KLing_6d766290-f70a-4d60-98fe-4aeb18ce0016.jpg',
+      image: 'https://images.unsplash.com/photo-1526047932273-341f2a7631f9?w=1600&q=80',
       title: "Oh My Signature's",
       description: 'Our flagship collection of rare exotic blooms, handcrafted ceramic vessels, and statement architectural florals.'
     },
     'occasions': {
-      image: 'https://miaoda-site-img.s3cdn.medo.dev/images/KLing_aa54fb7e-093c-4976-a8af-1fb7321d319e.jpg',
+      image: 'https://images.unsplash.com/photo-1519225421980-715cb0215aed?w=1600&q=80',
       title: "Oh My Moment's",
       description: 'Handcrafted floral masterpieces tailored for birthdays, anniversaries, proposals, and royal celebrations.'
     },
     'custom-orders': {
-      image: 'https://miaoda-site-img.s3cdn.medo.dev/images/KLing_26925607-4fb5-4fb4-a799-290bffb93e88.jpg',
+      image: 'https://images.unsplash.com/photo-1513519245088-0e12902e5a38?w=1600&q=80',
       title: "Oh My Customisation's",
       description: 'Bespoke floral & hamper designs created exclusively for your vision with personalized consultations.'
     }
@@ -362,19 +400,40 @@ export default function Products() {
         </div>
 
         {/* Product Grid — auto-fills columns based on available width */}
-        <div
-          className="gap-3 sm:gap-4 md:gap-5"
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fill, minmax(min(205px, 100%), 1fr))'
-          }}
-        >
-          {filteredProducts.map((product, index) => (
-            <div key={product.id} className="animate-slide-up" style={{ animationDelay: `${(index % 12) * 0.04}s` }}>
-              <ProductCard product={product} />
-            </div>
-          ))}
-        </div>
+        {loading && products.length === 0 ? (
+          <div
+            className="gap-3 sm:gap-4 md:gap-5"
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fill, minmax(min(205px, 100%), 1fr))'
+            }}
+          >
+            {[0, 1, 2, 3, 4, 5, 6, 7].map((i) => (
+              <div key={i} className="bg-white border border-border/60 rounded-2xl overflow-hidden p-3.5 space-y-3.5 animate-pulse">
+                <div className="aspect-square bg-muted/40 rounded-xl w-full" />
+                <div className="space-y-2">
+                  <div className="h-3.5 bg-muted/50 rounded w-3/4" />
+                  <div className="h-3 bg-muted/30 rounded w-1/2" />
+                  <div className="h-5 bg-muted/40 rounded w-1/3 mt-2" />
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div
+            className="gap-3 sm:gap-4 md:gap-5"
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fill, minmax(min(205px, 100%), 1fr))'
+            }}
+          >
+            {filteredProducts.map((product, index) => (
+              <div key={product.id} className="animate-slide-up" style={{ animationDelay: `${(index % 12) * 0.04}s` }}>
+                <ProductCard product={product} />
+              </div>
+            ))}
+          </div>
+        )}
 
         {filteredProducts.length === 0 && currentCategory !== 'occasions' && currentCategory !== 'custom-orders' && (
           <div className="py-24 text-center space-y-4">
@@ -707,6 +766,7 @@ function getProductRating(product: any): string {
 function ProductCard({ product }: { product: any }) {
   const { addToCart } = useCart();
   const { toast } = useToast();
+  const [imgError, setImgError] = useState(false);
 
   const handleQuickAdd = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -723,11 +783,19 @@ function ProductCard({ product }: { product: any }) {
       style={{ containerType: 'inline-size', containerName: 'productcard' }}
     >
       <Link to={`/product/${product.slug}`} className="relative block aspect-square overflow-hidden bg-muted/10">
-        <img
-          src={product.image}
-          alt={product.name}
-          className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-110"
-        />
+        {!imgError && product.image ? (
+          <img
+            src={product.image}
+            alt={product.name}
+            onError={() => setImgError(true)}
+            className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-110"
+          />
+        ) : (
+          <div className="h-full w-full bg-gradient-to-br from-[#121A16] to-[#1C2822] flex flex-col items-center justify-center p-4 text-center">
+            <Sparkles className="h-8 w-8 text-secondary/70 mb-2" />
+            <span className="text-[11px] uppercase tracking-wider font-bold text-secondary/90">Oh My Gudness</span>
+          </div>
+        )}
         <div className="absolute inset-0 bg-black/10 opacity-0 group-hover:opacity-100 transition-opacity" />
 
         {/* Best Seller Badge */}

@@ -38,7 +38,7 @@ const DEFAULT_PLANS = [
     lightColor: 'bg-emerald-50',
     borderColor: 'border-emerald-200',
     accentColor: 'text-emerald-600',
-    image: 'https://miaoda-site-img.s3cdn.medo.dev/images/KLing_8fb5dcf8-22bd-4fbd-98ba-1611bfcdcc4d.jpg',
+    image: 'https://images.unsplash.com/photo-1563241527-3004b7be0ffd?w=800&q=80',
   },
   {
     id: 2,
@@ -64,7 +64,7 @@ const DEFAULT_PLANS = [
     lightColor: 'bg-amber-50',
     borderColor: 'border-amber-300',
     accentColor: 'text-amber-600',
-    image: 'https://miaoda-site-img.s3cdn.medo.dev/images/KLing_3556e18d-69b0-4c22-93c1-29efba584217.jpg',
+    image: 'https://images.unsplash.com/photo-1549465220-1a8b9238cd48?w=800&q=80',
   },
   {
     id: 3,
@@ -90,7 +90,7 @@ const DEFAULT_PLANS = [
     lightColor: 'bg-rose-50',
     borderColor: 'border-rose-200',
     accentColor: 'text-rose-600',
-    image: 'https://miaoda-site-img.s3cdn.medo.dev/images/KLing_14558096-74be-4c1a-a8a2-e0334e6050d9.jpg',
+    image: 'https://images.unsplash.com/photo-1526047932273-341f2a7631f9?w=800&q=80',
   },
 ];
 
@@ -266,7 +266,7 @@ export default function Subscriptions() {
           {/* Background image */}
           <div className="absolute inset-0">
             <img
-              src="https://miaoda-site-img.s3cdn.medo.dev/images/KLing_66ade087-5eac-4fb3-83db-431e8df6b554.jpg"
+              src="https://images.unsplash.com/photo-1519225421980-715cb0215aed?w=1600&q=80"
               alt="Luxury Floral Subscription"
               className="w-full h-full object-cover opacity-20"
             />

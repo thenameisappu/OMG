@@ -197,7 +197,7 @@ export default function SurpriseServices() {
       description: `Bespoke Experience Reservation: ${selectedPackage.title}. Upgrades: ${selectedAddonNames.join(', ') || 'Standard Included'}. Full on-site coordination & master florist styling included.`,
       price: totalPrice,
       category: 'occasions',
-      image: selectedPackage.image || 'https://miaoda-site-img.s3cdn.medo.dev/images/KLing_0d1f5bf9-c3e6-4678-b943-f496a294145d.jpg',
+      image: selectedPackage.image || 'https://images.unsplash.com/photo-1515934751635-c81c6bc9a2d8?w=800&q=80',
       stock_status: 'in_stock' as const,
       stock_quantity: 99,
       is_active: 1,
@@ -321,7 +321,7 @@ export default function SurpriseServices() {
         <section className="relative min-h-[85vh] flex items-center justify-center pt-16 pb-24 overflow-hidden border-b border-amber-500/20">
           <div className="absolute inset-0">
             <img
-              src="https://miaoda-site-img.s3cdn.medo.dev/images/KLing_0d1f5bf9-c3e6-4678-b943-f496a294145d.jpg"
+              src="https://images.unsplash.com/photo-1515934751635-c81c6bc9a2d8?w=800&q=80"
               alt="Luxury Surprise Event Decor"
               className="w-full h-full object-cover opacity-25 filter brightness-75 scale-105 transition-transform duration-10000 hover:scale-110"
             />
@@ -623,7 +623,7 @@ export default function SurpriseServices() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <div className="group relative aspect-[4/5] rounded-2xl overflow-hidden border border-amber-500/20 shadow-xl">
                 <img
-                  src="https://miaoda-site-img.s3cdn.medo.dev/images/KLing_0d1f5bf9-c3e6-4678-b943-f496a294145d.jpg"
+                  src="https://images.unsplash.com/photo-1515934751635-c81c6bc9a2d8?w=800&q=80"
                   alt="Candlelit Romantic Proposal"
                   className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
                 />
@@ -635,7 +635,7 @@ export default function SurpriseServices() {
 
               <div className="group relative aspect-[4/5] rounded-2xl overflow-hidden border border-amber-500/20 shadow-xl md:translate-y-6">
                 <img
-                  src="https://miaoda-site-img.s3cdn.medo.dev/images/KLing_71ed4da9-9ce1-4430-b4a5-15e4fbfc8ba3.jpg"
+                  src="https://images.unsplash.com/photo-1519741497674-611481863552?w=800&q=80"
                   alt="Midnight Doorstep Surprise"
                   className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
                 />
@@ -647,7 +647,7 @@ export default function SurpriseServices() {
 
               <div className="group relative aspect-[4/5] rounded-2xl overflow-hidden border border-amber-500/20 shadow-xl">
                 <img
-                  src="https://miaoda-site-img.s3cdn.medo.dev/images/KLing_14558096-74be-4c1a-a8a2-e0334e6050d9.jpg"
+                  src="https://images.unsplash.com/photo-1519225421980-715cb0215aed?w=800&q=80"
                   alt="Private Rooftop Dining Setup"
                   className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
                 />

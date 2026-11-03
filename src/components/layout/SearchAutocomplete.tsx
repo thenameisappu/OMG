@@ -19,7 +19,32 @@ import {
 import { cn } from '@/lib/utils';
 import { formatINR } from '@/lib/currency';
 import { getProducts } from '@/db/api';
-import { mockProducts } from '@/data/mockProducts';
+const DB_PRODUCTS_CACHE_KEY = 'omg_db_products_cache_v2';
+
+function isRealProduct(p: any): boolean {
+  if (!p || typeof p !== 'object') return false;
+  if (p.is_active !== undefined && (p.is_active === 0 || p.is_active === '0' || p.is_active === false)) {
+    return false;
+  }
+  const img = String(p.image || (Array.isArray(p.images) && p.images[0]) || '');
+  if (!img || img.trim().length === 0) return false;
+  if (img.includes('miaoda-site-img') || img.includes('KLing_')) return false;
+  return true;
+}
+
+function getInitialCachedProducts(): any[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = localStorage.getItem(DB_PRODUCTS_CACHE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed.filter(isRealProduct);
+      }
+    }
+  } catch {}
+  return [];
+}
 
 // Curated Occasions & Experiences
 export interface OccasionItem {
@@ -165,7 +190,7 @@ export function SearchAutocomplete({
 }: SearchAutocompleteProps) {
   const [query, setQuery] = useState('');
   const [isOpen, setIsOpen] = useState(false);
-  const [products, setProducts] = useState<any[]>([]);
+  const [products, setProducts] = useState<any[]>(() => getInitialCachedProducts());
   const [selectedIndex, setSelectedIndex] = useState<number>(-1);
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -179,14 +204,18 @@ export function SearchAutocomplete({
         const data = await getProducts();
         if (isMounted) {
           if (Array.isArray(data) && data.length > 0) {
-            setProducts(data);
+            const valid = data.filter(isRealProduct);
+            setProducts(valid);
+            try {
+              localStorage.setItem(DB_PRODUCTS_CACHE_KEY, JSON.stringify(valid));
+            } catch {}
           } else {
-            setProducts(mockProducts);
+            // Keep cached real products
           }
         }
       } catch {
         if (isMounted) {
-          setProducts(mockProducts);
+          // Keep cached real products
         }
       }
     }
@@ -427,7 +456,7 @@ export function SearchAutocomplete({
                         const productImg =
                           product.image ||
                           (Array.isArray(product.images) && product.images[0]) ||
-                          'https://miaoda-site-img.s3cdn.medo.dev/images/KLing_8fb5dcf8-22bd-4fbd-98ba-1611bfcdcc4d.jpg';
+                          '';
 
                         return (
                           <div

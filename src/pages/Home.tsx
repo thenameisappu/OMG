@@ -9,7 +9,38 @@ import { testimonialService } from '@/services/api';
 import { WishlistButton } from '@/components/common/WishlistButton';
 import { TeamShowcase } from '@/components/TeamShowcase';
 import { WorldOfBloomsReels } from '@/components/WorldOfBloomsReels';
-import { mockProducts } from '@/data/mockProducts';
+
+// Local storage cache key for instant first paint without dummy flash
+const DB_PRODUCTS_CACHE_KEY = 'omg_db_products_cache_v2';
+
+export function isRealProduct(p: any): boolean {
+  if (!p || typeof p !== 'object') return false;
+  if (p.is_active !== undefined && (p.is_active === 0 || p.is_active === '0' || p.is_active === false)) {
+    return false;
+  }
+  const img = String(p.image || (Array.isArray(p.images) && p.images[0]) || '');
+  if (!img || img.trim().length === 0) return false;
+  if (img.includes('miaoda-site-img') || img.includes('KLing_')) return false;
+  return true;
+}
+
+function getInitialCachedProducts(): any[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    // Purge outdated v1 cache that might contain dummy products
+    localStorage.removeItem('omg_db_products_cache_v1');
+    const raw = localStorage.getItem(DB_PRODUCTS_CACHE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed.filter(isRealProduct);
+      }
+    }
+  } catch {
+    // Ignore JSON parse errors
+  }
+  return [];
+}
 
 // Category Definitions for Homepage Collections with dynamic rotation
 const CATEGORY_SECTIONS = [
@@ -19,7 +50,6 @@ const CATEGORY_SECTIONS = [
     subtitle: "Fresh Floral Bouquets & Luxury Stems",
     link: "/products?category=flower-arrangements",
     categoryKeys: ['flower-arrangements', 'blooms', 'bloom'],
-    fallbackImage: "https://miaoda-site-img.s3cdn.medo.dev/images/KLing_8fb5dcf8-22bd-4fbd-98ba-1611bfcdcc4d.jpg",
   },
   {
     id: 'gift-hampers',
@@ -27,7 +57,6 @@ const CATEGORY_SECTIONS = [
     subtitle: "Curated Hampers & Gourmet Treats",
     link: "/products?category=gift-hampers",
     categoryKeys: ['gift-hampers', 'hampers', 'loves', 'love'],
-    fallbackImage: "https://miaoda-site-img.s3cdn.medo.dev/images/KLing_3556e18d-69b0-4c22-93c1-29efba584217.jpg",
   },
   {
     id: 'occasions',
@@ -35,7 +64,6 @@ const CATEGORY_SECTIONS = [
     subtitle: "Celebration Bundles & Occasion Styling",
     link: "/products?category=occasions",
     categoryKeys: ['occasions', 'celebrations', 'moments', 'moment'],
-    fallbackImage: "https://miaoda-site-img.s3cdn.medo.dev/images/KLing_6bbe1cd4-2103-4b1e-b55e-83ffbca65dd2.jpg",
   },
   {
     id: 'signature-collection',
@@ -43,43 +71,6 @@ const CATEGORY_SECTIONS = [
     subtitle: "Rare Exotic Blooms & Bespoke Vessels",
     link: "/products?category=signature-collection",
     categoryKeys: ['signature-collection', 'signatures', 'signature'],
-    fallbackImage: "https://miaoda-site-img.s3cdn.medo.dev/images/KLing_03fde315-7935-4968-98e6-d7b417bd3057.jpg",
-  },
-];
-
-// Sample testimonials fallback
-const SAMPLE_TESTIMONIALS = [
-  {
-    id: 1,
-    name: 'Priya Sharma',
-    location: 'Indiranagar, Bangalore',
-    rating: 5,
-    review: 'Absolutely stunning arrangement! The roses were incredibly fresh and the packaging was so elegant. My husband was speechless.',
-    avatar: 'PS',
-  },
-  {
-    id: 2,
-    name: 'Arjun Mehta',
-    location: 'Koramangala, Bangalore',
-    rating: 5,
-    review: 'OMG planned the most perfect rooftop surprise for my wife\'s birthday. Every detail was handled flawlessly — from the candles to the live guitarist.',
-    avatar: 'AM',
-  },
-  {
-    id: 3,
-    name: 'Sneha Reddy',
-    location: 'Whitefield, Bangalore',
-    rating: 5,
-    review: 'The hamper I ordered for my mom\'s anniversary was gorgeous. Super-fast delivery, beautifully wrapped, and the flowers lasted over 10 days.',
-    avatar: 'SR',
-  },
-  {
-    id: 4,
-    name: 'Rahul Nair',
-    location: 'JP Nagar, Bangalore',
-    rating: 5,
-    review: 'Used OMG for a proposal setup and they absolutely nailed it! The coordination was seamless and discreet. She said YES!',
-    avatar: 'RN',
   },
 ];
 
@@ -177,9 +168,9 @@ interface HeroSlide {
   }>;
 }
 
-const HERO_SLIDES: HeroSlide[] = [
+const HERO_SLIDES_BASE: HeroSlide[] = [
   {
-    image: "https://miaoda-site-img.s3cdn.medo.dev/images/KLing_1820e6cd-672c-474f-a014-772dcd375172.jpg",
+    image: "https://images.unsplash.com/photo-1563241527-3004b7be0ffd?w=1600&q=80",
     badgeIcon: Sparkles,
     badgeText: "Bangalore's Premier Floral & Surprise House",
     titlePrefix: "Elevating the Art of",
@@ -196,7 +187,7 @@ const HERO_SLIDES: HeroSlide[] = [
     ],
   },
   {
-    image: "https://miaoda-site-img.s3cdn.medo.dev/images/KLing_8fb5dcf8-22bd-4fbd-98ba-1611bfcdcc4d.jpg",
+    image: "https://images.unsplash.com/photo-1526047932273-341f2a7631f9?w=1600&q=80",
     badgeIcon: Heart,
     badgeText: "Oh My Bloom's • Artisanal Fresh Florals",
     titlePrefix: "Handcrafted Luxury",
@@ -212,7 +203,7 @@ const HERO_SLIDES: HeroSlide[] = [
     ],
   },
   {
-    image: "https://miaoda-site-img.s3cdn.medo.dev/images/KLing_3556e18d-69b0-4c22-93c1-29efba584217.jpg",
+    image: "https://images.unsplash.com/photo-1549465220-1a8b9238cd48?w=1600&q=80",
     badgeIcon: Gift,
     badgeText: "Oh My Love's • Curated Luxury Hampers",
     titlePrefix: "Curated Hampers of",
@@ -228,7 +219,7 @@ const HERO_SLIDES: HeroSlide[] = [
     ],
   },
   {
-    image: "https://miaoda-site-img.s3cdn.medo.dev/images/KLing_6bbe1cd4-2103-4b1e-b55e-83ffbca65dd2.jpg",
+    image: "https://images.unsplash.com/photo-1519225421980-715cb0215aed?w=1600&q=80",
     badgeIcon: Flame,
     badgeText: "Oh My Moment's • Bespoke Surprise Experiences",
     titlePrefix: "Unforgettable Surprise",
@@ -246,11 +237,14 @@ const HERO_SLIDES: HeroSlide[] = [
 ];
 
 export default function Home() {
-  const [allProducts, setAllProducts] = useState<any[]>(mockProducts);
-  const [newlyLaunchedProducts, setNewlyLaunchedProducts] = useState<any[]>([]);
-  const [featuredProducts, setFeaturedProducts] = useState<any[]>([]);
-  const [bestSellerProducts, setBestSellerProducts] = useState<any[]>([]);
-  const [productsLoading, setProductsLoading] = useState(true);
+  const initialCachedProducts = useMemo(() => getInitialCachedProducts(), []);
+  const initialPartitioned = useMemo(() => partitionHomeProducts(initialCachedProducts), [initialCachedProducts]);
+
+  const [allProducts, setAllProducts] = useState<any[]>(initialCachedProducts);
+  const [newlyLaunchedProducts, setNewlyLaunchedProducts] = useState<any[]>(initialPartitioned.newlyLaunched);
+  const [featuredProducts, setFeaturedProducts] = useState<any[]>(initialPartitioned.featured);
+  const [bestSellerProducts, setBestSellerProducts] = useState<any[]>(initialPartitioned.bestSellers);
+  const [productsLoading, setProductsLoading] = useState<boolean>(initialCachedProducts.length === 0);
   
   // Hero carousel state & swipe handlers
   const [currentHeroImage, setCurrentHeroImage] = useState(0);
@@ -258,12 +252,25 @@ export default function Home() {
   const touchStartXRef = useRef<number | null>(null);
   const touchEndXRef = useRef<number | null>(null);
 
+  // Dynamically map hero slides to real database product images when loaded
+  const heroSlides = useMemo(() => {
+    const validDbImages = allProducts
+      .filter(isRealProduct)
+      .map((p) => p.image || (Array.isArray(p.images) && p.images[0]))
+      .filter((img): img is string => typeof img === 'string' && img.length > 5);
+
+    return HERO_SLIDES_BASE.map((slide, idx) => ({
+      ...slide,
+      image: validDbImages[idx] || slide.image,
+    }));
+  }, [allProducts]);
+
   const nextHeroSlide = () => {
-    setCurrentHeroImage((prev) => (prev + 1) % HERO_SLIDES.length);
+    setCurrentHeroImage((prev) => (prev + 1) % heroSlides.length);
   };
 
   const prevHeroSlide = () => {
-    setCurrentHeroImage((prev) => (prev - 1 + HERO_SLIDES.length) % HERO_SLIDES.length);
+    setCurrentHeroImage((prev) => (prev - 1 + heroSlides.length) % heroSlides.length);
   };
 
   const handleHeroTouchStart = (e: React.TouchEvent) => {
@@ -285,8 +292,8 @@ export default function Home() {
     }
   };
   
-  // Testimonials state
-  const [testimonials, setTestimonials] = useState<any[]>(SAMPLE_TESTIMONIALS);
+  // Testimonials state - initialized empty, never dummy mock data
+  const [testimonials, setTestimonials] = useState<any[]>([]);
   const [testimonialsLoading, setTestimonialsLoading] = useState(true);
   const [currentTestimonialSlide, setCurrentTestimonialSlide] = useState(0);
 
@@ -294,21 +301,36 @@ export default function Home() {
   useEffect(() => {
     async function loadProductsData() {
       try {
-        setProductsLoading(true);
+        if (allProducts.length === 0) {
+          setProductsLoading(true);
+        }
         const data = await getProducts();
-        const rawProducts = Array.isArray(data) && data.length > 0 ? data : mockProducts;
-        setAllProducts(rawProducts);
-        const partitioned = partitionHomeProducts(rawProducts);
-        setNewlyLaunchedProducts(partitioned.newlyLaunched);
-        setFeaturedProducts(partitioned.featured);
-        setBestSellerProducts(partitioned.bestSellers);
+        if (Array.isArray(data) && data.length > 0) {
+          const validRealProducts = data.filter(isRealProduct);
+          if (validRealProducts.length > 0) {
+            setAllProducts(validRealProducts);
+            try {
+              localStorage.setItem(DB_PRODUCTS_CACHE_KEY, JSON.stringify(validRealProducts));
+            } catch {
+              // Storage quota or private mode, ignore
+            }
+            const partitioned = partitionHomeProducts(validRealProducts);
+            setNewlyLaunchedProducts(partitioned.newlyLaunched);
+            setFeaturedProducts(partitioned.featured);
+            setBestSellerProducts(partitioned.bestSellers);
+          }
+        } else {
+          // Empty DB response: never fall back to mockProducts
+          if (allProducts.length === 0) {
+            setAllProducts([]);
+            setNewlyLaunchedProducts([]);
+            setFeaturedProducts([]);
+            setBestSellerProducts([]);
+          }
+        }
       } catch (error) {
-        console.error('Error fetching home products:', error);
-        setAllProducts(mockProducts);
-        const partitioned = partitionHomeProducts(mockProducts);
-        setNewlyLaunchedProducts(partitioned.newlyLaunched);
-        setFeaturedProducts(partitioned.featured);
-        setBestSellerProducts(partitioned.bestSellers);
+        console.error('Error fetching home products from database:', error);
+        // Do NOT set mockProducts! Keep existing cached products if available
       } finally {
         setProductsLoading(false);
       }
@@ -321,29 +343,37 @@ export default function Home() {
   const currentRotationCycle = Math.floor(Math.floor(Date.now() / (1000 * 60 * 60 * 24)) / ROTATION_DAYS);
 
   const categoryCardsData = useMemo(() => {
+    if (!allProducts || allProducts.length === 0) {
+      return [];
+    }
+
+    const realOnly = allProducts.filter(isRealProduct);
+    if (realOnly.length === 0) return [];
+
+    const usedProductIds = new Set<string>();
+
     return CATEGORY_SECTIONS.map((cat, idx) => {
       // Find matching products in this category that have valid images
-      const matchingProducts = allProducts.filter((p) => {
-        if (!p) return false;
+      const matchingProducts = realOnly.filter((p) => {
         const pCat = String(p.category || '').toLowerCase().trim();
-        const hasImg = !!(p.image || (Array.isArray(p.images) && p.images.length > 0));
-        return hasImg && cat.categoryKeys.some((k) => pCat === k.toLowerCase().trim());
+        return cat.categoryKeys.some((k) => pCat === k.toLowerCase().trim());
       });
 
-      if (matchingProducts.length === 0) {
-        return {
-          ...cat,
-          image: cat.fallbackImage,
-          hoverImage: undefined,
-        };
+      let selectedProduct: any = null;
+
+      if (matchingProducts.length > 0) {
+        const selectedIndex = (currentRotationCycle + idx) % matchingProducts.length;
+        selectedProduct = matchingProducts[selectedIndex];
+      } else {
+        selectedProduct = realOnly.find((p) => !usedProductIds.has(String(p.id))) || realOnly[idx % realOnly.length];
       }
 
-      // Rotate deterministically every ROTATION_DAYS based on calendar cycle
-      const selectedIndex = (currentRotationCycle + idx) % matchingProducts.length;
-      const selected = matchingProducts[selectedIndex];
+      if (selectedProduct?.id) {
+        usedProductIds.add(String(selectedProduct.id));
+      }
 
-      const image = selected.image || (Array.isArray(selected.images) ? selected.images[0] : null) || cat.fallbackImage;
-      const hoverImage = selected.hover_image || (Array.isArray(selected.images) && selected.images.length > 1 ? selected.images[1] : undefined);
+      const image = selectedProduct?.image || (Array.isArray(selectedProduct?.images) ? selectedProduct.images[0] : '') || '';
+      const hoverImage = selectedProduct?.hover_image || (Array.isArray(selectedProduct?.images) && selectedProduct.images.length > 1 ? selectedProduct.images[1] : undefined);
 
       return {
         ...cat,
@@ -460,7 +490,7 @@ export default function Home() {
             transform: `translateX(-${currentHeroImage * 100}%)`,
           }}
         >
-          {HERO_SLIDES.map((slide, index) => {
+          {heroSlides.map((slide, index) => {
             const BadgeIcon = slide.badgeIcon;
             return (
               <div
@@ -614,18 +644,48 @@ export default function Home() {
             </Link>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-5">
-            {categoryCardsData.map((cat) => (
-              <CategoryCard
-                key={cat.id}
-                title={cat.title}
-                subtitle={cat.subtitle}
-                image={cat.image}
-                hoverImage={cat.hoverImage}
-                link={cat.link}
-              />
-            ))}
-          </div>
+          {/* Collection Grid or Luxury Shimmer Skeletons */}
+          {productsLoading && allProducts.length === 0 ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-5">
+              {[0, 1, 2, 3].map((idx) => (
+                <div
+                  key={idx}
+                  className="relative overflow-hidden rounded-2xl aspect-[4/5] bg-gradient-to-br from-[#121A16] to-[#1C2822] border border-secondary/20 p-5 flex flex-col justify-end animate-pulse shadow-md"
+                >
+                  <div className="absolute inset-0 bg-gradient-to-t from-primary/95 via-primary/40 to-transparent" />
+                  <div className="relative z-10 space-y-3">
+                    <div className="h-2.5 w-24 bg-secondary/30 rounded-full" />
+                    <div className="h-6 w-36 bg-white/20 rounded-md" />
+                    <div className="h-3.5 w-28 bg-secondary/40 rounded-full" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : allProducts.length === 0 ? (
+            <div className="text-center py-16 px-4 bg-muted/20 rounded-2xl border border-border/50">
+              <Sparkles className="h-8 w-8 text-secondary mx-auto mb-3" />
+              <h3 className="text-xl font-serif font-bold text-primary mb-2">Our Collections Are Being Refreshed</h3>
+              <p className="text-sm text-muted-foreground max-w-md mx-auto mb-5">
+                We are curating our latest floral bouquets and hampers directly from our atelier.
+              </p>
+              <Button onClick={() => window.location.reload()} variant="outline" className="border-secondary text-primary hover:bg-secondary/10">
+                Refresh Catalog
+              </Button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-5">
+              {categoryCardsData.map((cat) => (
+                <CategoryCard
+                  key={cat.id}
+                  title={cat.title}
+                  subtitle={cat.subtitle}
+                  image={cat.image}
+                  hoverImage={cat.hoverImage}
+                  link={cat.link}
+                />
+              ))}
+            </div>
+          )}
         </div>
       </section>
 
@@ -994,23 +1054,36 @@ function CategoryCard({
   className?: string;
 }) {
   const [isHovered, setIsHovered] = useState(false);
+  const [imgError, setImgError] = useState(false);
+
   const displayImage = (isHovered && hoverImage) ? hoverImage : image;
+  const showFallbackArt = !displayImage || imgError;
 
   return (
     <Link
       to={link}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
-      className={cn("group relative overflow-hidden rounded-2xl aspect-[4/5] hover-lift luxury-shadow block", className)}
+      className={cn("group relative overflow-hidden rounded-2xl aspect-[4/5] hover-lift luxury-shadow block bg-[#0F1713]", className)}
     >
-      <img
-        src={displayImage}
-        alt={title}
-        loading="lazy"
-        className="h-full w-full object-cover transition-all duration-700 ease-out group-hover:scale-105 group-hover:brightness-110"
-      />
-      <div className="absolute inset-0 bg-gradient-to-t from-primary/95 via-primary/35 to-transparent transition-opacity duration-700 group-hover:opacity-85" />
-      <div className="absolute bottom-0 left-0 right-0 p-4 sm:p-5">
+      {!showFallbackArt ? (
+        <img
+          src={displayImage}
+          alt={title}
+          loading="lazy"
+          onError={() => setImgError(true)}
+          className="h-full w-full object-cover transition-all duration-700 ease-out group-hover:scale-105 group-hover:brightness-110"
+        />
+      ) : (
+        <div className="h-full w-full bg-gradient-to-tr from-[#0B130E] via-[#14231B] to-[#1E3227] flex flex-col items-center justify-center p-6 text-center">
+          <div className="w-14 h-14 rounded-full border border-secondary/40 flex items-center justify-center mb-3 bg-secondary/10 group-hover:scale-110 transition-transform">
+            <Sparkles className="h-6 w-6 text-secondary" />
+          </div>
+          <span className="text-secondary text-[11px] uppercase tracking-widest font-bold">OMG Atelier</span>
+        </div>
+      )}
+      <div className="absolute inset-0 bg-gradient-to-t from-primary/95 via-primary/35 to-transparent transition-opacity duration-700 group-hover:opacity-85 pointer-events-none" />
+      <div className="absolute bottom-0 left-0 right-0 p-4 sm:p-5 pointer-events-none">
         {subtitle && <p className="text-secondary/90 text-[10px] font-bold uppercase tracking-wider mb-1 line-clamp-1">{subtitle}</p>}
         <h3 className="text-xl sm:text-2xl font-bold font-serif text-white mb-1.5 group-hover:text-secondary transition-colors duration-500">{title}</h3>
         <div className="flex items-center text-white/90 group-hover:text-secondary transition-colors duration-500 font-semibold text-xs">
@@ -1125,9 +1198,18 @@ function ProductSectionCarousel({
       <div className="container relative">
         {/* Carousel Track */}
         <div className="overflow-hidden">
-          {loading ? (
-            <div className="flex items-center justify-center min-h-[360px]">
-              <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-secondary"></div>
+          {loading && products.length === 0 ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+              {[0, 1, 2, 3].map((i) => (
+                <div key={i} className="bg-white border border-border/60 rounded-2xl overflow-hidden p-3.5 space-y-3.5 animate-pulse">
+                  <div className="aspect-square bg-muted/40 rounded-xl w-full" />
+                  <div className="space-y-2">
+                    <div className="h-3.5 bg-muted/50 rounded w-3/4" />
+                    <div className="h-3 bg-muted/30 rounded w-1/2" />
+                    <div className="h-5 bg-muted/40 rounded w-1/3 mt-2" />
+                  </div>
+                </div>
+              ))}
             </div>
           ) : products.length === 0 ? (
             <p className="text-center text-muted-foreground italic text-lg py-20">{emptyMessage}</p>
@@ -1215,17 +1297,26 @@ function ProductSectionCarousel({
 }
 
 function ProductCard({ product, badgeType }: { product: any; badgeType?: 'new' | 'featured' | 'bestseller' }) {
+  const [imgError, setImgError] = useState(false);
   return (
     <div
       className="group relative bg-white border border-border/60 luxury-shadow hover-lift rounded-2xl overflow-hidden flex flex-col h-full transition-all duration-300"
       style={{ containerType: 'inline-size', containerName: 'productcard' }}
     >
       <Link to={`/product/${product.slug}`} className="relative block aspect-square overflow-hidden bg-muted/10">
-        <img
-          src={product.image}
-          alt={product.name}
-          className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-110"
-        />
+        {!imgError && product.image ? (
+          <img
+            src={product.image}
+            alt={product.name}
+            onError={() => setImgError(true)}
+            className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-110"
+          />
+        ) : (
+          <div className="h-full w-full bg-gradient-to-br from-[#121A16] to-[#1C2822] flex flex-col items-center justify-center p-4 text-center">
+            <Sparkles className="h-8 w-8 text-secondary/70 mb-2" />
+            <span className="text-[11px] uppercase tracking-wider font-bold text-secondary/90">Oh My Gudness</span>
+          </div>
+        )}
         {/* Badges */}
         <div className="absolute top-2.5 left-2.5 z-20 flex flex-col gap-1">
           {badgeType === 'new' ? (

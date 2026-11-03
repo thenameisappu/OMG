@@ -17,6 +17,11 @@ $action = isset($_GET['action']) ? $_GET['action'] : '';
 
 function ensureRatingSchema($db)
 {
+    $lockFile = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'omg_rating_schema_v1.lock';
+    if (file_exists($lockFile)) {
+        return;
+    }
+
     $columns = $db->query('SHOW COLUMNS FROM products')->fetchAll(PDO::FETCH_COLUMN);
     $ratingColumns = [
         'rating' => 'DECIMAL(2,1) DEFAULT NULL',
@@ -40,6 +45,7 @@ function ensureRatingSchema($db)
         FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
     $db->exec("UPDATE products SET rating = ROUND(4.7 + RAND() * 0.3, 1), rating_total = rating, rating_count = 1 WHERE rating IS NULL");
+    @file_put_contents($lockFile, date('c'));
 }
 
 try {
