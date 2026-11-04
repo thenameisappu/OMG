@@ -50,6 +50,7 @@ const CATEGORY_SECTIONS = [
     subtitle: "Fresh Floral Bouquets & Luxury Stems",
     link: "/products?category=flower-arrangements",
     categoryKeys: ['flower-arrangements', 'blooms', 'bloom'],
+    bannerImage: '/images/banners/banner_blooms.jpg',
   },
   {
     id: 'gift-hampers',
@@ -57,6 +58,7 @@ const CATEGORY_SECTIONS = [
     subtitle: "Curated Hampers & Gourmet Treats",
     link: "/products?category=gift-hampers",
     categoryKeys: ['gift-hampers', 'hampers', 'loves', 'love'],
+    bannerImage: '/images/banners/banner_loves.jpg',
   },
   {
     id: 'occasions',
@@ -64,6 +66,7 @@ const CATEGORY_SECTIONS = [
     subtitle: "Celebration Bundles & Occasion Styling",
     link: "/products?category=occasions",
     categoryKeys: ['occasions', 'celebrations', 'moments', 'moment'],
+    bannerImage: '/images/banners/banner_moments.jpg',
   },
   {
     id: 'signature-collection',
@@ -71,6 +74,7 @@ const CATEGORY_SECTIONS = [
     subtitle: "Rare Exotic Blooms & Bespoke Vessels",
     link: "/products?category=signature-collection",
     categoryKeys: ['signature-collection', 'signatures', 'signature'],
+    bannerImage: '/images/banners/banner_signatures.jpg',
   },
 ];
 
@@ -430,7 +434,7 @@ export default function Home() {
         usedProductIds.add(String(selectedProduct.id));
       }
 
-      const image = selectedProduct?.image || (Array.isArray(selectedProduct?.images) ? selectedProduct.images[0] : '') || '';
+      const image = selectedProduct?.image || (Array.isArray(selectedProduct?.images) ? selectedProduct.images[0] : '') || cat.bannerImage || '';
       const hoverImage = selectedProduct?.hover_image || (Array.isArray(selectedProduct?.images) && selectedProduct.images.length > 1 ? selectedProduct.images[1] : undefined);
 
       return {

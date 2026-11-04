@@ -276,34 +276,39 @@ export default function Products() {
   const categoryName = categories.find(c => c.slug === currentCategory)?.name || 'All Products';
 
   const categoryBanners: Record<string, { image: string; title: string; description: string }> = {
+    'all': {
+      image: '/images/hero/hero_luxury_store.jpg',
+      title: "All Collections",
+      description: "Explore our complete boutique of handcrafted luxury bouquets, curated hampers, and bespoke floral gifts."
+    },
     'flower-arrangements': {
-      image: 'https://images.unsplash.com/photo-1563241527-3004b7be0ffd?w=1600&q=80',
+      image: '/images/banners/banner_blooms.jpg',
       title: "Oh My Bloom's",
       description: 'Exquisite floral arrangements crafted with fresh farm-direct stems by master florists for life\'s finest moments.'
     },
     'gift-hampers': {
-      image: 'https://images.unsplash.com/photo-1549465220-1a8b9238cd48?w=1600&q=80',
+      image: '/images/banners/banner_loves.jpg',
       title: "Oh My Love's",
       description: 'Curated luxury hampers featuring artisan delicacies, fine wines, and velvet ribbons designed to express your deepest sentiment.'
     },
     'signature-collection': {
-      image: 'https://images.unsplash.com/photo-1526047932273-341f2a7631f9?w=1600&q=80',
+      image: '/images/banners/banner_signatures.jpg',
       title: "Oh My Signature's",
       description: 'Our flagship collection of rare exotic blooms, handcrafted ceramic vessels, and statement architectural florals.'
     },
     'occasions': {
-      image: 'https://images.unsplash.com/photo-1519225421980-715cb0215aed?w=1600&q=80',
+      image: '/images/banners/banner_moments.jpg',
       title: "Oh My Moment's",
       description: 'Handcrafted floral masterpieces tailored for birthdays, anniversaries, proposals, and royal celebrations.'
     },
     'custom-orders': {
-      image: 'https://images.unsplash.com/photo-1513519245088-0e12902e5a38?w=1600&q=80',
+      image: '/images/banners/banner_customisations.jpg',
       title: "Oh My Customisation's",
       description: 'Bespoke floral & hamper designs created exclusively for your vision with personalized consultations.'
     }
   };
 
-  const currentBanner = categoryBanners[currentCategory];
+  const currentBanner = categoryBanners[currentCategory] || (searchQuery ? null : categoryBanners['all']);
 
   if (loading && products.length === 0) {
     // Only block if we have zero cached products to display
