@@ -51,6 +51,9 @@ const CATEGORY_SECTIONS = [
     link: "/products?category=flower-arrangements",
     categoryKeys: ['flower-arrangements', 'blooms', 'bloom'],
     bannerImage: '/images/banners/banner_blooms.jpg',
+    fallbackImages: [
+      { image: '/images/banners/banner_blooms.jpg', hoverImage: undefined },
+    ],
   },
   {
     id: 'gift-hampers',
@@ -59,6 +62,9 @@ const CATEGORY_SECTIONS = [
     link: "/products?category=gift-hampers",
     categoryKeys: ['gift-hampers', 'hampers', 'loves', 'love'],
     bannerImage: '/images/banners/banner_loves.jpg',
+    fallbackImages: [
+      { image: '/images/banners/banner_loves.jpg', hoverImage: undefined },
+    ],
   },
   {
     id: 'occasions',
@@ -67,6 +73,25 @@ const CATEGORY_SECTIONS = [
     link: "/products?category=occasions",
     categoryKeys: ['occasions', 'celebrations', 'moments', 'moment'],
     bannerImage: '/images/banners/banner_moments.jpg',
+    // Dedicated Moment's & Celebration Services imagery — strictly isolated from other product categories
+    fallbackImages: [
+      {
+        image: '/images/moments/moment_proposal.jpg',
+        hoverImage: '/images/moments/moment_midnight.jpg',
+      },
+      {
+        image: '/images/moments/moment_event.jpg',
+        hoverImage: '/images/moments/moment_proposal.jpg',
+      },
+      {
+        image: '/images/banners/banner_moments.jpg',
+        hoverImage: '/images/moments/moment_event.jpg',
+      },
+      {
+        image: '/images/moments/moment_midnight.jpg',
+        hoverImage: '/images/moments/moment_proposal.jpg',
+      },
+    ],
   },
   {
     id: 'signature-collection',
@@ -75,6 +100,9 @@ const CATEGORY_SECTIONS = [
     link: "/products?category=signature-collection",
     categoryKeys: ['signature-collection', 'signatures', 'signature'],
     bannerImage: '/images/banners/banner_signatures.jpg',
+    fallbackImages: [
+      { image: '/images/banners/banner_signatures.jpg', hoverImage: undefined },
+    ],
   },
 ];
 
@@ -405,37 +433,33 @@ export default function Home() {
   const currentRotationCycle = Math.floor(Math.floor(Date.now() / (1000 * 60 * 60 * 24)) / ROTATION_DAYS);
 
   const categoryCardsData = useMemo(() => {
-    if (!allProducts || allProducts.length === 0) {
-      return [];
-    }
-
-    const realOnly = allProducts.filter(isRealProduct);
-    if (realOnly.length === 0) return [];
-
-    const usedProductIds = new Set<string>();
+    const realOnly = (allProducts || []).filter(isRealProduct);
 
     return CATEGORY_SECTIONS.map((cat, idx) => {
-      // Find matching products in this category that have valid images
+      // Find matching products strictly in THIS category
       const matchingProducts = realOnly.filter((p) => {
         const pCat = String(p.category || '').toLowerCase().trim();
         return cat.categoryKeys.some((k) => pCat === k.toLowerCase().trim());
       });
 
-      let selectedProduct: any = null;
+      let image = '';
+      let hoverImage: string | undefined = undefined;
 
       if (matchingProducts.length > 0) {
+        // If category has catalog products, cycle through its real products
         const selectedIndex = (currentRotationCycle + idx) % matchingProducts.length;
-        selectedProduct = matchingProducts[selectedIndex];
+        const selectedProduct = matchingProducts[selectedIndex];
+        image = selectedProduct?.image || (Array.isArray(selectedProduct?.images) ? selectedProduct.images[0] : '') || cat.bannerImage || '';
+        hoverImage = selectedProduct?.hover_image || (Array.isArray(selectedProduct?.images) && selectedProduct.images.length > 1 ? selectedProduct.images[1] : undefined);
       } else {
-        selectedProduct = realOnly.find((p) => !usedProductIds.has(String(p.id))) || realOnly[idx % realOnly.length];
+        // STRICT CATEGORY ISOLATION: Never borrow products from other sections!
+        // Use the dedicated curated images present under this category (e.g. Moment Services images for Oh My Moment's)
+        const fallbacks = cat.fallbackImages || [{ image: cat.bannerImage, hoverImage: undefined }];
+        const fallbackIndex = (currentRotationCycle + idx) % fallbacks.length;
+        const chosen = fallbacks[fallbackIndex];
+        image = chosen.image || cat.bannerImage || '';
+        hoverImage = chosen.hoverImage;
       }
-
-      if (selectedProduct?.id) {
-        usedProductIds.add(String(selectedProduct.id));
-      }
-
-      const image = selectedProduct?.image || (Array.isArray(selectedProduct?.images) ? selectedProduct.images[0] : '') || cat.bannerImage || '';
-      const hoverImage = selectedProduct?.hover_image || (Array.isArray(selectedProduct?.images) && selectedProduct.images.length > 1 ? selectedProduct.images[1] : undefined);
 
       return {
         ...cat,
