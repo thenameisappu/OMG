@@ -238,7 +238,7 @@ interface HeroSlide {
 
 const HERO_SLIDES_BASE: HeroSlide[] = [
   {
-    image: "https://images.unsplash.com/photo-1563241527-3004b7be0ffd?w=1600&q=80",
+    image: "/images/hero/hero_luxury_store.jpg",
     badgeIcon: Sparkles,
     badgeText: "Bangalore's Premier Floral & Surprise House",
     titlePrefix: "Elevating the Art of",
@@ -255,7 +255,7 @@ const HERO_SLIDES_BASE: HeroSlide[] = [
     ],
   },
   {
-    image: "https://images.unsplash.com/photo-1526047932273-341f2a7631f9?w=1600&q=80",
+    image: "/images/hero/hero_floral_design.jpg",
     badgeIcon: Heart,
     badgeText: "Oh My Bloom's • Artisanal Fresh Florals",
     titlePrefix: "Handcrafted Luxury",
@@ -271,7 +271,7 @@ const HERO_SLIDES_BASE: HeroSlide[] = [
     ],
   },
   {
-    image: "https://images.unsplash.com/photo-1549465220-1a8b9238cd48?w=1600&q=80",
+    image: "/images/hero/hero_luxury_hamper.jpg",
     badgeIcon: Gift,
     badgeText: "Oh My Love's • Curated Luxury Hampers",
     titlePrefix: "Curated Hampers of",
@@ -287,7 +287,7 @@ const HERO_SLIDES_BASE: HeroSlide[] = [
     ],
   },
   {
-    image: "https://images.unsplash.com/photo-1519225421980-715cb0215aed?w=1600&q=80",
+    image: "/images/hero/hero_surprise_moment.jpg",
     badgeIcon: Flame,
     badgeText: "Oh My Moment's • Bespoke Surprise Experiences",
     titlePrefix: "Unforgettable Surprise",
@@ -320,18 +320,8 @@ export default function Home() {
   const touchStartXRef = useRef<number | null>(null);
   const touchEndXRef = useRef<number | null>(null);
 
-  // Dynamically map hero slides to real database product images when loaded
-  const heroSlides = useMemo(() => {
-    const validDbImages = allProducts
-      .filter(isRealProduct)
-      .map((p) => p.image || (Array.isArray(p.images) && p.images[0]))
-      .filter((img): img is string => typeof img === 'string' && img.length > 5);
-
-    return HERO_SLIDES_BASE.map((slide, idx) => ({
-      ...slide,
-      image: validDbImages[idx] || slide.image,
-    }));
-  }, [allProducts]);
+  // Hero slides strictly showcase dedicated luxury floral store & floral design cards - never catalog products
+  const heroSlides = HERO_SLIDES_BASE;
 
   const nextHeroSlide = () => {
     setCurrentHeroImage((prev) => (prev + 1) % heroSlides.length);
