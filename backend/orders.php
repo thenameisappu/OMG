@@ -745,33 +745,36 @@ function handleCashfreeWebhook($db)
     $rawPayload = file_get_contents("php://input");
     $event = json_decode($rawPayload, true);
 
-    if (!$event || empty($event['type'])) {
+    if (!$event || (!isset($event['type']) && !isset($event['event']))) {
         http_response_code(400);
         echo json_encode(["status" => "error", "message" => "Invalid webhook payload"]);
         exit();
     }
 
-    if ($event['type'] === 'PAYMENT_SUCCESS_WEBHOOK' || $event['type'] === 'ORDER_PAID') {
-        $orderData = $event['data']['order'] ?? [];
-        $paymentData = $event['data']['payment'] ?? [];
-        $cfOrderId = $orderData['order_id'] ?? null;
-        $txId = $paymentData['cf_payment_id'] ?? null;
+    $eventType = strtoupper($event['type'] ?? ($event['event'] ?? ''));
+    $orderData = $event['data']['order'] ?? ($event['order'] ?? []);
+    $paymentData = $event['data']['payment'] ?? ($event['payment'] ?? []);
+    $cfOrderId = $orderData['order_id'] ?? ($event['order_id'] ?? null);
+    $txId = $paymentData['cf_payment_id'] ?? ($event['cf_payment_id'] ?? ($paymentData['bank_reference'] ?? null));
+    $paymentStatus = strtoupper($paymentData['payment_status'] ?? ($event['payment_status'] ?? ''));
 
-        if ($cfOrderId) {
-            $stmt = $db->prepare(
-                "UPDATE orders 
-                 SET payment_status = 'paid', status = 'confirmed', payment_method = 'cashfree', transaction_id = :tx 
-                 WHERE cf_order_id = :cfid OR id = :cfid OR id = REPLACE(:cfid, 'omg_', '')"
-            );
-            $stmt->execute([':tx' => (string)$txId, ':cfid' => $cfOrderId]);
+    $isSuccess = in_array($eventType, ['PAYMENT_SUCCESS_WEBHOOK', 'PAYMENT_SUCCESS', 'ORDER_PAID', 'PAYMENT.SUCCESS', 'ORDER.PAID'], true) 
+                 || $paymentStatus === 'SUCCESS';
 
-            // Dispatch Customer Confirmation & Store Admin Notification Emails
-            $findStmt = $db->prepare("SELECT id FROM orders WHERE cf_order_id = :cfid OR id = :cfid OR id = REPLACE(:cfid, 'omg_', '') LIMIT 1");
-            $findStmt->execute([':cfid' => $cfOrderId]);
-            $foundOrder = $findStmt->fetch(PDO::FETCH_ASSOC);
-            if ($foundOrder && !empty($foundOrder['id'])) {
-                dispatchOrderConfirmationAndAlertEmails($db, $foundOrder['id']);
-            }
+    if ($isSuccess && $cfOrderId) {
+        $stmt = $db->prepare(
+            "UPDATE orders 
+             SET payment_status = 'paid', status = 'confirmed', payment_method = 'cashfree', transaction_id = :tx 
+             WHERE cf_order_id = :cfid OR id = :cfid OR id = REPLACE(:cfid, 'omg_', '')"
+        );
+        $stmt->execute([':tx' => (string)$txId, ':cfid' => $cfOrderId]);
+
+        // Dispatch Customer Confirmation & Store Admin Notification Emails
+        $findStmt = $db->prepare("SELECT id FROM orders WHERE cf_order_id = :cfid OR id = :cfid OR id = REPLACE(:cfid, 'omg_', '') LIMIT 1");
+        $findStmt->execute([':cfid' => $cfOrderId]);
+        $foundOrder = $findStmt->fetch(PDO::FETCH_ASSOC);
+        if ($foundOrder && !empty($foundOrder['id'])) {
+            dispatchOrderConfirmationAndAlertEmails($db, $foundOrder['id']);
         }
     }
 
