@@ -14,7 +14,7 @@ export default defineConfig(({ mode }) => {
   let targetOrigin = rawUrl.replace(/\/backend\/?$/, '');
 
   return {
-    base: './',
+    base: '/',
     plugins: [
       react(),
       svgr({

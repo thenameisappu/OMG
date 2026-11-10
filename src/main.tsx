@@ -20,6 +20,16 @@ window.onerror = function (message, source, lineno, colno, error) {
   document.body.appendChild(div);
 };
 
+// Auto-migrate legacy hash URLs (e.g. /#/product/slug -> /product/slug)
+if (typeof window !== 'undefined' && window.location.hash) {
+  const hash = window.location.hash;
+  const match = hash.match(/^#\/?(.*)$/);
+  if (match && match[1] && match[1] !== '/') {
+    const cleanUrl = '/' + match[1];
+    window.history.replaceState(null, '', cleanUrl);
+  }
+}
+
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <AppWrapper>

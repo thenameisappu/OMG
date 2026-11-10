@@ -1,5 +1,5 @@
 import React from 'react';
-import { HashRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import IntersectObserver from '@/components/common/IntersectObserver';
 import Layout from '@/components/layout/Layout';
 import routes from './routes';
@@ -13,12 +13,22 @@ import ScrollToTop from '@/components/common/ScrollToTop';
 
 const App: React.FC = () => {
   React.useEffect(() => {
-    // If returning from Cashfree gateway redirect with query params outside hash
+    // 1. Backward compatibility: if arriving via legacy hash route, convert to clean path
+    if (typeof window !== 'undefined' && window.location.hash) {
+      const cleanPath = window.location.hash.replace(/^#\/?/, '/');
+      if (cleanPath && cleanPath !== '/') {
+        window.history.replaceState(null, '', cleanPath);
+        window.dispatchEvent(new PopStateEvent('popstate'));
+      }
+    }
+
+    // 2. If returning from Cashfree gateway redirect with query params
     if (typeof window !== 'undefined' && window.location.search) {
       const searchParams = new URLSearchParams(window.location.search);
       const orderId = searchParams.get('order_id') || searchParams.get('cf_id');
-      if (orderId && !window.location.hash.includes('/checkout')) {
-        window.location.hash = `#/checkout?order_id=${encodeURIComponent(orderId)}`;
+      if (orderId && !window.location.pathname.includes('/checkout')) {
+        window.history.replaceState(null, '', `/checkout?order_id=${encodeURIComponent(orderId)}`);
+        window.dispatchEvent(new PopStateEvent('popstate'));
       }
     }
   }, []);

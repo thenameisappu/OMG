@@ -18,7 +18,8 @@ import {
   Clock,
   Sparkles,
   Loader2,
-  X
+  X,
+  MessageCircle
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -279,6 +280,34 @@ export default function ProductDetail() {
                   }
                 }}
               />
+              <button
+                type="button"
+                onClick={async () => {
+                  const cleanUrl = `https://ohmygudness.in/product/${product.slug}`;
+                  if (navigator.share) {
+                    try {
+                      await navigator.share({
+                        title: `${product.name} | Oh My Gudness`,
+                        text: `Check out ${product.name} on Oh My Gudness Bangalore:`,
+                        url: cleanUrl,
+                      });
+                      return;
+                    } catch (e) {}
+                  }
+                  try {
+                    await navigator.clipboard.writeText(cleanUrl);
+                    toast({
+                      title: "Product Link Copied!",
+                      description: "Clean link copied to clipboard. Paste in WhatsApp or social media to share with preview!",
+                    });
+                  } catch (e) {}
+                }}
+                aria-label="Share product"
+                className="absolute top-3.5 left-3.5 z-20 h-10 w-10 rounded-full bg-white/90 backdrop-blur-xs flex items-center justify-center text-primary shadow-xs hover:bg-white hover:scale-105 transition-all border border-neutral-200/50"
+                title="Share product"
+              >
+                <Share2 className="h-4 w-4" />
+              </button>
               <WishlistButton
                 product={product}
                 size="lg"
@@ -483,6 +512,48 @@ export default function ProductDetail() {
               >
                 Instant Buy Now
               </Button>
+
+              {/* Share via WhatsApp & Copy Clean Link */}
+              <div className="flex items-center gap-2 pt-1">
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="flex-1 h-10.5 rounded-full border border-emerald-500/40 text-emerald-800 bg-emerald-50/70 hover:bg-emerald-100 hover:text-emerald-900 font-semibold text-xs sm:text-sm flex items-center justify-center gap-2 transition-all shadow-2xs"
+                  onClick={() => {
+                    const cleanUrl = `https://ohmygudness.in/product/${product.slug}`;
+                    const text = `Order ${product.name} (₹${Number(product.price).toLocaleString('en-IN')}) from Oh My Gudness Bangalore:\n${cleanUrl}`;
+                    window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`, '_blank');
+                  }}
+                >
+                  <MessageCircle className="h-4 w-4 text-emerald-600 fill-emerald-600/20 shrink-0" />
+                  <span>Share on WhatsApp</span>
+                </Button>
+
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="h-10.5 px-3.5 rounded-full border border-neutral-300 text-neutral-700 hover:text-primary hover:bg-neutral-100 font-medium text-xs flex items-center gap-1.5 transition-all shadow-2xs shrink-0"
+                  onClick={async () => {
+                    const cleanUrl = `https://ohmygudness.in/product/${product.slug}`;
+                    try {
+                      await navigator.clipboard.writeText(cleanUrl);
+                      toast({
+                        title: "Clean Link Copied!",
+                        description: "Product link copied to clipboard. Ready to paste anywhere!",
+                      });
+                    } catch (e) {
+                      toast({
+                        title: "Product Link",
+                        description: cleanUrl,
+                      });
+                    }
+                  }}
+                  title="Copy direct product link"
+                >
+                  <Share2 className="h-4 w-4 text-primary shrink-0" />
+                  <span className="hidden sm:inline">Copy Link</span>
+                </Button>
+              </div>
             </div>
 
             {/* Side-by-Side Feature Cards (Express Delivery & Farm Fresh Stems) */}

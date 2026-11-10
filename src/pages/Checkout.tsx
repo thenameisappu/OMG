@@ -442,7 +442,7 @@ export default function Checkout() {
           <Button
             onClick={() => {
               setVerificationError(null);
-              window.location.hash = '#/checkout';
+              navigate('/checkout');
             }}
             className="w-full bg-primary text-white rounded-full h-12"
           >
