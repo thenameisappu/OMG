@@ -157,3 +157,4 @@ $html = preg_replace('/<meta\s+name=["\']twitter:image["\']\s+content=["\'].*?["
 header('Content-Type: text/html; charset=UTF-8');
 echo $html;
 exit;
+

@@ -22,3 +22,4 @@ Disallow: /forgot-password
 
 # Canonical Sitemap
 Sitemap: https://ohmygudness.in/sitemap.xml
+
