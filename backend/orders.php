@@ -176,6 +176,9 @@ switch ($action) {
     case 'cashfree_status':
         $cfConfig = getCashfreeConfig();
         $isConfigured = !empty($cfConfig['app_id']) && !empty($cfConfig['secret_key']);
+        $smtpConfig = function_exists('getSmtpConfig') ? getSmtpConfig() : [];
+        $smtpActive = !empty($smtpConfig['host']) && !empty($smtpConfig['user']) && !empty($smtpConfig['pass']);
+
         echo json_encode([
             "status" => "ok",
             "cashfree_configured" => $isConfigured,
@@ -184,6 +187,8 @@ switch ($action) {
             "app_id_detected" => !empty($cfConfig['app_id']),
             "app_id_preview" => !empty($cfConfig['app_id']) ? (substr($cfConfig['app_id'], 0, 8) . '...' . (strlen($cfConfig['app_id']) > 12 ? substr($cfConfig['app_id'], -4) : '')) : null,
             "secret_key_detected" => !empty($cfConfig['secret_key']),
+            "smtp_configured" => $smtpActive,
+            "smtp_user_preview" => !empty($smtpConfig['user']) ? $smtpConfig['user'] : null,
             "detection_sources" => [
                 "server_has_app_id" => isset($_SERVER['CASHFREE_APP_ID']) && $_SERVER['CASHFREE_APP_ID'] !== '',
                 "env_has_app_id" => isset($_ENV['CASHFREE_APP_ID']) && $_ENV['CASHFREE_APP_ID'] !== '',
