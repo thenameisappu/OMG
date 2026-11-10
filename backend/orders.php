@@ -23,6 +23,7 @@ logDebug('Request received: ' . $_SERVER['REQUEST_URI']);
 logDebug('Method: ' . $_SERVER['REQUEST_METHOD']);
 
 require_once 'config.php';
+require_once 'mailer.php';
 
 $database = new Database();
 $db = $database->getConnection();
@@ -35,7 +36,7 @@ if ($db === null) {
     exit();
 }
 
-// Ensure orders table has payment tracking columns
+// Ensure orders table has payment and email tracking columns
 function ensureOrderSchema($db)
 {
     try {
@@ -44,7 +45,8 @@ function ensureOrderSchema($db)
             'payment_status' => "VARCHAR(50) DEFAULT 'pending'",
             'payment_session_id' => "VARCHAR(255) DEFAULT NULL",
             'cf_order_id' => "VARCHAR(100) DEFAULT NULL",
-            'transaction_id' => "VARCHAR(100) DEFAULT NULL"
+            'transaction_id' => "VARCHAR(100) DEFAULT NULL",
+            'email_sent' => "TINYINT(1) DEFAULT 0"
         ];
         foreach ($needed as $col => $def) {
             if (!in_array($col, $cols, true)) {
@@ -56,6 +58,60 @@ function ensureOrderSchema($db)
     }
 }
 ensureOrderSchema($db);
+
+/**
+ * Dispatches Customer Confirmation Email and Store Admin Notification Email
+ */
+function dispatchOrderConfirmationAndAlertEmails($db, $orderId)
+{
+    try {
+        $stmt = $db->prepare("SELECT * FROM orders WHERE id = :id LIMIT 1");
+        $stmt->execute([':id' => $orderId]);
+        $order = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$order) {
+            return false;
+        }
+
+        // Avoid duplicate emails
+        if (!empty($order['email_sent']) && (int)$order['email_sent'] === 1) {
+            return true;
+        }
+
+        // Fetch order items with product details
+        $itemStmt = $db->prepare(
+            "SELECT oi.*, p.name, p.image 
+             FROM order_items oi 
+             LEFT JOIN products p ON oi.product_id = p.id 
+             WHERE oi.order_id = :id"
+        );
+        $itemStmt->execute([':id' => $orderId]);
+        $items = $itemStmt->fetchAll(PDO::FETCH_ASSOC);
+
+        // 1. Send Customer Confirmation Email
+        if (!empty($order['customer_email'])) {
+            $customerSubject = "Order Confirmed #" . substr($orderId, 0, 8) . " | Oh My Gudness";
+            $customerHtml = buildOrderConfirmationEmail($order, $items);
+            @sendEmail($order['customer_email'], $customerSubject, $customerHtml);
+        }
+
+        // 2. Send Admin Notification Email
+        $adminEmail = omgGetEnv('ADMIN_NOTIFICATION_EMAIL', 'info@ohmygudness.in');
+        if (!empty($adminEmail)) {
+            $adminSubject = "🚨 [NEW ORDER] ₹" . number_format((float)$order['total_amount']) . " from " . ($order['customer_name'] ?? 'Client');
+            $adminHtml = buildAdminOrderNotificationEmail($order, $items);
+            @sendEmail($adminEmail, $adminSubject, $adminHtml);
+        }
+
+        // Mark email_sent = 1
+        $upd = $db->prepare("UPDATE orders SET email_sent = 1 WHERE id = :id");
+        $upd->execute([':id' => $orderId]);
+        return true;
+    } catch (Exception $e) {
+        error_log("Order notification dispatch error: " . $e->getMessage());
+        return false;
+    }
+}
 
 // Check for simple connectivity test
 if (isset($_GET['action']) && $_GET['action'] === 'test') {
@@ -524,6 +580,11 @@ function createOrder($db, $userId, $data)
         }
 
         $db->commit();
+
+        if (!$isCashfreeActive) {
+            dispatchOrderConfirmationAndAlertEmails($db, $uuid);
+        }
+
         echo json_encode([
             "id" => $uuid,
             "status" => "pending",
@@ -648,6 +709,9 @@ function verifyPayment($db, $userId, $data)
         );
         $upd->execute([':tx' => (string)$transactionId, ':id' => $orderId]);
 
+        // Dispatch Customer Confirmation & Store Admin Notification Emails
+        dispatchOrderConfirmationAndAlertEmails($db, $orderId);
+
         echo json_encode([
             "success" => true,
             "message" => "Payment verified successfully.",
@@ -695,6 +759,14 @@ function handleCashfreeWebhook($db)
                  WHERE cf_order_id = :cfid OR id = :cfid OR id = REPLACE(:cfid, 'omg_', '')"
             );
             $stmt->execute([':tx' => (string)$txId, ':cfid' => $cfOrderId]);
+
+            // Dispatch Customer Confirmation & Store Admin Notification Emails
+            $findStmt = $db->prepare("SELECT id FROM orders WHERE cf_order_id = :cfid OR id = :cfid OR id = REPLACE(:cfid, 'omg_', '') LIMIT 1");
+            $findStmt->execute([':cfid' => $cfOrderId]);
+            $foundOrder = $findStmt->fetch(PDO::FETCH_ASSOC);
+            if ($foundOrder && !empty($foundOrder['id'])) {
+                dispatchOrderConfirmationAndAlertEmails($db, $foundOrder['id']);
+            }
         }
     }
 

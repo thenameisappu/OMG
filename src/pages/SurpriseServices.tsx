@@ -25,6 +25,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCart } from '@/contexts/CartContext';
 import { inquiryService, surpriseService } from '@/services/api';
+import SEO from '@/components/common/SEO';
 
 const ICON_MAP: Record<string, any> = {
   Music: Music,
@@ -317,6 +318,13 @@ export default function SurpriseServices() {
 
   return (
     <div className="min-h-screen bg-[#070D0A] text-white selection:bg-amber-500 selection:text-black font-sans">
+      <SEO
+        title="Bespoke Surprise &amp; Proposal Planning Services in Bangalore | OMG"
+        description="Experience the magic of Oh My Moment's. Rooftop candlelight dinners, secret proposals, private yachts, fairy-light canopies &amp; midnight serenades orchestrated in Bangalore."
+        image="/images/hero/hero_surprise_moment.jpg"
+        url="/surprise-services"
+        type="website"
+      />
       {/* Ambient background glow accents */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden z-0">
         <div className="absolute top-[-10%] left-[20%] w-[500px] h-[500px] rounded-full bg-amber-500/10 blur-[140px]" />

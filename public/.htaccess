@@ -1,8 +1,16 @@
 <IfModule mod_rewrite.c>
   RewriteEngine On
   RewriteBase /
-  RewriteRule ^index\.html$ - [L]
+  DirectoryIndex index.php index.html
+
+  # Allow direct access to backend and static assets
+  RewriteRule ^backend/ - [L]
+  RewriteRule ^(images|reels|data|assets)/ - [L]
+  RewriteRule ^(favicon\.png|robots\.txt|sitemap\.xml)$ - [L]
+
+  # Route SPA pages through index.php (handles crawlers with dynamic OG tags, serves index.html to users)
+  RewriteRule ^index\.php$ - [L]
   RewriteCond %{REQUEST_FILENAME} !-f
   RewriteCond %{REQUEST_FILENAME} !-d
-  RewriteRule . /index.html [L]
+  RewriteRule . /index.php [L]
 </IfModule>

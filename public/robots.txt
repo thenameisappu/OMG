@@ -1,0 +1,24 @@
+# Robots.txt for Oh My Gudness (https://ohmygudness.in)
+User-agent: *
+Allow: /
+Allow: /products
+Allow: /product/
+Allow: /surprise-services
+Allow: /subscriptions
+Allow: /about
+Allow: /faq
+Allow: /delivery-info
+Allow: /terms
+
+# Disallow private user accounts, checkout, and admin paths
+Disallow: /backend/
+Disallow: /admin
+Disallow: /checkout
+Disallow: /cart
+Disallow: /profile
+Disallow: /orders
+Disallow: /verify-otp
+Disallow: /forgot-password
+
+# Canonical Sitemap
+Sitemap: https://ohmygudness.in/sitemap.xml

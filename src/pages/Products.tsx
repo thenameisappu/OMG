@@ -42,6 +42,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { useCart } from '@/contexts/CartContext';
 import { WishlistButton } from '@/components/common/WishlistButton';
+import SEO from '@/components/common/SEO';
 
 const DB_PRODUCTS_CACHE_KEY = 'omg_db_products_cache_v2';
 
@@ -322,6 +323,13 @@ export default function Products() {
 
   return (
     <div className="min-h-screen bg-white">
+      <SEO
+        title={currentBanner?.title ? `${currentBanner.title} – Luxury Floral Collections` : "Shop Luxury Flowers & Hampers in Bangalore"}
+        description={currentBanner?.description || "Browse handcrafted luxury floral arrangements, curated hampers, and bespoke gifts in Bangalore."}
+        image={currentBanner?.image || "/images/banners/banner_blooms.jpg"}
+        url={`/products${currentCategory && currentCategory !== 'all' ? `?category=${currentCategory}` : ''}`}
+        type="website"
+      />
       {/* Category Banner Header */}
       {currentBanner ? (
         <div className="relative h-[32vh] sm:h-[40vh] md:h-[55vh] min-h-[240px] flex items-center justify-center overflow-hidden bg-primary">

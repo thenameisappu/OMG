@@ -9,6 +9,7 @@ import { testimonialService } from '@/services/api';
 import { WishlistButton } from '@/components/common/WishlistButton';
 import { TeamShowcase } from '@/components/TeamShowcase';
 import { WorldOfBloomsReels } from '@/components/WorldOfBloomsReels';
+import SEO from '@/components/common/SEO';
 
 // Local storage cache key for instant first paint without dummy flash
 const DB_PRODUCTS_CACHE_KEY = 'omg_db_products_cache_v2';
@@ -560,6 +561,13 @@ export default function Home() {
 
   return (
     <div className="flex flex-col bg-white">
+      <SEO
+        title="OMG – Oh My Gudness | Luxury Floral Arrangements & Gifts in Bangalore"
+        description="Bangalore's premier floral & surprise house. Handcrafted fresh bouquets, curated luxury hampers, and bespoke surprise experiences with guaranteed 2-hour express delivery."
+        image="/images/hero/hero_luxury_store.jpg"
+        url="/"
+        type="website"
+      />
       {/* Luxury Ticker Marquee Ribbon */}
       <div className="bg-primary text-secondary py-2.5 overflow-hidden border-b border-secondary/20 relative z-20 font-medium text-xs md:text-sm tracking-wider uppercase">
         <div className="animate-marquee whitespace-nowrap flex items-center gap-12">

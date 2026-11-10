@@ -362,3 +362,178 @@ function buildWelcomeEmailTemplate($userName)
         '{{USER_NAME}}' => $userName
     ]);
 }
+
+/**
+ * Builds HTML Order Confirmation Email for the Customer
+ */
+function buildOrderConfirmationEmail($order, $items = [])
+{
+    $appName = 'Oh My Gudness';
+    $websiteUrl = 'https://ohmygudness.in';
+    $supportEmail = 'info@ohmygudness.in';
+    $supportPhone = '+91 8147736396';
+    $orderId = htmlspecialchars($order['id'] ?? 'N/A');
+    $customerName = htmlspecialchars($order['customer_name'] ?? 'Valued Client');
+    $totalAmount = number_format((float)($order['total_amount'] ?? 0), 2);
+    $deliveryAddress = htmlspecialchars($order['delivery_address'] ?? 'Bangalore Delivery');
+    $deliveryDate = !empty($order['delivery_date']) ? date('D, d M Y', strtotime($order['delivery_date'])) : 'Express Same-Day';
+    $deliveryTime = htmlspecialchars($order['delivery_time'] ?? 'Standard Slot');
+    $paymentMethod = strtoupper(htmlspecialchars($order['payment_method'] ?? 'Online Payment'));
+
+    $itemsRows = '';
+    foreach ($items as $item) {
+        $pName = htmlspecialchars($item['name'] ?? ($item['product_name'] ?? 'Luxury Arrangement'));
+        $qty = (int)($item['quantity'] ?? 1);
+        $itemTotal = number_format((float)($item['price'] ?? 0) * $qty, 2);
+
+        $itemsRows .= '
+        <tr style="border-bottom: 1px solid #1E293B;">
+            <td style="padding: 12px 6px; text-align: left; font-size: 13px; color: #F8FAFC;">' . $pName . '</td>
+            <td style="padding: 12px 6px; text-align: center; font-size: 13px; color: #CBD5E1;">' . $qty . '</td>
+            <td style="padding: 12px 6px; text-align: right; font-size: 13px; color: #D4AF37; font-weight: 600;">₹' . $itemTotal . '</td>
+        </tr>';
+    }
+
+    $html = '<!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <title>Order Confirmed #' . $orderId . '</title>
+    </head>
+    <body style="margin: 0; padding: 0; background-color: #090D16; font-family: \'Helvetica Neue\', Helvetica, Arial, sans-serif;">
+        <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #090D16;">
+            <tr>
+                <td align="center" style="padding: 30px 10px;">
+                    <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width: 580px; background-color: #0F172A; border: 1px solid #334155; border-radius: 20px; overflow: hidden; box-shadow: 0 16px 36px rgba(0,0,0,0.5);">
+                        <tr>
+                            <td align="center" style="background: linear-gradient(135deg, #0F172A 0%, #1E293B 100%); padding: 28px; border-bottom: 1px solid #334155;">
+                                <div style="font-family: \'Georgia\', serif; font-size: 22px; font-weight: bold; color: #D4AF37; letter-spacing: 3px; text-transform: uppercase;">OH MY GUDNESS</div>
+                                <div style="font-size: 11px; color: #94A3B8; letter-spacing: 1px; margin-top: 4px; text-transform: uppercase;">Luxury Floristry &amp; Surprise House &bull; Bangalore</div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td style="padding: 32px 28px; background-color: #0F172A;">
+                                <div style="display: inline-block; background-color: rgba(34, 197, 94, 0.15); border: 1px solid rgba(34, 197, 94, 0.4); border-radius: 999px; padding: 6px 14px; font-size: 12px; color: #4ADE80; font-weight: 600; margin-bottom: 16px;">
+                                    ✓ Order Successfully Placed &amp; Confirmed
+                                </div>
+                                <h1 style="font-family: \'Georgia\', serif; font-size: 24px; color: #F8FAFC; margin: 0 0 10px 0;">Thank You for Your Order!</h1>
+                                <p style="font-size: 14px; color: #CBD5E1; line-height: 1.6; margin: 0 0 20px 0;">
+                                    Dear <strong style="color: #F8FAFC;">' . $customerName . '</strong>,<br>
+                                    Your order has been received and forwarded to our floral atelier. Our master florists are curating your fresh stems with utmost precision.
+                                </p>
+
+                                <div style="background-color: #1E293B; border-radius: 12px; padding: 16px 20px; margin-bottom: 24px; border: 1px solid #334155;">
+                                    <div style="font-size: 12px; color: #94A3B8; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px;">Order Identification</div>
+                                    <div style="font-size: 16px; font-weight: bold; color: #D4AF37; font-family: monospace;">#' . $orderId . '</div>
+                                </div>
+
+                                <h2 style="font-family: \'Georgia\', serif; font-size: 16px; color: #F8FAFC; margin: 0 0 12px 0; border-bottom: 1px solid #334155; padding-bottom: 6px;">Order Summary</h2>
+                                <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom: 20px;">
+                                    <thead>
+                                        <tr style="border-bottom: 2px solid #334155;">
+                                            <th style="padding: 8px 6px; text-align: left; font-size: 11px; color: #94A3B8; text-transform: uppercase;">Item</th>
+                                            <th style="padding: 8px 6px; text-align: center; font-size: 11px; color: #94A3B8; text-transform: uppercase;">Qty</th>
+                                            <th style="padding: 8px 6px; text-align: right; font-size: 11px; color: #94A3B8; text-transform: uppercase;">Price</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        ' . $itemsRows . '
+                                    </tbody>
+                                    <tfoot>
+                                        <tr>
+                                            <td colspan="2" style="padding: 14px 6px; text-align: right; font-size: 14px; font-weight: bold; color: #F8FAFC;">Total Amount Paid:</td>
+                                            <td style="padding: 14px 6px; text-align: right; font-size: 18px; font-weight: bold; color: #D4AF37;">₹' . $totalAmount . '</td>
+                                        </tr>
+                                    </tfoot>
+                                </table>
+
+                                <h2 style="font-family: \'Georgia\', serif; font-size: 16px; color: #F8FAFC; margin: 24px 0 12px 0; border-bottom: 1px solid #334155; padding-bottom: 6px;">Delivery Details</h2>
+                                <div style="background-color: #1E293B; border-radius: 12px; padding: 16px 20px; font-size: 13px; line-height: 1.6; color: #CBD5E1;">
+                                    <div style="margin-bottom: 8px;">📍 <strong>Delivery Address:</strong> ' . $deliveryAddress . '</div>
+                                    <div style="margin-bottom: 8px;">📅 <strong>Delivery Date:</strong> ' . $deliveryDate . '</div>
+                                    <div style="margin-bottom: 8px;">⏰ <strong>Time Slot:</strong> ' . $deliveryTime . '</div>
+                                    <div>💳 <strong>Payment Method:</strong> ' . $paymentMethod . ' (Paid)</div>
+                                </div>
+
+                                <div style="text-align: center; margin: 32px 0 12px 0;">
+                                    <a href="' . $websiteUrl . '/#/orders" style="display: inline-block; background: linear-gradient(135deg, #F5C518 0%, #D4AF37 100%); color: #0F172A; text-decoration: none; padding: 14px 28px; border-radius: 999px; font-weight: bold; font-size: 14px; box-shadow: 0 4px 16px rgba(212, 175, 55, 0.4);">
+                                        View Live Order Status &rarr;
+                                    </a>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td align="center" style="background-color: #090D16; padding: 20px; border-top: 1px solid #1E293B; font-size: 11px; color: #64748B;">
+                                <p style="margin: 0 0 6px 0;">Need concierge assistance? Call/WhatsApp: <a href="tel:' . $supportPhone . '" style="color: #D4AF37; text-decoration: none;">' . $supportPhone . '</a> or email <a href="mailto:' . $supportEmail . '" style="color: #D4AF37; text-decoration: none;">' . $supportEmail . '</a></p>
+                                <p style="margin: 0;">&copy; ' . date('Y') . ' Oh My Gudness. All rights reserved.</p>
+                            </td>
+                        </tr>
+                    </table>
+                </td>
+            </tr>
+        </table>
+    </body>
+    </html>';
+
+    return $html;
+}
+
+/**
+ * Builds HTML Order Notification Email for the Store Admin
+ */
+function buildAdminOrderNotificationEmail($order, $items = [])
+{
+    $orderId = htmlspecialchars($order['id'] ?? 'N/A');
+    $customerName = htmlspecialchars($order['customer_name'] ?? 'N/A');
+    $customerEmail = htmlspecialchars($order['customer_email'] ?? 'N/A');
+    $customerPhone = htmlspecialchars($order['customer_phone'] ?? 'N/A');
+    $totalAmount = number_format((float)($order['total_amount'] ?? 0), 2);
+    $deliveryAddress = htmlspecialchars($order['delivery_address'] ?? 'N/A');
+    $deliveryDate = !empty($order['delivery_date']) ? date('D, d M Y', strtotime($order['delivery_date'])) : 'N/A';
+    $deliveryTime = htmlspecialchars($order['delivery_time'] ?? 'N/A');
+    $orderTime = !empty($order['created_at']) ? $order['created_at'] : date('Y-m-d H:i:s');
+
+    $itemsList = '';
+    foreach ($items as $item) {
+        $pName = htmlspecialchars($item['name'] ?? ($item['product_name'] ?? 'Item'));
+        $qty = (int)($item['quantity'] ?? 1);
+        $price = number_format((float)($item['price'] ?? 0), 2);
+        $itemsList .= '<li style="margin-bottom: 6px;"><strong>' . $pName . '</strong> &times; ' . $qty . ' (₹' . $price . ' each)</li>';
+    }
+
+    $html = '
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #ffffff; padding: 24px; border: 1px solid #e2e8f0; border-radius: 12px;">
+        <div style="background: #1e293b; color: #f8fafc; padding: 16px; border-radius: 8px; margin-bottom: 20px;">
+            <h2 style="margin: 0 0 6px 0; color: #f59e0b; font-size: 20px;">🚨 [NEW PAID ORDER RECEIVED]</h2>
+            <div style="font-size: 14px;">Order #' . $orderId . ' &bull; <strong>₹' . $totalAmount . '</strong></div>
+        </div>
+
+        <h3 style="color: #0f172a; border-bottom: 2px solid #f1f5f9; padding-bottom: 6px;">Customer Information</h3>
+        <p style="font-size: 14px; line-height: 1.6; color: #334155;">
+            <strong>Customer:</strong> ' . $customerName . '<br>
+            <strong>Phone:</strong> <a href="tel:' . $customerPhone . '">' . $customerPhone . '</a> &bull; <a href="https://wa.me/91' . preg_replace('/[^0-9]/', '', $customerPhone) . '">Chat on WhatsApp</a><br>
+            <strong>Email:</strong> <a href="mailto:' . $customerEmail . '">' . $customerEmail . '</a><br>
+            <strong>Order Placed At:</strong> ' . $orderTime . '
+        </p>
+
+        <h3 style="color: #0f172a; border-bottom: 2px solid #f1f5f9; padding-bottom: 6px;">Delivery Details</h3>
+        <p style="font-size: 14px; line-height: 1.6; color: #334155;">
+            <strong>Delivery Date:</strong> <span style="color: #b45309; font-weight: bold;">' . $deliveryDate . '</span><br>
+            <strong>Time Slot:</strong> <span style="color: #b45309; font-weight: bold;">' . $deliveryTime . '</span><br>
+            <strong>Address:</strong> ' . $deliveryAddress . '
+        </p>
+
+        <h3 style="color: #0f172a; border-bottom: 2px solid #f1f5f9; padding-bottom: 6px;">Items to Prepare</h3>
+        <ul style="font-size: 14px; color: #334155; line-height: 1.6;">
+            ' . $itemsList . '
+        </ul>
+
+        <div style="margin-top: 24px; padding-top: 16px; border-top: 1px solid #e2e8f0; text-align: center;">
+            <a href="https://ohmygudness.in/backend/admin_orders.php" style="background: #0f172a; color: #ffffff; text-decoration: none; padding: 10px 20px; border-radius: 6px; font-size: 14px; font-weight: bold;">
+                Open in Admin Orders &rarr;
+            </a>
+        </div>
+    </div>';
+
+    return $html;
+}

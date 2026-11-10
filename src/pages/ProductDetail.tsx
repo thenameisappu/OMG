@@ -31,6 +31,7 @@ import { useToast } from '@/hooks/use-toast';
 import { getProductBySlug } from '@/db/api';
 import { productService, surpriseService } from '@/services/api';
 import { WishlistButton } from '@/components/common/WishlistButton';
+import SEO from '@/components/common/SEO';
 
 
 function getProductRating(product: any): string {
@@ -238,6 +239,18 @@ export default function ProductDetail() {
 
   return (
     <div className="bg-white min-h-0 flex flex-col justify-start pb-6 lg:pb-8">
+      <SEO
+        title={`${product.name} | Buy Online Bangalore`}
+        description={product.description ? product.description.replace(/<[^>]*>/g, '').slice(0, 160) : `Order ${product.name} handcrafted by master florists with 2-hour express delivery across Bangalore.`}
+        image={product.image || images[0]}
+        url={`/product/${product.slug}`}
+        type="product"
+        price={product.price}
+        currency="INR"
+        availability={product.stock_status === 'out_of_stock' ? 'out of stock' : 'in stock'}
+        category={product.category}
+        sku={product.sku || product.id}
+      />
       <div className="container max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-2 lg:py-3 flex-1 flex flex-col justify-start">
         {/* Breadcrumb */}
         <div className="flex items-center gap-1.5 text-muted-foreground text-[11px] font-bold uppercase tracking-wider mb-2 lg:mb-3 shrink-0">
