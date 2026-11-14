@@ -161,6 +161,7 @@ CREATE TABLE IF NOT EXISTS `surprise_experiences` (
     `badge` VARCHAR(100),
     `base_price` DECIMAL(10,2) NOT NULL,
     `image` VARCHAR(255) NOT NULL,
+    `images` LONGTEXT NULL,
     `features` TEXT,
     `display_order` INT DEFAULT 0,
     `is_active` TINYINT(1) DEFAULT 1,

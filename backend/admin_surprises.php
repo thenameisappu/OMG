@@ -148,34 +148,33 @@ if (!function_exists('generateProductImageFilename')) {
 }
 
 /**
- * handleExperienceImageUpload()
- * Reuses the product image processing pipeline for surprise experience images.
+ * processSingleExperienceUpload()
+ * Saves a single uploaded 16:9 widescreen experience image up to 8MB.
  */
-function handleExperienceImageUpload(string $fileKey, string $title = '', string $existingUrl = ''): string
+function processSingleExperienceUpload(array $file, string $title = '', int $index = 1): string
 {
-    if (!isset($_FILES[$fileKey]) || $_FILES[$fileKey]['error'] !== UPLOAD_ERR_OK) {
-        return $existingUrl;
+    if (!isset($file['error']) || $file['error'] !== UPLOAD_ERR_OK) {
+        return '';
     }
 
-    $file    = $_FILES[$fileKey];
-    $size    = $file['size'];
+    $size = $file['size'];
     $tmpName = $file['tmp_name'];
     $origName = $file['name'];
 
-    if ($size > 5 * 1024 * 1024) {
-        throw new Exception('File is too large. Maximum allowed size is 5 MB.');
+    if ($size > 8 * 1024 * 1024) {
+        throw new Exception("File {$origName} is too large. Maximum allowed size is 8 MB.");
     }
 
     $mimeType = (new finfo(FILEINFO_MIME_TYPE))->file($tmpName);
     $allowedMimes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
     if (!in_array($mimeType, $allowedMimes, true)) {
-        throw new Exception('Invalid file type. Only JPG, JPEG, PNG, and WEBP are allowed.');
+        throw new Exception("Invalid file type for {$origName}. Only JPG, JPEG, PNG, and WEBP are allowed.");
     }
 
     $ext = strtolower(pathinfo($origName, PATHINFO_EXTENSION));
     $allowedExts = ['jpg', 'jpeg', 'png', 'webp'];
     if (!in_array($ext, $allowedExts, true)) {
-        throw new Exception("Invalid file extension ('.$ext'). Only .jpg, .jpeg, .png, and .webp are permitted.");
+        throw new Exception("Invalid file extension for {$origName}. Only .jpg, .jpeg, .png, and .webp are permitted.");
     }
 
     $primaryDir   = OMG_PRIMARY_DIR;
@@ -191,9 +190,10 @@ function handleExperienceImageUpload(string $fileKey, string $title = '', string
         @mkdir($secondaryDir, 0755, true);
     }
 
+    $suffix = 'slide' . $index . '-' . substr(md5(uniqid((string)mt_rand(), true)), 0, 6);
     $targetFilename = generateProductImageFilename(
         !empty($title) ? $title : 'surprise-experience',
-        'main',
+        $suffix,
         $ext
     );
 
@@ -201,27 +201,28 @@ function handleExperienceImageUpload(string $fileKey, string $title = '', string
     $secondaryTarget = $secondaryDir . $targetFilename;
 
     if (!saveExperienceImage($tmpName, $primaryTarget, $ext)) {
-        throw new Exception('Failed to process and save the uploaded image.');
+        throw new Exception("Failed to process and save image: {$origName}");
     }
 
     if (is_writable($secondaryDir) && !copy($primaryTarget, $secondaryTarget)) {
         error_log('[OMG Upload] copy() to backend/uploads/ failed for experience image: ' . $targetFilename);
     }
 
-    if (!empty($existingUrl) && strpos($existingUrl, OMG_IMG_URL_PATH) !== false) {
-        $oldFilename = basename($existingUrl);
-        if ($oldFilename !== $targetFilename) {
-            deleteLocalImage($existingUrl);
-        }
-    }
-
     $protocol = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on') ? 'https' : 'http';
     return $protocol . '://' . $_SERVER['HTTP_HOST'] . OMG_IMG_URL_PATH . $targetFilename;
 }
 
+function handleExperienceImageUpload(string $fileKey, string $title = '', string $existingUrl = ''): string
+{
+    if (!isset($_FILES[$fileKey]) || $_FILES[$fileKey]['error'] !== UPLOAD_ERR_OK) {
+        return $existingUrl;
+    }
+    return processSingleExperienceUpload($_FILES[$fileKey], $title, 1);
+}
+
 // ── CRUD HANDLERS ─────────────────────────────────────────────────────────
 
-// 1. Save / Update Experience
+// 1. Save / Update Experience (Supports Multiple 16:9 Images for 10-Second Auto-Rolling Slideshow)
 if (isset($_POST['action']) && $_POST['action'] === 'save_experience') {
     $id = $_POST['id'] ?? null;
     $title = trim($_POST['title'] ?? '');
@@ -229,28 +230,71 @@ if (isset($_POST['action']) && $_POST['action'] === 'save_experience') {
     $description = trim($_POST['description'] ?? '');
     $badge = trim($_POST['badge'] ?? '');
     $base_price = (float) ($_POST['base_price'] ?? 0);
-    $existing_image = trim($_POST['existing_image'] ?? '');
-    $image_url_fallback = trim($_POST['image_url'] ?? '');
+    $existing_images_raw = trim($_POST['existing_images_json'] ?? '');
+    $existing_image_fallback = trim($_POST['existing_image'] ?? '');
     $remove_image = isset($_POST['remove_image']) && $_POST['remove_image'] === '1';
     $features_raw = trim($_POST['features'] ?? '');
     $display_order = (int) ($_POST['display_order'] ?? 0);
     $is_active = isset($_POST['is_active']) ? 1 : 0;
 
-    $image = $existing_image;
-
-    if ($remove_image) {
-        if (!empty($existing_image) && strpos($existing_image, OMG_IMG_URL_PATH) !== false) {
-            deleteLocalImage($existing_image);
+    $existing_images = [];
+    if (!$remove_image) {
+        if (!empty($existing_images_raw)) {
+            $decodedEx = json_decode($existing_images_raw, true);
+            if (is_array($decodedEx)) {
+                $existing_images = array_values(array_filter($decodedEx));
+            }
         }
-        $image = '';
+        if (empty($existing_images) && !empty($existing_image_fallback)) {
+            $existing_images = [$existing_image_fallback];
+        }
     }
 
+    $uploaded_images = [];
     try {
-        if (isset($_FILES['image_file']) && $_FILES['image_file']['error'] === UPLOAD_ERR_OK) {
-            $image = handleExperienceImageUpload('image_file', $title, $image);
-        } elseif (!empty($image_url_fallback)) {
-            $image = $image_url_fallback;
+        // Multi-file upload
+        if (isset($_FILES['image_files']['name']) && is_array($_FILES['image_files']['name'])) {
+            $fileCount = count($_FILES['image_files']['name']);
+            for ($i = 0; $i < $fileCount; $i++) {
+                if ($_FILES['image_files']['error'][$i] === UPLOAD_ERR_OK) {
+                    $singleFile = [
+                        'name'     => $_FILES['image_files']['name'][$i],
+                        'type'     => $_FILES['image_files']['type'][$i],
+                        'tmp_name' => $_FILES['image_files']['tmp_name'][$i],
+                        'error'    => $_FILES['image_files']['error'][$i],
+                        'size'     => $_FILES['image_files']['size'][$i],
+                    ];
+                    $newUrl = processSingleExperienceUpload($singleFile, $title, count($uploaded_images) + 1);
+                    if ($newUrl) {
+                        $uploaded_images[] = $newUrl;
+                    }
+                }
+            }
+        } elseif (isset($_FILES['image_file']) && $_FILES['image_file']['error'] === UPLOAD_ERR_OK) {
+            $newUrl = processSingleExperienceUpload($_FILES['image_file'], $title, 1);
+            if ($newUrl) {
+                $uploaded_images[] = $newUrl;
+            }
         }
+
+        // Direct URLs (optional)
+        $direct_urls_raw = trim($_POST['image_urls'] ?? ($_POST['image_url'] ?? ''));
+        $direct_urls = [];
+        if (!empty($direct_urls_raw)) {
+            $urlLines = preg_split('/[\r\n,]+/', $direct_urls_raw);
+            foreach ($urlLines as $line) {
+                $trimmedLine = trim($line);
+                if (!empty($trimmedLine) && filter_var($trimmedLine, FILTER_VALIDATE_URL)) {
+                    $direct_urls[] = $trimmedLine;
+                }
+            }
+        }
+
+        $all_images = array_merge($existing_images, $uploaded_images, $direct_urls);
+        $all_images = array_values(array_unique(array_filter($all_images)));
+
+        $image = !empty($all_images) ? $all_images[0] : '';
+        $images_json = json_encode($all_images);
     } catch (Exception $e) {
         $error = $e->getMessage();
     }
@@ -262,7 +306,7 @@ if (isset($_POST['action']) && $_POST['action'] === 'save_experience') {
     if (empty($error)) {
         if ($title && $image) {
             if ($id) {
-                $stmt = $db->prepare("UPDATE `surprise_experiences` SET `title` = :title, `subtitle` = :subtitle, `description` = :description, `badge` = :badge, `base_price` = :base_price, `image` = :image, `features` = :features, `display_order` = :display_order, `is_active` = :is_active WHERE `id` = :id");
+                $stmt = $db->prepare("UPDATE `surprise_experiences` SET `title` = :title, `subtitle` = :subtitle, `description` = :description, `badge` = :badge, `base_price` = :base_price, `image` = :image, `images` = :images, `features` = :features, `display_order` = :display_order, `is_active` = :is_active WHERE `id` = :id");
                 $stmt->execute([
                     ':title' => $title,
                     ':subtitle' => $subtitle,
@@ -270,14 +314,15 @@ if (isset($_POST['action']) && $_POST['action'] === 'save_experience') {
                     ':badge' => $badge,
                     ':base_price' => $base_price,
                     ':image' => $image,
+                    ':images' => $images_json,
                     ':features' => $features_json,
                     ':display_order' => $display_order,
                     ':is_active' => $is_active,
                     ':id' => $id
                 ]);
-                $message = "Base Experience updated successfully!";
+                $message = "Base Experience updated successfully with " . count($all_images) . " image(s)!";
             } else {
-                $stmt = $db->prepare("INSERT INTO `surprise_experiences` (`title`, `subtitle`, `description`, `badge`, `base_price`, `image`, `features`, `display_order`, `is_active`) VALUES (:title, :subtitle, :description, :badge, :base_price, :image, :features, :display_order, :is_active)");
+                $stmt = $db->prepare("INSERT INTO `surprise_experiences` (`title`, `subtitle`, `description`, `badge`, `base_price`, `image`, `images`, `features`, `display_order`, `is_active`) VALUES (:title, :subtitle, :description, :badge, :base_price, :image, :images, :features, :display_order, :is_active)");
                 $stmt->execute([
                     ':title' => $title,
                     ':subtitle' => $subtitle,
@@ -285,14 +330,15 @@ if (isset($_POST['action']) && $_POST['action'] === 'save_experience') {
                     ':badge' => $badge,
                     ':base_price' => $base_price,
                     ':image' => $image,
+                    ':images' => $images_json,
                     ':features' => $features_json,
                     ':display_order' => $display_order,
                     ':is_active' => $is_active
                 ]);
-                $message = "New Base Experience created successfully!";
+                $message = "New Base Experience created successfully with " . count($all_images) . " image(s)!";
             }
         } else {
-            $error = "Title and an Image are required.";
+            $error = "Title and at least one 16:9 Image are required.";
         }
     }
 }
@@ -301,11 +347,23 @@ if (isset($_POST['action']) && $_POST['action'] === 'save_experience') {
 if (isset($_POST['action']) && $_POST['action'] === 'delete_experience') {
     $id = $_POST['id'] ?? null;
     if ($id) {
-        $stmtImg = $db->prepare("SELECT `image` FROM `surprise_experiences` WHERE `id` = :id");
+        $stmtImg = $db->prepare("SELECT `image`, `images` FROM `surprise_experiences` WHERE `id` = :id");
         $stmtImg->execute([':id' => $id]);
-        $oldImg = $stmtImg->fetchColumn();
-        if ($oldImg && strpos($oldImg, OMG_IMG_URL_PATH) !== false) {
-            deleteLocalImage($oldImg);
+        $row = $stmtImg->fetch(PDO::FETCH_ASSOC);
+        if ($row) {
+            $imgsToDelete = [];
+            if (!empty($row['images'])) {
+                $decoded = json_decode($row['images'], true);
+                if (is_array($decoded)) $imgsToDelete = $decoded;
+            }
+            if (!empty($row['image'])) {
+                $imgsToDelete[] = $row['image'];
+            }
+            foreach (array_unique($imgsToDelete) as $delImg) {
+                if ($delImg && strpos($delImg, OMG_IMG_URL_PATH) !== false) {
+                    deleteLocalImage($delImg);
+                }
+            }
         }
         $stmt = $db->prepare("DELETE FROM `surprise_experiences` WHERE `id` = :id");
         $stmt->execute([':id' => $id]);
@@ -435,10 +493,31 @@ require_once 'admin_header.php';
                         <p class="text-xs text-slate-600 line-clamp-2"><?php echo htmlspecialchars($exp['description']); ?>
                         </p>
 
+                        <?php
+                        $expImages = [];
+                        if (!empty($exp['images'])) {
+                            $decoded = json_decode($exp['images'], true);
+                            if (is_array($decoded)) $expImages = array_filter($decoded);
+                        }
+                        if (empty($expImages) && !empty($exp['image'])) {
+                            $expImages = [$exp['image']];
+                        }
+                        $imgCount = count($expImages);
+                        ?>
                         <div class="flex items-center gap-3 pt-2">
-                            <img src="<?php echo htmlspecialchars($exp['image']); ?>"
-                                class="w-20 h-12 object-cover rounded-lg border border-slate-200 shrink-0" alt="Exp Image">
+                            <div class="relative shrink-0">
+                                <img src="<?php echo htmlspecialchars($exp['image']); ?>"
+                                    class="w-20 h-12 object-cover rounded-lg border border-slate-200" alt="Exp Image">
+                                <?php if ($imgCount > 1): ?>
+                                    <span class="absolute -top-1.5 -right-1.5 px-1.5 py-0.2 rounded-full text-[9px] font-bold bg-amber-500 text-black shadow-xs">
+                                        <?php echo $imgCount; ?> imgs
+                                    </span>
+                                <?php endif; ?>
+                            </div>
                             <div class="text-[11px] text-slate-500 min-w-0 flex-1">
+                                <?php if ($imgCount > 1): ?>
+                                    <span class="text-amber-800 font-bold block mb-0.5">🔄 <?php echo $imgCount; ?> Images (10s auto-roll)</span>
+                                <?php endif; ?>
                                 <strong class="text-slate-700 block mb-0.5">Features:</strong>
                                 <span class="truncate block"><?php echo htmlspecialchars($featsList); ?></span>
                             </div>
@@ -569,41 +648,53 @@ require_once 'admin_header.php';
                 <input type="hidden" id="exp_price" name="base_price" value="0">
             </div>
             <div>
-                <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">Experience Image</label>
+                <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+                    Experience Images (16:9 Landscape &bull; 1 or Multiple Files)
+                </label>
                 
-                <!-- Image Preview Area (16:9 Landscape Ratio) -->
-                <div id="exp_img_preview_container" class="mb-3 hidden">
-                    <div class="relative w-full max-w-sm aspect-video rounded-xl overflow-hidden border-2 border-amber-400 bg-slate-900 shadow-sm group">
-                        <img id="exp_img_preview" src="" alt="Experience Preview" class="w-full h-full object-cover">
-                        <div class="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                            <button type="button" onclick="removeExpImage()" class="px-2.5 py-1 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-lg shadow">
-                                Remove Image
-                            </button>
-                        </div>
+                <!-- Multiple Images Preview Grid Area -->
+                <div id="exp_images_grid_container" class="mb-3 hidden">
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                            <span class="w-2 h-2 rounded-full bg-amber-500 inline-block animate-pulse"></span>
+                            <span id="exp_images_count_label">0 Images</span>
+                        </span>
+                        <span id="exp_autoroll_hint" class="text-[11px] font-semibold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200 hidden">
+                            ⚡ Auto-rolls every 10 sec on site with Next/Prev
+                        </span>
                     </div>
-                    <p id="exp_img_status" class="text-xs text-slate-500 mt-1"></p>
+                    
+                    <div id="exp_images_preview_grid" class="grid grid-cols-2 sm:grid-cols-3 gap-2.5 max-h-56 overflow-y-auto p-2 bg-slate-50 rounded-xl border border-slate-200">
+                        <!-- Thumbnails rendered dynamically -->
+                    </div>
                 </div>
 
-                <!-- Upload Input (Native 16:9 Landscape Pipeline - No Square Cropping) -->
+                <!-- Multi-file Upload Input (Native 16:9 Landscape Pipeline) -->
                 <div class="border-2 border-dashed border-slate-300 hover:border-amber-500 rounded-xl p-4 text-center cursor-pointer transition-colors bg-slate-50/50">
-                    <input type="file" id="exp_image_file" name="image_file" accept="image/jpeg,image/png,image/webp"
-                        class="hidden" onchange="previewExpFile(this)">
-                    <label for="exp_image_file" class="cursor-pointer block">
+                    <input type="file" id="exp_image_files" name="image_files[]" multiple accept="image/jpeg,image/png,image/webp"
+                        class="hidden" onchange="handleMultipleFileSelect(this)">
+                    <label for="exp_image_files" class="cursor-pointer block">
                         <div class="w-10 h-10 mx-auto rounded-full bg-amber-100 text-amber-600 flex items-center justify-center mb-2">
                             📷
                         </div>
-                        <span class="text-sm font-semibold text-slate-700 block">Click to upload 16:9 image</span>
-                        <span class="text-xs text-slate-500 block mt-0.5">JPG, PNG, or WEBP (Max 8MB &bull; Original 16:9 Landscape Framing Preserved)</span>
+                        <span class="text-sm font-semibold text-slate-700 block">Click to upload 16:9 images (Select 1 or more)</span>
+                        <span class="text-xs text-slate-500 block mt-0.5">JPG, PNG, or WEBP (Max 8MB each &bull; 2+ images enable 10-second auto-rolling slideshow)</span>
                     </label>
                 </div>
 
+                <!-- Hidden inputs for tracking existing images and backward compatibility -->
+                <input type="hidden" id="exp_existing_images_json" name="existing_images_json" value="[]">
+                <input type="hidden" id="exp_existing_image" name="existing_image" value="">
+                <input type="hidden" id="exp_remove_image" name="remove_image" value="0">
+
                 <!-- Collapsible URL fallback -->
                 <details class="mt-2 text-xs text-slate-600">
-                    <summary class="cursor-pointer text-slate-500 hover:text-slate-700 font-medium select-none">Or paste direct image URL (optional)</summary>
-                    <div class="mt-2">
-                        <input type="url" id="exp_image_url" name="image_url" placeholder="https://example.com/image.jpg"
+                    <summary class="cursor-pointer text-slate-500 hover:text-slate-700 font-medium select-none">Or paste direct image URLs (optional)</summary>
+                    <div class="mt-2 space-y-1.5">
+                        <textarea id="exp_image_urls" name="image_urls" rows="2" placeholder="https://example.com/image1.jpg&#10;https://example.com/image2.jpg"
                             class="w-full px-3 py-1.5 rounded-lg border border-slate-300 text-xs outline-none focus:ring-1 focus:ring-amber-500"
-                            onchange="previewExpUrl(this.value)">
+                            onchange="handleDirectUrlsInput(this.value)"></textarea>
+                        <p class="text-[10px] text-slate-400">1 URL per line or comma-separated</p>
                     </div>
                 </details>
             </div>
@@ -699,6 +790,123 @@ require_once 'admin_header.php';
 </div>
 
 <script>
+    let currentExpImages = [];
+
+    function renderExpImages() {
+        const container = document.getElementById('exp_images_grid_container');
+        const grid = document.getElementById('exp_images_preview_grid');
+        const countLabel = document.getElementById('exp_images_count_label');
+        const autoRollHint = document.getElementById('exp_autoroll_hint');
+        const existingJsonInput = document.getElementById('exp_existing_images_json');
+        const fallbackExistingImg = document.getElementById('exp_existing_image');
+
+        if (!currentExpImages || currentExpImages.length === 0) {
+            container.classList.add('hidden');
+            existingJsonInput.value = '[]';
+            fallbackExistingImg.value = '';
+            return;
+        }
+
+        container.classList.remove('hidden');
+        countLabel.textContent = currentExpImages.length + (currentExpImages.length === 1 ? ' Image' : ' Images');
+
+        if (currentExpImages.length > 1) {
+            autoRollHint.classList.remove('hidden');
+        } else {
+            autoRollHint.classList.add('hidden');
+        }
+
+        grid.innerHTML = '';
+        currentExpImages.forEach((img, idx) => {
+            const card = document.createElement('div');
+            card.className = 'relative aspect-video rounded-lg overflow-hidden border border-slate-200 shadow-xs bg-slate-900 group';
+            card.innerHTML = `
+                <img src="${img.url}" class="w-full h-full object-cover" alt="Slide ${idx + 1}">
+                <div class="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center p-1">
+                    <button type="button" onclick="removeExpImageAt(${idx})" class="px-2 py-1 bg-rose-600 hover:bg-rose-700 text-white text-[10px] font-bold rounded shadow cursor-pointer">
+                        ✕ Remove
+                    </button>
+                </div>
+                <div class="absolute top-1 left-1">
+                    <span class="px-1.5 py-0.5 rounded text-[9px] font-bold ${idx === 0 ? 'bg-amber-500 text-black' : 'bg-black/60 text-white'}">
+                        ${idx === 0 ? '★ Cover' : '#' + (idx + 1)}
+                    </span>
+                </div>
+            `;
+            grid.appendChild(card);
+        });
+
+        const existingUrls = currentExpImages
+            .filter(item => item.type === 'existing')
+            .map(item => item.url);
+        existingJsonInput.value = JSON.stringify(existingUrls);
+        fallbackExistingImg.value = existingUrls[0] || '';
+    }
+
+    function handleMultipleFileSelect(input) {
+        if (!input.files || input.files.length === 0) return;
+        const allowed = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+
+        Array.from(input.files).forEach(file => {
+            if (!allowed.includes(file.type)) {
+                alert('File ' + file.name + ' is not a valid JPG, PNG, or WEBP image.');
+                return;
+            }
+            if (file.size > 8 * 1024 * 1024) {
+                alert('File ' + file.name + ' exceeds 8MB limit.');
+                return;
+            }
+            const previewUrl = URL.createObjectURL(file);
+            currentExpImages.push({
+                type: 'new_file',
+                fileObj: file,
+                url: previewUrl,
+                name: file.name
+            });
+        });
+
+        renderExpImages();
+        syncDataTransfer();
+    }
+
+    function removeExpImageAt(index) {
+        if (index >= 0 && index < currentExpImages.length) {
+            currentExpImages.splice(index, 1);
+            renderExpImages();
+            syncDataTransfer();
+        }
+    }
+
+    function syncDataTransfer() {
+        try {
+            const dt = new DataTransfer();
+            currentExpImages.forEach(item => {
+                if (item.fileObj) {
+                    dt.items.add(item.fileObj);
+                }
+            });
+            const fileInput = document.getElementById('exp_image_files');
+            if (fileInput) fileInput.files = dt.files;
+        } catch (e) {}
+    }
+
+    function handleDirectUrlsInput(rawText) {
+        if (!rawText) return;
+        const lines = rawText.split(/[\r\n,]+/);
+        lines.forEach(line => {
+            const trimmed = line.trim();
+            if (trimmed.startsWith('http')) {
+                currentExpImages.push({
+                    type: 'existing',
+                    url: trimmed,
+                    name: trimmed.split('/').pop()
+                });
+            }
+        });
+        document.getElementById('exp_image_urls').value = '';
+        renderExpImages();
+    }
+
     function openExpModal() {
         document.getElementById('expModalTitle').innerText = 'Add New Experience';
         document.getElementById('exp_id').value = '';
@@ -708,12 +916,12 @@ require_once 'admin_header.php';
         if (document.getElementById('exp_price')) document.getElementById('exp_price').value = '0';
         document.getElementById('exp_badge').value = '';
         document.getElementById('exp_existing_image').value = '';
+        document.getElementById('exp_existing_images_json').value = '[]';
         document.getElementById('exp_remove_image').value = '0';
-        document.getElementById('exp_image_file').value = '';
-        document.getElementById('exp_image_url').value = '';
-        document.getElementById('exp_img_preview').src = '';
-        document.getElementById('exp_img_preview_container').classList.add('hidden');
-        document.getElementById('exp_img_status').textContent = '';
+        document.getElementById('exp_image_files').value = '';
+        document.getElementById('exp_image_urls').value = '';
+        currentExpImages = [];
+        renderExpImages();
         document.getElementById('exp_features').value = '';
         document.getElementById('exp_order').value = '1';
         document.getElementById('exp_active').checked = true;
@@ -729,21 +937,29 @@ require_once 'admin_header.php';
         if (document.getElementById('exp_price')) document.getElementById('exp_price').value = '0';
         document.getElementById('exp_badge').value = exp.badge || '';
         
-        // Image setup
-        const existingImg = exp.image || '';
-        document.getElementById('exp_existing_image').value = existingImg;
-        document.getElementById('exp_image_url').value = existingImg;
-        document.getElementById('exp_image_file').value = '';
-        document.getElementById('exp_remove_image').value = '0';
-        if (existingImg) {
-            document.getElementById('exp_img_preview').src = existingImg;
-            document.getElementById('exp_img_preview_container').classList.remove('hidden');
-            document.getElementById('exp_img_status').textContent = 'Current saved image';
-        } else {
-            document.getElementById('exp_img_preview').src = '';
-            document.getElementById('exp_img_preview_container').classList.add('hidden');
-            document.getElementById('exp_img_status').textContent = '';
+        // Multi-image setup
+        currentExpImages = [];
+        let imgList = [];
+        if (exp.images) {
+            try {
+                imgList = typeof exp.images === 'string' ? JSON.parse(exp.images) : exp.images;
+            } catch (e) {
+                imgList = [];
+            }
         }
+        if ((!Array.isArray(imgList) || imgList.length === 0) && exp.image) {
+            imgList = [exp.image];
+        }
+        if (Array.isArray(imgList)) {
+            imgList.forEach(u => {
+                if (u) currentExpImages.push({ type: 'existing', url: u, name: u.split('/').pop() });
+            });
+        }
+        renderExpImages();
+
+        document.getElementById('exp_image_files').value = '';
+        document.getElementById('exp_image_urls').value = '';
+        document.getElementById('exp_remove_image').value = '0';
 
         let feats = [];
         try { feats = JSON.parse(exp.features); } catch (e) { feats = [exp.features]; }
@@ -756,50 +972,6 @@ require_once 'admin_header.php';
 
     function closeExpModal() {
         document.getElementById('expModal').classList.add('hidden');
-    }
-
-    function previewExpFile(input) {
-        if (!input.files || !input.files[0]) return;
-        const file = input.files[0];
-        const allowed = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
-        if (!allowed.includes(file.type)) {
-            alert('Invalid file format. Please upload JPG, PNG, or WEBP.');
-            input.value = '';
-            return;
-        }
-        if (file.size > 8 * 1024 * 1024) {
-            alert('File size exceeds 8MB limit.');
-            input.value = '';
-            return;
-        }
-        const reader = new FileReader();
-        reader.onload = function(e) {
-            document.getElementById('exp_img_preview').src = e.target.result;
-            document.getElementById('exp_img_preview_container').classList.remove('hidden');
-            document.getElementById('exp_img_status').textContent = 'New image selected: ' + file.name + ' (original 16:9 aspect ratio preserved)';
-            document.getElementById('exp_remove_image').value = '0';
-        };
-        reader.readAsDataURL(file);
-    }
-
-    function previewExpUrl(url) {
-        if (url && url.trim().startsWith('http')) {
-            document.getElementById('exp_img_preview').src = url.trim();
-            document.getElementById('exp_img_preview_container').classList.remove('hidden');
-            document.getElementById('exp_img_status').textContent = 'Direct Image URL';
-            document.getElementById('exp_remove_image').value = '0';
-        }
-    }
-
-    function removeExpImage() {
-        if (!confirm('Remove this image? It will be removed when you save.')) return;
-        document.getElementById('exp_img_preview').src = '';
-        document.getElementById('exp_img_preview_container').classList.add('hidden');
-        document.getElementById('exp_image_file').value = '';
-        document.getElementById('exp_image_url').value = '';
-        document.getElementById('exp_existing_image').value = '';
-        document.getElementById('exp_remove_image').value = '1';
-        document.getElementById('exp_img_status').textContent = '';
     }
 
     function openUpgModal() {

@@ -361,6 +361,16 @@ function ensureSurpriseTablesExist($db)
             ('Cold Fire Sparklers & Pyro Entry', '4 cold-fire sparkler fountains triggered upon grand entry.', 'Sparkles', 2500.00, 4, 1),
             ('Heart Balloon Canopy', '100 helium heart balloons with hanging memory cards.', 'Heart', 3000.00, 5, 1);");
         }
+
+        // Safely add missing columns to surprise_experiences table
+        try {
+            $expCols = $db->query("SHOW COLUMNS FROM `surprise_experiences`")->fetchAll(PDO::FETCH_COLUMN);
+            if (!in_array('images', $expCols)) {
+                @$db->exec("ALTER TABLE `surprise_experiences` ADD COLUMN `images` LONGTEXT NULL AFTER `image`");
+            }
+        } catch (Exception $alterEx) {
+            error_log("Notice in ALTER TABLE surprise_experiences: " . $alterEx->getMessage());
+        }
     } catch (Exception $e) {
         error_log("Error in ensureSurpriseTablesExist: " . $e->getMessage());
     }

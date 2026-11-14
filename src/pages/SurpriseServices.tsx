@@ -26,6 +26,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useCart } from '@/contexts/CartContext';
 import { inquiryService, surpriseService } from '@/services/api';
 import SEO from '@/components/common/SEO';
+import ExperienceImageCarousel from '@/components/common/ExperienceImageCarousel';
 
 const ICON_MAP: Record<string, any> = {
   Music: Music,
@@ -444,11 +445,15 @@ export default function SurpriseServices() {
                           )}
                         >
                           <div>
-                            {pkg.image && (
-                              <div className="aspect-video rounded-xl overflow-hidden mb-3 border border-amber-500/20 relative group">
-                                <img src={pkg.image} alt={pkg.title} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" />
-                              </div>
-                            )}
+                            {(pkg.images && pkg.images.length > 0) || pkg.image ? (
+                              <ExperienceImageCarousel
+                                images={pkg.images || [pkg.image]}
+                                alt={pkg.title}
+                                className="aspect-video rounded-xl overflow-hidden mb-3 border border-amber-500/20 relative group"
+                                imgClassName="transition-transform duration-300 group-hover:scale-105"
+                                intervalMs={10000}
+                              />
+                            ) : null}
                             <div className="flex justify-between items-start mb-2">
                               {pkg.badge ? (
                                 <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-amber-400/20 text-amber-300 border border-amber-400/30">
@@ -528,18 +533,18 @@ export default function SurpriseServices() {
                     <div className="bg-[#0B1A13] p-8 rounded-3xl border border-amber-500/30 shadow-2xl relative overflow-hidden space-y-6">
                       <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/10 rounded-full blur-2xl pointer-events-none" />
 
-                      <div className="aspect-video rounded-xl overflow-hidden border border-amber-500/20 relative">
-                        <img
-                          src={selectedPackage.image}
-                          alt={selectedPackage.title}
-                          className="w-full h-full object-cover"
-                        />
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-transparent" />
-                        <div className="absolute bottom-3 left-4 right-4 flex justify-between items-center text-white">
+                      <ExperienceImageCarousel
+                        images={selectedPackage.images || [selectedPackage.image]}
+                        alt={selectedPackage.title}
+                        className="aspect-video rounded-xl overflow-hidden border border-amber-500/20 relative"
+                        intervalMs={10000}
+                      >
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-transparent pointer-events-none" />
+                        <div className="absolute bottom-3 left-4 right-4 flex justify-between items-center text-white pointer-events-none z-10">
                           <span className="text-sm font-bold font-serif">{selectedPackage.title}</span>
                           <span className="text-xs bg-amber-500 text-black px-2 py-0.5 rounded font-bold uppercase tracking-wider">Selected</span>
                         </div>
-                      </div>
+                      </ExperienceImageCarousel>
 
                       <div>
                         <h3 className="text-2xl font-bold font-serif text-white">Your Bespoke Selection</h3>

@@ -25,7 +25,7 @@ if ($action === 'get_data') {
         $expStmt = $db->query("SELECT * FROM `surprise_experiences` WHERE `is_active` = 1 ORDER BY `display_order` ASC, `id` ASC");
         $experiences = $expStmt->fetchAll(PDO::FETCH_ASSOC);
 
-        // Format features JSON for frontend consumption
+        // Format features and images JSON for frontend consumption
         foreach ($experiences as &$exp) {
             $exp['base_price'] = (float)$exp['base_price'];
             if (!empty($exp['features'])) {
@@ -34,6 +34,19 @@ if ($action === 'get_data') {
             } else {
                 $exp['features'] = [];
             }
+
+            // Multiple 16:9 images for 10-second auto-rolling slideshow
+            $imgList = [];
+            if (!empty($exp['images'])) {
+                $decodedImgs = json_decode($exp['images'], true);
+                if (is_array($decodedImgs) && !empty($decodedImgs)) {
+                    $imgList = array_values(array_filter($decodedImgs));
+                }
+            }
+            if (empty($imgList) && !empty($exp['image'])) {
+                $imgList = [$exp['image']];
+            }
+            $exp['images'] = $imgList;
         }
         unset($exp);
 

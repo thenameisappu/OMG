@@ -33,6 +33,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { getProducts } from '@/db/api';
 import { customisationService, surpriseService } from '@/services/api';
+import ExperienceImageCarousel from '@/components/common/ExperienceImageCarousel';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -204,12 +205,28 @@ export default function Products() {
             highlights = exp.features.split(',').map((s: string) => s.trim());
           }
         }
+
+        // Multiple 16:9 images for 10-second auto-rolling slideshow
+        let expImages: string[] = [];
+        if (Array.isArray(exp.images) && exp.images.length > 0) {
+          expImages = exp.images.filter(Boolean);
+        } else if (typeof exp.images === 'string' && exp.images.trim()) {
+          try {
+            const parsed = JSON.parse(exp.images);
+            if (Array.isArray(parsed)) expImages = parsed.filter(Boolean);
+          } catch {}
+        }
+        if (expImages.length === 0 && exp.image) {
+          expImages = [exp.image];
+        }
+
         return {
           id: exp.id || `exp-${idx}`,
           title: exp.title,
           subtitle: exp.subtitle || 'Bespoke Experience & Occasion Styling',
           tag: exp.badge || 'SIGNATURE CRAFT',
           image: exp.image || '/images/moments/moment_event.jpg',
+          images: expImages.length > 0 ? expImages : [exp.image || '/images/moments/moment_event.jpg'],
           desc: exp.description || 'Custom crafted celebration experience orchestrated with fresh luxury blooms, decor, and on-site coordination.',
           highlights: highlights.length > 0 ? highlights : ['Custom Floristry & Decor', 'Dedicated On-Site Coordination', 'Complimentary Styling Setup'],
           itinerary: '1. Private Specialist Consultation → 2. Custom Floral & Decor Production → 3. On-Site Secret Execution'
@@ -218,6 +235,7 @@ export default function Products() {
     } else {
       list = MOMENT_SERVICES_DATA.map(s => ({
         ...s,
+        images: [s.image || '/images/moments/moment_event.jpg'],
         highlights: s.highlights || []
       }));
     }
@@ -549,20 +567,18 @@ export default function Products() {
                   onClick={() => setActiveExperienceModal(service)}
                   className="group relative bg-white dark:bg-card rounded-3xl overflow-hidden border border-border/80 luxury-shadow hover-lift cursor-pointer flex flex-col transition-all duration-500 hover:border-secondary/60 hover:shadow-2xl"
                 >
-                  {/* Photo Header */}
-                  <div className="relative aspect-[16/10] overflow-hidden bg-muted/20">
-                    <img
-                      src={service.image}
-                      alt={service.title}
-                      className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
-                      onError={(e) => {
-                        (e.currentTarget as HTMLImageElement).src = '/images/moments/moment_event.jpg';
-                      }}
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/35 to-transparent" />
+                  {/* Photo Header with 10s Auto-rolling Carousel & Next/Prev Controls */}
+                  <ExperienceImageCarousel
+                    images={service.images || [service.image]}
+                    alt={service.title}
+                    className="relative aspect-[16/10] overflow-hidden bg-muted/20"
+                    imgClassName="transition-transform duration-700 group-hover:scale-105"
+                    intervalMs={10000}
+                  >
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/35 to-transparent pointer-events-none" />
                     
                     {/* Tag badge */}
-                    <div className="absolute top-3.5 left-3.5 z-10">
+                    <div className="absolute top-3.5 left-3.5 z-10 pointer-events-none">
                       <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-black/60 backdrop-blur-md border border-white/20 text-white text-[10px] uppercase font-bold tracking-widest">
                         <ServiceIcon className="h-3 w-3 text-secondary" />
                         {service.tag}
@@ -570,14 +586,14 @@ export default function Products() {
                     </div>
 
                     {/* Bespoke Tag */}
-                    <div className="absolute top-3.5 right-3.5 z-10">
+                    <div className="absolute top-3.5 right-3.5 z-10 pointer-events-none">
                       <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-black/60 backdrop-blur-md border border-secondary/40 text-secondary text-[10px] uppercase font-bold tracking-wider">
                         Bespoke Experience
                       </span>
                     </div>
 
                     {/* Title inside photo overlay */}
-                    <div className="absolute bottom-3 left-4 right-4 text-white">
+                    <div className="absolute bottom-3 left-4 right-4 text-white pointer-events-none z-10">
                       <h3 className="text-xl font-bold font-serif leading-snug group-hover:text-secondary transition-colors">
                         {service.title}
                       </h3>
@@ -585,7 +601,7 @@ export default function Products() {
                         {service.subtitle}
                       </p>
                     </div>
-                  </div>
+                  </ExperienceImageCarousel>
 
                   {/* Body Details */}
                   <div className="p-6 flex flex-col flex-1 justify-between gap-4">
@@ -663,25 +679,25 @@ export default function Products() {
           {activeExperienceModal && (
             <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-fade-in">
               <div className="bg-white dark:bg-card w-full max-w-3xl rounded-3xl overflow-hidden luxury-shadow border border-border flex flex-col max-h-[90vh] animate-scale-in">
-                {/* Modal Header & Photo */}
-                <div className="relative aspect-[16/8] sm:aspect-[16/7] overflow-hidden bg-black">
-                  <img
-                    src={activeExperienceModal.image}
-                    alt={activeExperienceModal.title}
-                    className="w-full h-full object-cover"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent" />
+                {/* Modal Header & Photo with 10s Auto-rolling Carousel & Next/Prev Controls */}
+                <ExperienceImageCarousel
+                  images={activeExperienceModal.images || [activeExperienceModal.image]}
+                  alt={activeExperienceModal.title}
+                  className="relative aspect-[16/8] sm:aspect-[16/7] overflow-hidden bg-black"
+                  intervalMs={10000}
+                >
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent pointer-events-none" />
                   
                   {/* Close button */}
                   <button
                     onClick={() => setActiveExperienceModal(null)}
-                    className="absolute top-4 right-4 h-9 w-9 rounded-full bg-black/60 text-white hover:bg-black flex items-center justify-center transition-colors z-20"
+                    className="absolute top-4 right-4 h-9 w-9 rounded-full bg-black/60 text-white hover:bg-black flex items-center justify-center transition-colors z-30 cursor-pointer"
                     aria-label="Close modal"
                   >
                     <X className="h-5 w-5" />
                   </button>
 
-                  <div className="absolute bottom-4 left-6 right-6 text-white">
+                  <div className="absolute bottom-4 left-6 right-6 text-white pointer-events-none z-10">
                     <div className="flex items-center gap-2 mb-1.5">
                       <span className="text-[10px] font-bold uppercase tracking-widest bg-secondary text-primary px-2.5 py-0.5 rounded-full">
                         {activeExperienceModal.tag}
@@ -694,7 +710,7 @@ export default function Products() {
                       {activeExperienceModal.title}
                     </h3>
                   </div>
-                </div>
+                </ExperienceImageCarousel>
 
                 {/* Modal Body */}
                 <div className="p-6 sm:p-8 space-y-6 overflow-y-auto">
