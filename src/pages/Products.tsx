@@ -190,8 +190,9 @@ export default function Products() {
   }, []);
 
   const momentDisplayList = useMemo(() => {
+    let list: any[] = [];
     if (dynamicExperiences && dynamicExperiences.length > 0) {
-      return dynamicExperiences.map((exp: any, idx: number) => {
+      list = dynamicExperiences.map((exp: any, idx: number) => {
         let highlights: string[] = [];
         if (Array.isArray(exp.features)) {
           highlights = exp.features;
@@ -214,12 +215,24 @@ export default function Products() {
           itinerary: '1. Private Specialist Consultation → 2. Custom Floral & Decor Production → 3. On-Site Secret Execution'
         };
       });
+    } else {
+      list = MOMENT_SERVICES_DATA.map(s => ({
+        ...s,
+        highlights: s.highlights || []
+      }));
     }
-    return MOMENT_SERVICES_DATA.map(s => ({
-      ...s,
-      highlights: s.highlights || []
-    }));
-  }, [dynamicExperiences]);
+
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      list = list.filter(item =>
+        item.title?.toLowerCase().includes(q) ||
+        item.subtitle?.toLowerCase().includes(q) ||
+        item.desc?.toLowerCase().includes(q)
+      );
+    }
+
+    return list;
+  }, [dynamicExperiences, searchQuery]);
 
   useEffect(() => {
     async function loadProducts() {
@@ -443,22 +456,30 @@ export default function Products() {
 
           <div className="flex items-center gap-4">
             <span className="text-xs text-muted-foreground whitespace-nowrap font-bold uppercase tracking-wider">
-              {filteredProducts.length} Products
+              {currentCategory === 'occasions'
+                ? `${momentDisplayList.length} ${momentDisplayList.length === 1 ? 'Product' : 'Products'}`
+                : currentCategory === 'custom-orders'
+                ? 'Bespoke Consultation'
+                : `${filteredProducts.length} ${filteredProducts.length === 1 ? 'Product' : 'Products'}`}
             </span>
-            <div className="h-4 w-[1px] bg-border hidden md:block" />
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" className="gap-2 h-10 px-5 rounded-full text-xs font-semibold border-border">
-                  <SlidersHorizontal className="h-4 w-4 text-secondary" />
-                  Sort: {sortBy.charAt(0).toUpperCase() + sortBy.slice(1).replace('-', ' ')}
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-52 p-1">
-                <DropdownMenuItem onClick={() => setSortBy('featured')} className="text-xs py-2.5 font-medium">Featured First</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setSortBy('price-low')} className="text-xs py-2.5 font-medium">Price: Low to High</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setSortBy('price-high')} className="text-xs py-2.5 font-medium">Price: High to Low</DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            {currentCategory !== 'occasions' && currentCategory !== 'custom-orders' && (
+              <>
+                <div className="h-4 w-[1px] bg-border hidden md:block" />
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" className="gap-2 h-10 px-5 rounded-full text-xs font-semibold border-border">
+                      <SlidersHorizontal className="h-4 w-4 text-secondary" />
+                      Sort: {sortBy.charAt(0).toUpperCase() + sortBy.slice(1).replace('-', ' ')}
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-52 p-1">
+                    <DropdownMenuItem onClick={() => setSortBy('featured')} className="text-xs py-2.5 font-medium">Featured First</DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => setSortBy('price-low')} className="text-xs py-2.5 font-medium">Price: Low to High</DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => setSortBy('price-high')} className="text-xs py-2.5 font-medium">Price: High to Low</DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </>
+            )}
           </div>
         </div>
 
