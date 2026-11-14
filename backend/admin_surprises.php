@@ -288,7 +288,7 @@ if (isset($_POST['action']) && $_POST['action'] === 'save_upgrade') {
     $display_order = (int) ($_POST['display_order'] ?? 0);
     $is_active = isset($_POST['is_active']) ? 1 : 0;
 
-    if ($name && $price >= 0) {
+    if ($name) {
         if ($id) {
             $stmt = $db->prepare("UPDATE `surprise_upgrades` SET `name` = :name, `description` = :description, `icon` = :icon, `price` = :price, `display_order` = :display_order, `is_active` = :is_active WHERE `id` = :id");
             $stmt->execute([
@@ -314,7 +314,7 @@ if (isset($_POST['action']) && $_POST['action'] === 'save_upgrade') {
             $message = "New Experience Upgrade added successfully!";
         }
     } else {
-        $error = "Upgrade Name and Price are required.";
+        $error = "Upgrade Name is required.";
     }
 }
 
@@ -394,7 +394,7 @@ require_once 'admin_header.php';
                                 </h4>
                             </div>
                             <span
-                                class="text-sm font-bold text-amber-600"><?php echo ($exp['base_price'] > 0) ? ("₹" . number_format($exp['base_price'])) : "<span class=\"text-xs px-2 py-0.5 rounded bg-amber-50 text-amber-800 font-semibold border border-amber-200\">Custom Quote</span>"; ?></span>
+                                class="text-xs px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-800 font-semibold border border-amber-200">Bespoke Experience</span>
                         </div>
                         <p class="text-xs text-slate-500 italic"><?php echo htmlspecialchars($exp['subtitle']); ?></p>
                         <p class="text-xs text-slate-600 line-clamp-2"><?php echo htmlspecialchars($exp['description']); ?>
@@ -455,7 +455,6 @@ require_once 'admin_header.php';
                         <th class="py-3 px-4">Icon</th>
                         <th class="py-3 px-4">Upgrade Name</th>
                         <th class="py-3 px-4">Description</th>
-                        <th class="py-3 px-4">Price</th>
                         <th class="py-3 px-4">Status</th>
                         <th class="py-3 px-4 text-right">Actions</th>
                     </tr>
@@ -472,8 +471,6 @@ require_once 'admin_header.php';
                             </td>
                             <td class="py-3.5 px-4 text-xs text-slate-600 max-w-xs">
                                 <?php echo htmlspecialchars($upg['description']); ?>
-                            </td>
-                            <td class="py-3.5 px-4 font-bold text-amber-600"><?php echo ($upg['price'] > 0) ? ("₹" . number_format($upg['price'])) : "<span class=\"text-xs text-slate-400 italic font-normal\">Custom Quote</span>"; ?>
                             </td>
                             <td class="py-3.5 px-4 text-xs">
                                 <span
@@ -530,18 +527,11 @@ require_once 'admin_header.php';
                 <textarea id="exp_description" name="description" rows="3"
                     class="w-full px-4 py-2 rounded-xl border border-slate-300 text-sm outline-none focus:ring-2 focus:ring-amber-500"></textarea>
             </div>
-            <div class="grid grid-cols-2 gap-3">
-                <div>
-                    <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">Base Price (₹ - Optional / Bespoke Quote)</label>
-                    <input type="number" step="0.01" id="exp_price" name="base_price"
-                        class="w-full px-4 py-2 rounded-xl border border-slate-300 text-sm outline-none focus:ring-2 focus:ring-amber-500">
-                </div>
-                <div>
-                    <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">Badge (e.g. Top
-                        Rated)</label>
-                    <input type="text" id="exp_badge" name="badge"
-                        class="w-full px-4 py-2 rounded-xl border border-slate-300 text-sm outline-none focus:ring-2 focus:ring-amber-500">
-                </div>
+            <div>
+                <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">Badge (e.g. Most Magical, Bestseller, Signature Craft)</label>
+                <input type="text" id="exp_badge" name="badge" placeholder="e.g. Most Magical, Bestseller, Top Rated"
+                    class="w-full px-4 py-2 rounded-xl border border-slate-300 text-sm outline-none focus:ring-2 focus:ring-amber-500">
+                <input type="hidden" id="exp_price" name="base_price" value="0">
             </div>
             <div>
                 <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">Experience Image</label>
@@ -634,25 +624,18 @@ require_once 'admin_header.php';
                 <textarea id="upg_description" name="description" rows="2"
                     class="w-full px-4 py-2 rounded-xl border border-slate-300 text-sm outline-none focus:ring-2 focus:ring-amber-500"></textarea>
             </div>
-            <div class="grid grid-cols-2 gap-3">
-                <div>
-                    <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">Price (₹ - Optional)</label>
-                    <input type="number" step="0.01" id="upg_price" name="price"
-                        class="w-full px-4 py-2 rounded-xl border border-slate-300 text-sm outline-none focus:ring-2 focus:ring-amber-500">
-                </div>
-                <div>
-                    <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">Icon
-                        Name</label>
-                    <select id="upg_icon" name="icon"
-                        class="w-full px-4 py-2 rounded-xl border border-slate-300 text-sm outline-none focus:ring-2 focus:ring-amber-500 bg-white">
-                        <option value="Music">Music (Live Singer)</option>
-                        <option value="Camera">Camera (Photographer)</option>
-                        <option value="Gift">Gift (Keepsake Box)</option>
-                        <option value="Sparkles">Sparkles (Pyro)</option>
-                        <option value="Heart">Heart (Balloons)</option>
-                        <option value="Star">Star (General)</option>
-                    </select>
-                </div>
+            <div>
+                <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">Icon Name</label>
+                <select id="upg_icon" name="icon"
+                    class="w-full px-4 py-2 rounded-xl border border-slate-300 text-sm outline-none focus:ring-2 focus:ring-amber-500 bg-white">
+                    <option value="Music">Music (Live Singer)</option>
+                    <option value="Camera">Camera (Photographer)</option>
+                    <option value="Gift">Gift (Keepsake Box)</option>
+                    <option value="Sparkles">Sparkles (Pyro)</option>
+                    <option value="Heart">Heart (Balloons)</option>
+                    <option value="Star">Star (General)</option>
+                </select>
+                <input type="hidden" id="upg_price" name="price" value="0">
             </div>
             <div class="grid grid-cols-2 gap-3 items-center">
                 <div>
@@ -687,7 +670,7 @@ require_once 'admin_header.php';
         document.getElementById('exp_title').value = '';
         document.getElementById('exp_subtitle').value = '';
         document.getElementById('exp_description').value = '';
-        document.getElementById('exp_price').value = '';
+        if (document.getElementById('exp_price')) document.getElementById('exp_price').value = '0';
         document.getElementById('exp_badge').value = '';
         document.getElementById('exp_existing_image').value = '';
         document.getElementById('exp_remove_image').value = '0';
@@ -708,7 +691,7 @@ require_once 'admin_header.php';
         document.getElementById('exp_title').value = exp.title || '';
         document.getElementById('exp_subtitle').value = exp.subtitle || '';
         document.getElementById('exp_description').value = exp.description || '';
-        document.getElementById('exp_price').value = exp.base_price || '';
+        if (document.getElementById('exp_price')) document.getElementById('exp_price').value = '0';
         document.getElementById('exp_badge').value = exp.badge || '';
         
         // Image setup
@@ -789,7 +772,7 @@ require_once 'admin_header.php';
         document.getElementById('upg_id').value = '';
         document.getElementById('upg_name').value = '';
         document.getElementById('upg_description').value = '';
-        document.getElementById('upg_price').value = '';
+        if (document.getElementById('upg_price')) document.getElementById('upg_price').value = '0';
         document.getElementById('upg_icon').value = 'Sparkles';
         document.getElementById('upg_order').value = '1';
         document.getElementById('upg_active').checked = true;
@@ -801,7 +784,7 @@ require_once 'admin_header.php';
         document.getElementById('upg_id').value = upg.id;
         document.getElementById('upg_name').value = upg.name || '';
         document.getElementById('upg_description').value = upg.description || '';
-        document.getElementById('upg_price').value = upg.price || '';
+        if (document.getElementById('upg_price')) document.getElementById('upg_price').value = '0';
         document.getElementById('upg_icon').value = upg.icon || 'Sparkles';
         document.getElementById('upg_order').value = upg.display_order || 1;
         document.getElementById('upg_active').checked = upg.is_active == 1;

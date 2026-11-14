@@ -22,3 +22,4 @@ Options -Indexes
     Header set Access-Control-Allow-Origin "*"
     Header set Cache-Control "public, max-age=2592000, immutable"
 </IfModule>
+

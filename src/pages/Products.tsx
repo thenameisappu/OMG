@@ -32,7 +32,7 @@ import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { getProducts } from '@/db/api';
-import { customisationService } from '@/services/api';
+import { customisationService, surpriseService } from '@/services/api';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -95,8 +95,7 @@ const MOMENT_SERVICES_DATA = [
     image: '/images/moments/moment_proposal.jpg',
     desc: 'Intimate candlelit walkways, grand floral arches, "MARRY ME" illumination, and secret on-site orchestration for that breathtaking, cinematic "YES" moment.',
     highlights: ['50+ Pure Wax Pillar Candles', 'Bespoke Fresh Rose Archway', 'Secret Coordinator & Timing Cue', 'Complimentary Champagne Setup'],
-    itinerary: '1. Secret Itinerary Design → 2. Hidden Venue Transformation → 3. The Grand Reveal & Emotion',
-    priceEstimate: 'From ₹14,999'
+    itinerary: '1. Secret Itinerary Design → 2. Hidden Venue Transformation → 3. The Grand Reveal & Emotion'
   },
   {
     id: 'midnight',
@@ -107,8 +106,7 @@ const MOMENT_SERVICES_DATA = [
     image: '/images/moments/moment_midnight.jpg',
     desc: 'Coordinated doorstep delivery at precisely 00:00 midnight with live acoustic guitarist serenade, balloon ceiling transformations, fresh blooms, and luxury gourmet treats.',
     highlights: ['Guaranteed 00:00 Sharp Delivery', 'Live Acoustic Guitarist/Singer', 'Helium Balloon Ceiling Bouquet', 'Luxury Cake & Bloom Pairing'],
-    itinerary: '1. Secret Delivery Route → 2. Midnight Doorbell & Live Serenade → 3. Midnight Unwrapping',
-    priceEstimate: 'From ₹7,999'
+    itinerary: '1. Secret Delivery Route → 2. Midnight Doorbell & Live Serenade → 3. Midnight Unwrapping'
   },
   {
     id: 'event-styling',
@@ -119,8 +117,7 @@ const MOMENT_SERVICES_DATA = [
     image: '/images/moments/moment_event.jpg',
     desc: 'Complete high-fashion floral and decor transformation for private dinner parties, luxury anniversaries, intimate terrace gatherings, and milestone galas.',
     highlights: ['Full Room Floral Canopy', 'Architectural Table Centrepieces', 'Mood Lighting & Warm Ambience', 'Custom Color Palette Styling'],
-    itinerary: '1. Venue Inspection & Moodboard → 2. Floral Production → 3. On-Site Complete Styling',
-    priceEstimate: 'From ₹19,999'
+    itinerary: '1. Venue Inspection & Moodboard → 2. Floral Production → 3. On-Site Complete Styling'
   },
   {
     id: 'moments-captured',
@@ -131,8 +128,7 @@ const MOMENT_SERVICES_DATA = [
     image: 'https://images.unsplash.com/photo-1537633552985-df8429e8048b?w=800&q=80',
     desc: 'High-end discreet cinematography and editorial photography to capture the genuine shock, tears of joy, and intimate candid reactions forever.',
     highlights: ['Professional 4K Cinematographer', 'Discreet Candid Photography', 'Color-Graded Cinematic Reel', 'High-Res Digital Album in 48h'],
-    itinerary: '1. Hidden Camera Positioning → 2. Multi-Angle Surprise Capture → 3. Edited 4K Teaser & Photos',
-    priceEstimate: 'From ₹4,999'
+    itinerary: '1. Hidden Camera Positioning → 2. Multi-Angle Surprise Capture → 3. Edited 4K Teaser & Photos'
   },
   {
     id: 'live-musicians',
@@ -143,8 +139,7 @@ const MOMENT_SERVICES_DATA = [
     image: 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=800&q=80',
     desc: 'Talented cellists, saxophonists, violin duos, or acoustic vocalists performing your loved one\'s favorite love ballad as they walk into the surprise.',
     highlights: ['Handpicked Master Musicians', 'Custom Song Repertoire', 'Wireless Sound Equipment', 'Seamless Hidden Entry'],
-    itinerary: '1. Song Selection → 2. Soundcheck & Rehearsal → 3. Live Surprise Performance',
-    priceEstimate: 'From ₹3,999'
+    itinerary: '1. Song Selection → 2. Soundcheck & Rehearsal → 3. Live Surprise Performance'
   },
   {
     id: 'bespoke-gifting',
@@ -155,8 +150,7 @@ const MOMENT_SERVICES_DATA = [
     image: 'https://images.unsplash.com/photo-1549465220-1a8b9238cd48?w=800&q=80',
     desc: 'Handmade velvet keepsakes, engraved crystal flutes, artisan European chocolates, and rare botanical blooms curated exclusively for your milestone.',
     highlights: ['Custom Engraving & Leather Tags', 'Handmade Velvet Presentation Box', 'Artisan Gourmet Pairings', 'Personalized Calligraphy Letter'],
-    itinerary: '1. Taste & Preference Curation → 2. Artisan Packaging → 3. White-Glove Hand Delivery',
-    priceEstimate: 'From ₹3,499'
+    itinerary: '1. Taste & Preference Curation → 2. Artisan Packaging → 3. White-Glove Hand Delivery'
   }
 ];
 
@@ -171,6 +165,61 @@ export default function Products() {
   const [products, setProducts] = useState<any[]>(initialCached);
   const [loading, setLoading] = useState(initialCached.length === 0);
   const [activeExperienceModal, setActiveExperienceModal] = useState<any | null>(null);
+  const [dynamicExperiences, setDynamicExperiences] = useState<any[]>([]);
+  const [loadingExperiences, setLoadingExperiences] = useState(false);
+
+  useEffect(() => {
+    let isMounted = true;
+    async function loadBespokeExperiences() {
+      try {
+        setLoadingExperiences(true);
+        const res = await surpriseService.getData();
+        if (isMounted && res && res.success && Array.isArray(res.experiences) && res.experiences.length > 0) {
+          setDynamicExperiences(res.experiences);
+        }
+      } catch (err) {
+        console.error('Failed to load dynamic experiences:', err);
+      } finally {
+        if (isMounted) setLoadingExperiences(false);
+      }
+    }
+    loadBespokeExperiences();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const momentDisplayList = useMemo(() => {
+    if (dynamicExperiences && dynamicExperiences.length > 0) {
+      return dynamicExperiences.map((exp: any, idx: number) => {
+        let highlights: string[] = [];
+        if (Array.isArray(exp.features)) {
+          highlights = exp.features;
+        } else if (typeof exp.features === 'string' && exp.features.trim()) {
+          try {
+            const parsed = JSON.parse(exp.features);
+            highlights = Array.isArray(parsed) ? parsed : [exp.features];
+          } catch {
+            highlights = exp.features.split(',').map((s: string) => s.trim());
+          }
+        }
+        return {
+          id: exp.id || `exp-${idx}`,
+          title: exp.title,
+          subtitle: exp.subtitle || 'Bespoke Experience & Occasion Styling',
+          tag: exp.badge || 'SIGNATURE CRAFT',
+          image: exp.image || '/images/moments/moment_event.jpg',
+          desc: exp.description || 'Custom crafted celebration experience orchestrated with fresh luxury blooms, decor, and on-site coordination.',
+          highlights: highlights.length > 0 ? highlights : ['Custom Floristry & Decor', 'Dedicated On-Site Coordination', 'Complimentary Styling Setup'],
+          itinerary: '1. Private Specialist Consultation → 2. Custom Floral & Decor Production → 3. On-Site Secret Execution'
+        };
+      });
+    }
+    return MOMENT_SERVICES_DATA.map(s => ({
+      ...s,
+      highlights: s.highlights || []
+    }));
+  }, [dynamicExperiences]);
 
   useEffect(() => {
     async function loadProducts() {
@@ -469,10 +518,10 @@ export default function Products() {
             </p>
           </div>
 
-          {/* 6 Viewable Luxury Experience Cards */}
+          {/* Viewable Luxury Experience Cards from Bespoke Experiences */}
           <div className="container grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
-            {MOMENT_SERVICES_DATA.map((service) => {
-              const ServiceIcon = service.icon;
+            {momentDisplayList.map((service: any) => {
+              const ServiceIcon = service.icon || Sparkles;
               return (
                 <div
                   key={service.id}
@@ -485,6 +534,9 @@ export default function Products() {
                       src={service.image}
                       alt={service.title}
                       className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                      onError={(e) => {
+                        (e.currentTarget as HTMLImageElement).src = '/images/moments/moment_event.jpg';
+                      }}
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/35 to-transparent" />
                     
@@ -496,10 +548,10 @@ export default function Products() {
                       </span>
                     </div>
 
-                    {/* Price Tag */}
+                    {/* Bespoke Tag */}
                     <div className="absolute top-3.5 right-3.5 z-10">
-                      <span className="inline-flex items-center px-3 py-1 rounded-full bg-secondary/90 text-primary text-xs font-extrabold shadow-md">
-                        {service.priceEstimate}
+                      <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-black/60 backdrop-blur-md border border-secondary/40 text-secondary text-[10px] uppercase font-bold tracking-wider">
+                        Bespoke Experience
                       </span>
                     </div>
 
@@ -524,7 +576,7 @@ export default function Products() {
                     <div className="space-y-1.5 pt-2 border-t border-border/60">
                       <p className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Signature Inclusions:</p>
                       <div className="flex flex-wrap gap-1.5">
-                        {service.highlights.slice(0, 2).map((h, i) => (
+                        {(service.highlights || []).slice(0, 2).map((h: string, i: number) => (
                           <span key={i} className="text-[11px] font-medium bg-muted/50 text-foreground px-2.5 py-1 rounded-md border border-border/50">
                             ✦ {h}
                           </span>
@@ -613,8 +665,8 @@ export default function Products() {
                       <span className="text-[10px] font-bold uppercase tracking-widest bg-secondary text-primary px-2.5 py-0.5 rounded-full">
                         {activeExperienceModal.tag}
                       </span>
-                      <span className="text-xs font-bold text-secondary">
-                        {activeExperienceModal.priceEstimate}
+                      <span className="text-xs font-semibold text-secondary/90">
+                        Bespoke Celebration
                       </span>
                     </div>
                     <h3 className="text-2xl sm:text-3xl font-bold font-serif leading-tight">
@@ -657,8 +709,8 @@ export default function Products() {
                 {/* Modal Footer Actions */}
                 <div className="p-6 border-t border-border/60 bg-muted/20 flex flex-col sm:flex-row gap-3 items-center justify-between">
                   <div>
-                    <span className="text-xs text-muted-foreground">Estimated Investment:</span>
-                    <p className="text-lg font-bold text-primary">{activeExperienceModal.priceEstimate}</p>
+                    <span className="text-xs text-muted-foreground">Experience Curation:</span>
+                    <p className="text-sm sm:text-base font-bold text-primary font-serif">Bespoke Proposal &bull; Custom Quote</p>
                   </div>
                   <div className="flex gap-2.5 w-full sm:w-auto">
                     <Button
