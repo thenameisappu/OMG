@@ -41,38 +41,73 @@ if (!function_exists('deleteLocalImage')) {
     }
 }
 
-if (!function_exists('cropToSquare1000')) {
-    function cropToSquare1000(string $tmpName, string $destPath): bool
+if (!function_exists('saveExperienceImage')) {
+    /**
+     * Preserves original 16:9 / horizontal aspect ratio without square cropping.
+     * Only scales down if image is exceedingly massive (> 1920px width).
+     */
+    function saveExperienceImage(string $tmpName, string $destPath, string $ext): bool
     {
-        if (!extension_loaded('gd')) {
-            return move_uploaded_file($tmpName, $destPath);
+        if (extension_loaded('gd')) {
+            $info = @getimagesize($tmpName);
+            if ($info) {
+                [$srcW, $srcH, $imgType] = [$info[0], $info[1], $info[2]];
+                
+                // If image is within 1920px, keep original file directly
+                if ($srcW <= 1920 && $srcH <= 1200) {
+                    if (@move_uploaded_file($tmpName, $destPath)) {
+                        return true;
+                    }
+                    return @copy($tmpName, $destPath);
+                }
+
+                // Downscale proportionally (never crop)
+                $maxDim = 1920;
+                if ($srcW > $srcH) {
+                    $dstW = $maxDim;
+                    $dstH = (int)round(($srcH / $srcW) * $maxDim);
+                } else {
+                    $dstH = $maxDim;
+                    $dstW = (int)round(($srcW / $srcH) * $maxDim);
+                }
+
+                switch ($imgType) {
+                    case IMAGETYPE_JPEG: $src = @imagecreatefromjpeg($tmpName); break;
+                    case IMAGETYPE_PNG:  $src = @imagecreatefrompng($tmpName);  break;
+                    case IMAGETYPE_WEBP: $src = @imagecreatefromwebp($tmpName); break;
+                    default: $src = false;
+                }
+
+                if ($src) {
+                    $dst = imagecreatetruecolor($dstW, $dstH);
+                    if ($imgType === IMAGETYPE_PNG || $imgType === IMAGETYPE_WEBP) {
+                        imagealphablending($dst, false);
+                        imagesavealpha($dst, true);
+                        $transparent = imagecolorallocatealpha($dst, 0, 0, 0, 127);
+                        imagefill($dst, 0, 0, $transparent);
+                    }
+                    imagecopyresampled($dst, $src, 0, 0, 0, 0, $dstW, $dstH, $srcW, $srcH);
+
+                    $saved = false;
+                    if ($ext === 'png') {
+                        $saved = @imagepng($dst, $destPath, 8);
+                    } elseif ($ext === 'webp') {
+                        $saved = @imagewebp($dst, $destPath, 90);
+                    } else {
+                        $saved = @imagejpeg($dst, $destPath, 90);
+                    }
+                    imagedestroy($src);
+                    imagedestroy($dst);
+                    if ($saved) return true;
+                }
+            }
         }
-        $info = getimagesize($tmpName);
-        if (!$info) return false;
-        [$srcW, $srcH, $imgType] = [$info[0], $info[1], $info[2]];
-        switch ($imgType) {
-            case IMAGETYPE_JPEG: $src = imagecreatefromjpeg($tmpName); break;
-            case IMAGETYPE_PNG:  $src = imagecreatefrompng($tmpName);  break;
-            case IMAGETYPE_GIF:  $src = imagecreatefromgif($tmpName);  break;
-            case IMAGETYPE_WEBP: $src = imagecreatefromwebp($tmpName); break;
-            default: return false;
+
+        // Direct save fallback
+        if (@move_uploaded_file($tmpName, $destPath)) {
+            return true;
         }
-        if (!$src) return false;
-        $squareSize = min($srcW, $srcH);
-        $cropX = (int)(($srcW - $squareSize) / 2);
-        $cropY = (int)(($srcH - $squareSize) / 2);
-        $dst = imagecreatetruecolor(1000, 1000);
-        if ($imgType === IMAGETYPE_PNG || $imgType === IMAGETYPE_WEBP) {
-            imagealphablending($dst, false);
-            imagesavealpha($dst, true);
-            $transparent = imagecolorallocatealpha($dst, 0, 0, 0, 127);
-            imagefill($dst, 0, 0, $transparent);
-        }
-        imagecopyresampled($dst, $src, 0, 0, $cropX, $cropY, 1000, 1000, $squareSize, $squareSize);
-        $result = imagejpeg($dst, $destPath, 90);
-        imagedestroy($src);
-        imagedestroy($dst);
-        return $result;
+        return @copy($tmpName, $destPath);
     }
 }
 
@@ -159,13 +194,13 @@ function handleExperienceImageUpload(string $fileKey, string $title = '', string
     $targetFilename = generateProductImageFilename(
         !empty($title) ? $title : 'surprise-experience',
         'main',
-        'jpg'
+        $ext
     );
 
     $primaryTarget   = $primaryDir   . $targetFilename;
     $secondaryTarget = $secondaryDir . $targetFilename;
 
-    if (!cropToSquare1000($tmpName, $primaryTarget)) {
+    if (!saveExperienceImage($tmpName, $primaryTarget, $ext)) {
         throw new Exception('Failed to process and save the uploaded image.');
     }
 
@@ -402,7 +437,7 @@ require_once 'admin_header.php';
 
                         <div class="flex items-center gap-3 pt-2">
                             <img src="<?php echo htmlspecialchars($exp['image']); ?>"
-                                class="w-14 h-14 object-cover rounded-lg border border-slate-200" alt="Exp Image">
+                                class="w-20 h-12 object-cover rounded-lg border border-slate-200 shrink-0" alt="Exp Image">
                             <div class="text-[11px] text-slate-500 min-w-0 flex-1">
                                 <strong class="text-slate-700 block mb-0.5">Features:</strong>
                                 <span class="truncate block"><?php echo htmlspecialchars($featsList); ?></span>
@@ -536,12 +571,12 @@ require_once 'admin_header.php';
             <div>
                 <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">Experience Image</label>
                 
-                <!-- Image Preview Area -->
+                <!-- Image Preview Area (16:9 Landscape Ratio) -->
                 <div id="exp_img_preview_container" class="mb-3 hidden">
-                    <div class="relative w-36 h-36 rounded-xl overflow-hidden border-2 border-amber-400 bg-slate-900 shadow-sm group">
+                    <div class="relative w-full max-w-sm aspect-video rounded-xl overflow-hidden border-2 border-amber-400 bg-slate-900 shadow-sm group">
                         <img id="exp_img_preview" src="" alt="Experience Preview" class="w-full h-full object-cover">
                         <div class="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                            <button type="button" onclick="removeExpImage()" class="px-2 py-1 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-lg shadow">
+                            <button type="button" onclick="removeExpImage()" class="px-2.5 py-1 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-lg shadow">
                                 Remove Image
                             </button>
                         </div>
@@ -549,7 +584,7 @@ require_once 'admin_header.php';
                     <p id="exp_img_status" class="text-xs text-slate-500 mt-1"></p>
                 </div>
 
-                <!-- Upload Input (reusing product 1:1 square crop pipeline) -->
+                <!-- Upload Input (Native 16:9 Landscape Pipeline - No Square Cropping) -->
                 <div class="border-2 border-dashed border-slate-300 hover:border-amber-500 rounded-xl p-4 text-center cursor-pointer transition-colors bg-slate-50/50">
                     <input type="file" id="exp_image_file" name="image_file" accept="image/jpeg,image/png,image/webp"
                         class="hidden" onchange="previewExpFile(this)">
@@ -557,8 +592,8 @@ require_once 'admin_header.php';
                         <div class="w-10 h-10 mx-auto rounded-full bg-amber-100 text-amber-600 flex items-center justify-center mb-2">
                             📷
                         </div>
-                        <span class="text-sm font-semibold text-slate-700 block">Click to upload image</span>
-                        <span class="text-xs text-slate-500 block mt-0.5">JPG, PNG, or WEBP (Max 5MB • Auto-cropped to 1000×1000 square)</span>
+                        <span class="text-sm font-semibold text-slate-700 block">Click to upload 16:9 image</span>
+                        <span class="text-xs text-slate-500 block mt-0.5">JPG, PNG, or WEBP (Max 8MB &bull; Original 16:9 Landscape Framing Preserved)</span>
                     </label>
                 </div>
 
@@ -732,8 +767,8 @@ require_once 'admin_header.php';
             input.value = '';
             return;
         }
-        if (file.size > 5 * 1024 * 1024) {
-            alert('File size exceeds 5MB limit.');
+        if (file.size > 8 * 1024 * 1024) {
+            alert('File size exceeds 8MB limit.');
             input.value = '';
             return;
         }
@@ -741,7 +776,7 @@ require_once 'admin_header.php';
         reader.onload = function(e) {
             document.getElementById('exp_img_preview').src = e.target.result;
             document.getElementById('exp_img_preview_container').classList.remove('hidden');
-            document.getElementById('exp_img_status').textContent = 'New image selected: ' + file.name + ' (will be cropped & processed)';
+            document.getElementById('exp_img_status').textContent = 'New image selected: ' + file.name + ' (original 16:9 aspect ratio preserved)';
             document.getElementById('exp_remove_image').value = '0';
         };
         reader.readAsDataURL(file);
