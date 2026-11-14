@@ -1,0 +1,37 @@
+# ==============================================================================
+# Oh My Gudness - Backend Security & Access Control (.htaccess)
+# ==============================================================================
+
+# 1. Disable Directory Listing
+Options -Indexes
+
+# 2. Block Direct Access to Sensitive & Dangerous File Extensions
+# (Protects raw SQL schemas, environment variables, error logs, and internal notes)
+<FilesMatch "\.(sql|env|log|ini|git|gitignore|bak|backup|old|sh|bat|cmd|md|ya?ml|json|lock)$">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order allow,deny
+        Deny from all
+    </IfModule>
+</FilesMatch>
+
+# 3. Block Direct Browser Execution of Internal Migration & Repair Utilities
+<FilesMatch "^(migrate|migrate_archive|fix_db)\.php$">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order allow,deny
+        Deny from all
+    </IfModule>
+</FilesMatch>
+
+# 4. Security Headers for API Responses
+<IfModule mod_headers.c>
+    Header set X-Content-Type-Options "nosniff"
+    Header set X-Frame-Options "SAMEORIGIN"
+    Header set X-XSS-Protection "1; mode=block"
+    Header set Referrer-Policy "strict-origin-when-cross-origin"
+</IfModule>

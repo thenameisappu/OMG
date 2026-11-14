@@ -1,0 +1,24 @@
+# ==============================================================================
+# Oh My Gudness - Uploads Security (.htaccess)
+# Prevent script execution inside user-uploaded assets folder
+# ==============================================================================
+
+# 1. Disable Directory Listing
+Options -Indexes
+
+# 2. Block execution of any scripts in the uploads folder
+<FilesMatch "\.(php|phtml|php3|php4|php5|php7|phps|cgi|pl|py|sh|exe|jsp|asp|aspx)$">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order allow,deny
+        Deny from all
+    </IfModule>
+</FilesMatch>
+
+# 3. Allow public reading of images with proper caching & CORS headers
+<IfModule mod_headers.c>
+    Header set Access-Control-Allow-Origin "*"
+    Header set Cache-Control "public, max-age=2592000, immutable"
+</IfModule>

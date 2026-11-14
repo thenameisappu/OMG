@@ -1,5 +1,6 @@
-<?php
++<?php
 require_once 'config.php';
+require_once 'mailer.php';
 header('Content-Type: application/json');
 
 try {
@@ -91,8 +92,38 @@ try {
         }
 
         if ($stmt->execute()) {
+            $inquiryId = $db->lastInsertId();
+
+            $inquiryData = [
+                'id' => $inquiryId,
+                'name' => $name,
+                'email' => $email,
+                'contact_no' => $contact_no,
+                'event_type' => $event_type,
+                'package_name' => $package_name ?: $event_type,
+                'upgrades' => $upgrades,
+                'service_name' => $service_name,
+                'address' => $address,
+                'city' => $city,
+                'pincode' => $pincode,
+                'message' => $message,
+                'created_at' => date('Y-m-d H:i:s')
+            ];
+
+            try {
+                if (function_exists('dispatchInquiryEmails')) {
+                    dispatchInquiryEmails($inquiryData);
+                }
+            } catch (Exception $mailEx) {
+                error_log("Inquiry email notification error: " . $mailEx->getMessage());
+            }
+
             http_response_code(201);
-            echo json_encode(['success' => true, 'message' => 'Inquiry saved successfully.']);
+            echo json_encode([
+                'success' => true,
+                'message' => 'Inquiry saved successfully.',
+                'inquiry_id' => $inquiryId
+            ]);
         }
         else {
             http_response_code(500);

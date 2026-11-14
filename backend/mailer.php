@@ -537,3 +537,188 @@ function buildAdminOrderNotificationEmail($order, $items = [])
 
     return $html;
 }
+
+/**
+ * Builds HTML Bespoke Inquiry Alert Email for Store Admin
+ */
+function buildAdminInquiryAlertEmail($inquiry)
+{
+    $name = htmlspecialchars($inquiry['name'] ?? 'Valued Customer');
+    $email = htmlspecialchars($inquiry['email'] ?? 'N/A');
+    $phone = htmlspecialchars($inquiry['contact_no'] ?? ($inquiry['contactNo'] ?? 'N/A'));
+    $cleanPhone = preg_replace('/[^0-9]/', '', $phone);
+    if (strlen($cleanPhone) === 10) {
+        $cleanPhone = '91' . $cleanPhone;
+    }
+    
+    $eventType = htmlspecialchars($inquiry['event_type'] ?? ($inquiry['eventType'] ?? 'Bespoke Experience'));
+    $package = htmlspecialchars($inquiry['package_name'] ?? ($inquiry['selectedPackage'] ?? $eventType));
+    $upgrades = htmlspecialchars($inquiry['upgrades'] ?? ($inquiry['service_name'] ?? ($inquiry['serviceName'] ?? 'Standard Package')));
+    $address = htmlspecialchars($inquiry['address'] ?? '');
+    $city = htmlspecialchars($inquiry['city'] ?? 'Bengaluru');
+    $pincode = htmlspecialchars($inquiry['pincode'] ?? '');
+    $location = trim($address . ($pincode ? " (PIN: {$pincode})" : "") . ($city ? ", {$city}" : ""));
+    $message = nl2br(htmlspecialchars($inquiry['message'] ?? ''));
+    $time = !empty($inquiry['created_at']) ? $inquiry['created_at'] : date('D, d M Y - h:i A');
+
+    $html = '
+    <div style="font-family: \'Helvetica Neue\', Arial, sans-serif; max-width: 620px; margin: 0 auto; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.05);">
+        <!-- Luxury Dark / Amber Header -->
+        <div style="background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); padding: 26px 28px; text-align: left; border-bottom: 3px solid #d97706;">
+            <div style="color: #f59e0b; font-size: 11px; font-weight: bold; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 6px;">✨ NEW BESPOKE EXPERIENCE INQUIRY</div>
+            <h1 style="color: #ffffff; font-size: 22px; margin: 0; font-family: Georgia, serif; font-weight: normal;">' . $eventType . '</h1>
+            <div style="color: #94a3b8; font-size: 12px; margin-top: 6px;">Received: ' . $time . '</div>
+        </div>
+
+        <div style="padding: 28px;">
+            <!-- Client Quick Contact Box -->
+            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 20px; margin-bottom: 24px;">
+                <div style="font-size: 11px; font-weight: bold; color: #64748b; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px;">Client Details</div>
+                <div style="font-size: 18px; font-weight: bold; color: #0f172a; margin-bottom: 6px;">' . $name . '</div>
+                <div style="font-size: 14px; color: #334155; margin-bottom: 14px;">
+                    <strong>Email:</strong> <a href="mailto:' . $email . '" style="color: #2563eb; text-decoration: none;">' . $email . '</a>
+                </div>
+
+                <!-- Instant Action Buttons -->
+                <div style="margin-top: 10px;">
+                    <a href="https://wa.me/' . $cleanPhone . '" style="display: inline-block; background: #25D366; color: #ffffff; text-decoration: none; padding: 10px 18px; border-radius: 8px; font-size: 13px; font-weight: bold; margin-right: 8px; margin-bottom: 8px;">
+                        💬 Chat on WhatsApp (' . $phone . ')
+                    </a>
+                    <a href="tel:' . $phone . '" style="display: inline-block; background: #0f172a; color: #ffffff; text-decoration: none; padding: 10px 18px; border-radius: 8px; font-size: 13px; font-weight: bold;">
+                        📞 Direct Call
+                    </a>
+                </div>
+            </div>
+
+            <!-- Experience Specifications -->
+            <h3 style="color: #0f172a; font-size: 15px; margin: 0 0 12px 0; border-bottom: 2px solid #f1f5f9; padding-bottom: 6px;">Experience & Package Specifications</h3>
+            <table style="width: 100%; border-collapse: collapse; font-size: 14px; margin-bottom: 24px;">
+                <tr>
+                    <td style="padding: 8px 0; color: #64748b; width: 140px; vertical-align: top;"><strong>Experience:</strong></td>
+                    <td style="padding: 8px 0; color: #0f172a; font-weight: 600;">' . $package . '</td>
+                </tr>
+                <tr>
+                    <td style="padding: 8px 0; color: #64748b; vertical-align: top;"><strong>Upgrades / Addons:</strong></td>
+                    <td style="padding: 8px 0; color: #b45309; font-weight: 600;">' . ($upgrades ?: 'None specified') . '</td>
+                </tr>
+                <tr>
+                    <td style="padding: 8px 0; color: #64748b; vertical-align: top;"><strong>Venue / Location:</strong></td>
+                    <td style="padding: 8px 0; color: #0f172a;">' . ($location ?: 'Bengaluru (To be decided)') . '</td>
+                </tr>
+            </table>
+
+            <!-- Client Brief / Message -->
+            <h3 style="color: #0f172a; font-size: 15px; margin: 0 0 10px 0; border-bottom: 2px solid #f1f5f9; padding-bottom: 6px;">Client Brief & Special Requirements</h3>
+            <div style="background: #fffbeb; border: 1px solid #fef3c7; border-left: 4px solid #f59e0b; padding: 16px; border-radius: 8px; font-size: 14px; line-height: 1.6; color: #78350f; margin-bottom: 26px;">
+                ' . ($message ?: 'No additional notes provided.') . '
+            </div>
+
+            <!-- Admin Link Button -->
+            <div style="text-align: center; padding-top: 10px; border-top: 1px solid #e2e8f0;">
+                <a href="https://ohmygudness.in/backend/admin_inquiries.php" style="display: inline-block; background: linear-gradient(135deg, #d97706 0%, #b45309 100%); color: #ffffff; text-decoration: none; padding: 12px 28px; border-radius: 50px; font-size: 14px; font-weight: bold; letter-spacing: 0.5px; box-shadow: 0 2px 8px rgba(217, 119, 6, 0.25);">
+                    Open in Admin Inquiries Portal &rarr;
+                </a>
+            </div>
+        </div>
+
+        <div style="background: #f8fafc; padding: 14px; text-align: center; font-size: 12px; color: #94a3b8; border-top: 1px solid #e2e8f0;">
+            Oh My Gudness Bangalore &bull; Bespoke Floristry & Surprise Planning
+        </div>
+    </div>';
+
+    return $html;
+}
+
+/**
+ * Builds HTML Acknowledgment Email for Customer
+ */
+function buildCustomerInquiryConfirmationEmail($inquiry)
+{
+    $name = htmlspecialchars($inquiry['name'] ?? 'Valued Customer');
+    $eventType = htmlspecialchars($inquiry['event_type'] ?? ($inquiry['eventType'] ?? 'Bespoke Experience'));
+    $package = htmlspecialchars($inquiry['package_name'] ?? ($inquiry['selectedPackage'] ?? $eventType));
+    $upgrades = htmlspecialchars($inquiry['upgrades'] ?? ($inquiry['service_name'] ?? ($inquiry['serviceName'] ?? '')));
+
+    $html = '
+    <div style="font-family: \'Helvetica Neue\', Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #ffffff; border: 1px solid #f1f5f9; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.06);">
+        <!-- Luxury Brand Header -->
+        <div style="background: #0a0e17; padding: 32px 24px; text-align: center; border-bottom: 2px solid #d4af37;">
+            <div style="color: #d4af37; font-size: 20px; font-weight: 700; letter-spacing: 4px; font-family: Georgia, serif; text-transform: uppercase;">
+                OH MY GUDNESS
+            </div>
+            <div style="color: #94a3b8; font-size: 11px; letter-spacing: 2px; text-transform: uppercase; margin-top: 6px;">
+                Bespoke Floristry & Luxury Celebrations &bull; Bangalore
+            </div>
+        </div>
+
+        <div style="padding: 32px 28px;">
+            <h2 style="color: #0f172a; font-size: 22px; font-family: Georgia, serif; margin: 0 0 14px 0; font-weight: normal;">
+                Dear ' . $name . ',
+            </h2>
+
+            <p style="color: #334155; font-size: 15px; line-height: 1.7; margin: 0 0 20px 0;">
+                Thank you for inquiring with <strong>Oh My Gudness</strong>. We have received your inquiry for the <strong>' . $package . '</strong> bespoke experience.
+            </p>
+
+            <div style="background: #fdfbf7; border: 1px solid #f3ebd8; border-radius: 12px; padding: 20px; margin: 24px 0;">
+                <div style="font-size: 11px; font-weight: bold; color: #b45309; text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 10px;">
+                    ✨ Your Experience Summary
+                </div>
+                <div style="font-size: 14px; color: #1e293b; line-height: 1.6;">
+                    <strong>Experience:</strong> ' . $package . '<br>
+                    ' . ($upgrades ? '<strong>Selected Additions:</strong> ' . $upgrades . '<br>' : '') . '
+                    <strong>Status:</strong> Assigned to Lead Surprise Architect
+                </div>
+            </div>
+
+            <!-- Promise Box -->
+            <div style="background: #ecfdf5; border-left: 4px solid #10b981; padding: 16px 20px; border-radius: 8px; margin: 24px 0;">
+                <h4 style="margin: 0 0 6px 0; color: #065f46; font-size: 14px;">⏱️ Guaranteed 2-Hour Specialist Response</h4>
+                <p style="margin: 0; font-size: 13px; color: #047857; line-height: 1.5;">
+                    Our lead surprise architect will personally contact you within 2 hours to confirm date availability, share customized decor inspirations, and curate your celebration down to the finest detail.
+                </p>
+            </div>
+
+            <p style="color: #475569; font-size: 14px; line-height: 1.6;">
+                Need urgent assistance or have immediate questions? Reach our concierge directly:
+            </p>
+
+            <div style="margin: 20px 0 28px 0; text-align: center;">
+                <a href="https://wa.me/918147736396" style="display: inline-block; background: #25D366; color: #ffffff; text-decoration: none; padding: 12px 26px; border-radius: 50px; font-size: 14px; font-weight: bold; box-shadow: 0 4px 12px rgba(37, 211, 102, 0.25);">
+                    💬 Connect with Concierge on WhatsApp
+                </a>
+            </div>
+
+            <div style="border-top: 1px solid #f1f5f9; padding-top: 20px; font-size: 13px; color: #64748b; line-height: 1.6;">
+                Warm regards,<br>
+                <strong style="color: #0f172a;">The Concierge Team</strong><br>
+                Oh My Gudness &bull; Banashankari 2nd Stage, Bengaluru<br>
+                <a href="tel:+918147736396" style="color: #64748b; text-decoration: none;">+91 81477 36396</a> &bull; <a href="mailto:info@ohmygudness.in" style="color: #64748b; text-decoration: none;">info@ohmygudness.in</a>
+            </div>
+        </div>
+    </div>';
+
+    return $html;
+}
+
+/**
+ * Dispatches both Admin Notification and Customer Acknowledgment Emails for Inquiries
+ */
+function dispatchInquiryEmails($inquiry)
+{
+    // 1. Send Alert to Store Admin
+    $adminEmail = omgGetEnv('ADMIN_EMAIL', 'info@ohmygudness.in');
+    $adminSubject = "✨ [NEW INQUIRY] " . ($inquiry['event_type'] ?? 'Surprise Event') . " from " . ($inquiry['name'] ?? 'Client');
+    $adminHtml = buildAdminInquiryAlertEmail($inquiry);
+    sendEmail($adminEmail, $adminSubject, $adminHtml);
+
+    // 2. Send Acknowledgment to Customer
+    $customerEmail = trim($inquiry['email'] ?? '');
+    if (!empty($customerEmail) && filter_var($customerEmail, FILTER_VALIDATE_EMAIL)) {
+        $customerSubject = "✨ Your Bespoke Experience Inquiry with Oh My Gudness Bangalore";
+        $customerHtml = buildCustomerInquiryConfirmationEmail($inquiry);
+        sendEmail($customerEmail, $customerSubject, $customerHtml);
+    }
+
+    return true;
+}

@@ -1,6 +1,17 @@
 <?php
 require_once 'config.php';
 
+// Security: Restrict execution to CLI or logged-in Administrator
+if (php_sapi_name() !== 'cli') {
+    if (session_status() === PHP_SESSION_NONE) {
+        session_start();
+    }
+    if (!isset($_SESSION['admin_logged_in']) || $_SESSION['admin_logged_in'] !== true) {
+        http_response_code(403);
+        die("<h3>Access Denied: Administrator login required.</h3>");
+    }
+}
+
 // Set content type to HTML for browser viewing
 header('Content-Type: text/html; charset=utf-8');
 
