@@ -1014,8 +1014,37 @@ function cancelOrder($db, $userId, $orderId)
 
         $db->beginTransaction();
 
-        // Restore stock if previously deducted
-        restoreOrderStock($db, $orderId);
+        // Restore stock for each item in the cancelled order
+        $itemQuery = "SELECT product_id, quantity FROM order_items WHERE order_id = :order_id";
+        $itemStmt = $db->prepare($itemQuery);
+        $itemStmt->bindParam(":order_id", $orderId);
+        $itemStmt->execute();
+        $items = $itemStmt->fetchAll(PDO::FETCH_ASSOC);
+
+        foreach ($items as $item) {
+            // ── INVENTORY RULE: Only restore stock for normal physical products. ────────
+            // Subscriptions and Surprise Experiences have no stock to restore.
+            $cancelProductIdStr = (string)$item['product_id'];
+            $cancelIsProxy = strpos($cancelProductIdStr, 'exp-') === 0
+                          || strpos($cancelProductIdStr, 'surprise-') === 0
+                          || strpos($cancelProductIdStr, 'sub-') === 0
+                          || strpos($cancelProductIdStr, 'subscription-') === 0;
+            if ($cancelIsProxy) {
+                continue; // No stock to restore for subscription / surprise experience items
+            }
+
+            // Use two distinct named params (:qty1, :qty2) to avoid PDO duplicate
+            // named parameter issues when the same placeholder appears twice.
+            $restoreQuery = "UPDATE products
+                             SET stock_quantity = stock_quantity + :qty1,
+                                 stock_status = IF(stock_quantity + :qty2 > 0, 'in_stock', stock_status)
+                             WHERE id = :id AND category NOT IN ('surprise_experience', 'subscription')";
+            $restoreStmt = $db->prepare($restoreQuery);
+            $restoreStmt->bindParam(":qty1", $item['quantity'], PDO::PARAM_INT);
+            $restoreStmt->bindParam(":qty2", $item['quantity'], PDO::PARAM_INT);
+            $restoreStmt->bindParam(":id", $item['product_id']);
+            $restoreStmt->execute();
+        }
 
         // Update order status to cancelled
         $updateQuery = "UPDATE orders SET status = 'cancelled' WHERE id = :id";
@@ -1073,9 +1102,6 @@ function updateOrderStatus($db, $data)
         $stmt->bindParam(":id", $data->order_id);
 
         if ($stmt->execute()) {
-            if (strtolower($data->status) === 'cancelled') {
-                restoreOrderStock($db, $data->order_id);
-            }
             echo json_encode(["message" => "Order status updated successfully."]);
         }
         else {
