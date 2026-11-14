@@ -39,7 +39,14 @@ export default function Orders() {
         try {
             if (showSkeleton) setLocalLoading(true);
             const data = await getUserOrders();
-            setOrders(data);
+            // Show only confirmed paid orders or valid non-cashfree orders
+            const validOrders = (Array.isArray(data) ? data : []).filter((ord: any) => {
+                if (ord.payment_method === 'cashfree') {
+                    return ord.payment_status === 'paid';
+                }
+                return ord.status !== 'cancelled';
+            });
+            setOrders(validOrders);
         } catch (error: any) {
             console.error('Error fetching orders:', error);
             if (showSkeleton) {

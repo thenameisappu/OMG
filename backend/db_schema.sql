@@ -74,6 +74,12 @@ CREATE TABLE IF NOT EXISTS `orders` (
     `delivery_time` VARCHAR(50),
     `payment_method` VARCHAR(50) NOT NULL,
     `status` VARCHAR(50) DEFAULT 'pending',
+    `payment_status` VARCHAR(50) DEFAULT 'pending',
+    `payment_session_id` VARCHAR(255) DEFAULT NULL,
+    `cf_order_id` VARCHAR(100) DEFAULT NULL,
+    `transaction_id` VARCHAR(100) DEFAULT NULL,
+    `email_sent` TINYINT(1) DEFAULT 0,
+    `stock_deducted` TINYINT(1) DEFAULT 0,
     `is_archived` TINYINT(1) NOT NULL DEFAULT 0, -- Soft-delete flag (admin archive). 1 = hidden from Admin Orders. Customer order history always shows all orders regardless of this flag.
     `archived_at` DATETIME DEFAULT NULL,          -- Timestamp when admin archived this order
     `archived_by` VARCHAR(100) DEFAULT NULL,      -- Admin username who archived the order

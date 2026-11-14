@@ -253,6 +253,11 @@ require_once 'admin_header.php';
                             </td>
                             <td class="py-4 px-4 align-top">
                                 <span class="font-bold text-slate-900">₹<?php echo number_format($order['total_amount'], 2); ?></span>
+                                <?php if (!empty($order['payment_status'])): ?>
+                                    <span class="block mt-1 text-[10px] font-bold uppercase tracking-wider <?php echo $order['payment_status'] === 'paid' ? 'text-emerald-700 bg-emerald-50 border border-emerald-200' : 'text-rose-700 bg-rose-50 border border-rose-200'; ?> px-1.5 py-0.5 rounded w-fit">
+                                        <?php echo htmlspecialchars(strtoupper($order['payment_status'])); ?>
+                                    </span>
+                                <?php endif; ?>
                             </td>
                             <td class="py-4 px-4 align-top text-xs">
                                 <span class="font-semibold text-slate-700 block"><?php echo htmlspecialchars($order['delivery_date']); ?></span>

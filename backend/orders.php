@@ -36,21 +36,197 @@ if ($db === null) {
     exit();
 }
 
-// Ensure orders table has payment and email tracking columns
+/**
+ * Deduct stock atomically for an order when payment is confirmed.
+ * Idempotent: checks and sets stock_deducted = 1 so it runs at most once.
+ */
+function deductOrderStock($db, $orderId)
+{
+    try {
+        $checkStmt = $db->prepare("SELECT stock_deducted, payment_status FROM orders WHERE id = :id LIMIT 1");
+        $checkStmt->execute([':id' => $orderId]);
+        $order = $checkStmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$order) {
+            return false;
+        }
+
+        // If already deducted, don't deduct again
+        if (!empty($order['stock_deducted']) && (int)$order['stock_deducted'] === 1) {
+            return true;
+        }
+
+        $itemQuery = "SELECT product_id, quantity FROM order_items WHERE order_id = :order_id";
+        $itemStmt = $db->prepare($itemQuery);
+        $itemStmt->execute([':order_id' => $orderId]);
+        $items = $itemStmt->fetchAll(PDO::FETCH_ASSOC);
+
+        $isInternalProxyId = function($id) {
+            $str = (string)$id;
+            return strpos($str, 'exp-') === 0 
+                || strpos($str, 'surprise-') === 0 
+                || strpos($str, 'sub-') === 0 
+                || strpos($str, 'subscription-') === 0;
+        };
+
+        foreach ($items as $item) {
+            if (!$isInternalProxyId($item['product_id'])) {
+                $deductQuery = "UPDATE products
+                                SET stock_quantity = GREATEST(0, stock_quantity - :qty1),
+                                    stock_status = IF(stock_quantity - :qty2 <= 0, 'out_of_stock', 'in_stock')
+                                WHERE id = :id AND category NOT IN ('surprise_experience', 'subscription')";
+                $deductStmt = $db->prepare($deductQuery);
+                $deductStmt->bindParam(":qty1", $item['quantity'], PDO::PARAM_INT);
+                $deductStmt->bindParam(":qty2", $item['quantity'], PDO::PARAM_INT);
+                $deductStmt->bindParam(":id", $item['product_id']);
+                $deductStmt->execute();
+            }
+        }
+
+        $markStmt = $db->prepare("UPDATE orders SET stock_deducted = 1 WHERE id = :id");
+        $markStmt->execute([':id' => $orderId]);
+        return true;
+    } catch (Exception $e) {
+        error_log("deductOrderStock error for order {$orderId}: " . $e->getMessage());
+        return false;
+    }
+}
+
+/**
+ * Restore stock atomically if an order is cancelled or payment failed.
+ * Idempotent: sets stock_deducted = 0 so it restores at most once.
+ */
+function restoreOrderStock($db, $orderId, $force = false)
+{
+    try {
+        $checkStmt = $db->prepare("SELECT stock_deducted, status, payment_status FROM orders WHERE id = :id LIMIT 1");
+        $checkStmt->execute([':id' => $orderId]);
+        $order = $checkStmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$order) {
+            return false;
+        }
+
+        // Only restore if stock was marked deducted (or force is true for legacy pending cleanup)
+        if (!$force && (empty($order['stock_deducted']) || (int)$order['stock_deducted'] === 0)) {
+            return true;
+        }
+
+        $itemQuery = "SELECT product_id, quantity FROM order_items WHERE order_id = :order_id";
+        $itemStmt = $db->prepare($itemQuery);
+        $itemStmt->execute([':order_id' => $orderId]);
+        $items = $itemStmt->fetchAll(PDO::FETCH_ASSOC);
+
+        $isInternalProxyId = function($id) {
+            $str = (string)$id;
+            return strpos($str, 'exp-') === 0 
+                || strpos($str, 'surprise-') === 0 
+                || strpos($str, 'sub-') === 0 
+                || strpos($str, 'subscription-') === 0;
+        };
+
+        foreach ($items as $item) {
+            if (!$isInternalProxyId($item['product_id'])) {
+                $restoreQuery = "UPDATE products
+                                 SET stock_quantity = stock_quantity + :qty1,
+                                     stock_status = IF(stock_quantity + :qty2 > 0, 'in_stock', stock_status)
+                                 WHERE id = :id AND category NOT IN ('surprise_experience', 'subscription')";
+                $restoreStmt = $db->prepare($restoreQuery);
+                $restoreStmt->bindParam(":qty1", $item['quantity'], PDO::PARAM_INT);
+                $restoreStmt->bindParam(":qty2", $item['quantity'], PDO::PARAM_INT);
+                $restoreStmt->bindParam(":id", $item['product_id']);
+                $restoreStmt->execute();
+            }
+        }
+
+        $markStmt = $db->prepare("UPDATE orders SET stock_deducted = 0 WHERE id = :id");
+        $markStmt->execute([':id' => $orderId]);
+        return true;
+    } catch (Exception $e) {
+        error_log("restoreOrderStock error for order {$orderId}: " . $e->getMessage());
+        return false;
+    }
+}
+
+/**
+ * Dispatches confirmed order WhatsApp notification to Admin (Only on Paid Orders)
+ */
+function sendOrderWhatsAppNotification($db, $orderId)
+{
+    try {
+        $stmt = $db->prepare("SELECT * FROM orders WHERE id = :id LIMIT 1");
+        $stmt->execute([':id' => $orderId]);
+        $order = $stmt->fetch(PDO::FETCH_ASSOC);
+        if (!$order) return false;
+
+        $admin_whatsapp = "917353363881";
+        $apikey = getenv('CALLMEBOT_APIKEY') ?: ($_ENV['CALLMEBOT_APIKEY'] ?? ($_SERVER['CALLMEBOT_APIKEY'] ?? ''));
+        if (empty($apikey)) return false;
+
+        $msg_name    = $order['customer_name'] ?? 'Client';
+        $msg_phone   = $order['customer_phone'] ?? 'N/A';
+        $msg_address = $order['delivery_address'] ?? 'N/A';
+        $msg_total   = number_format((float)$order['total_amount'], 2);
+        $msg_date    = $order['delivery_date'] ?? 'N/A';
+        $msg_time    = $order['delivery_time'] ?? 'N/A';
+        $msg_created = $order['created_at'] ?? date('Y-m-d H:i:s');
+
+        $message = "🎉 *Confirmed Paid Order*\n\n" .
+            "📋 *Order ID:* #" . substr($orderId, 0, 8) . "\n" .
+            "Customer: $msg_name\n" .
+            "Phone: $msg_phone\n" .
+            "Total Amount: ₹$msg_total\n" .
+            "Delivery Date: $msg_date ($msg_time)\n" .
+            "Address: $msg_address\n\n" .
+            "Payment Status: PAID via Cashfree\n" .
+            "Order Time: $msg_created";
+
+        $encoded_message = urlencode($message);
+        $url = "https://api.callmebot.com/whatsapp.php?phone=$admin_whatsapp&text=$encoded_message&apikey=$apikey";
+        @file_get_contents($url);
+        return true;
+    } catch (Exception $e) {
+        error_log("WhatsApp alert error: " . $e->getMessage());
+        return false;
+    }
+}
+
+// Ensure orders table has payment, email, and stock tracking columns
 function ensureOrderSchema($db)
 {
     try {
         $cols = $db->query("SHOW COLUMNS FROM orders")->fetchAll(PDO::FETCH_COLUMN);
         $needed = [
-            'payment_status' => "VARCHAR(50) DEFAULT 'pending'",
+            'payment_status'     => "VARCHAR(50) DEFAULT 'pending'",
             'payment_session_id' => "VARCHAR(255) DEFAULT NULL",
-            'cf_order_id' => "VARCHAR(100) DEFAULT NULL",
-            'transaction_id' => "VARCHAR(100) DEFAULT NULL",
-            'email_sent' => "TINYINT(1) DEFAULT 0"
+            'cf_order_id'        => "VARCHAR(100) DEFAULT NULL",
+            'transaction_id'     => "VARCHAR(100) DEFAULT NULL",
+            'email_sent'         => "TINYINT(1) DEFAULT 0",
+            'stock_deducted'     => "TINYINT(1) DEFAULT 0"
         ];
         foreach ($needed as $col => $def) {
             if (!in_array($col, $cols, true)) {
                 $db->exec("ALTER TABLE orders ADD COLUMN `$col` $def");
+            }
+        }
+
+        // Set stock_deducted = 1 on already paid orders
+        $db->exec("UPDATE orders SET stock_deducted = 1 WHERE payment_status = 'paid' AND (stock_deducted IS NULL OR stock_deducted = 0)");
+
+        // Auto-cleanup stale abandoned pending orders older than 15 minutes:
+        // Restores their stock if deducted under old logic, and marks them cancelled/failed
+        $staleStmt = $db->query(
+            "SELECT id FROM orders 
+             WHERE status = 'pending' 
+               AND (payment_status = 'pending' OR payment_status IS NULL)
+               AND created_at < (NOW() - INTERVAL 15 MINUTE)"
+        );
+        if ($staleStmt) {
+            $staleOrders = $staleStmt->fetchAll(PDO::FETCH_ASSOC);
+            foreach ($staleOrders as $stale) {
+                restoreOrderStock($db, $stale['id'], true);
+                $updStale = $db->prepare("UPDATE orders SET status = 'cancelled', payment_status = 'failed', stock_deducted = 0 WHERE id = :id");
+                $updStale->execute([':id' => $stale['id']]);
             }
         }
     } catch (Exception $e) {
@@ -333,7 +509,7 @@ function createOrder($db, $userId, $data)
             $finalAddress .= ", Bangalore";
         }
 
-        $query = "INSERT INTO orders (id, user_id, total_amount, customer_name, customer_email, customer_phone, delivery_address, delivery_option, delivery_date, delivery_time, payment_method, status) VALUES (:id, :user_id, :total_amount, :customer_name, :customer_email, :customer_phone, :delivery_address, :delivery_option, :delivery_date, :delivery_time, :payment_method, 'pending')";
+        $query = "INSERT INTO orders (id, user_id, total_amount, customer_name, customer_email, customer_phone, delivery_address, delivery_option, delivery_date, delivery_time, payment_method, status, payment_status, stock_deducted) VALUES (:id, :user_id, :total_amount, :customer_name, :customer_email, :customer_phone, :delivery_address, :delivery_option, :delivery_date, :delivery_time, :payment_method, 'pending', 'pending', 0)";
 
         $stmt = $db->prepare($query);
         $stmt->bindParam(":id", $uuid);
@@ -351,7 +527,7 @@ function createOrder($db, $userId, $data)
 
         $stmt->execute();
 
-        // Create Order Items & Conditionally Deduct Stock
+        // Create Order Items (Stock will be deducted atomically ONLY upon successful payment)
         foreach ($data->items as $item) {
             $itemQuery = "INSERT INTO order_items (order_id, product_id, quantity, unit_price) VALUES (:order_id, :product_id, :quantity, :unit_price)";
             $itemStmt = $db->prepare($itemQuery);
@@ -360,24 +536,6 @@ function createOrder($db, $userId, $data)
             $itemStmt->bindParam(":quantity", $item->quantity);
             $itemStmt->bindParam(":unit_price", $item->unit_price);
             $itemStmt->execute();
-
-            // ── INVENTORY RULE: Only deduct stock for normal physical products. ────────
-            // Subscriptions and Surprise Experiences are services without inventory.
-            // Their proxy rows have stock_quantity = 0 and must NEVER be deducted from.
-            if (!$isInternalProxyId((string)$item->product_id)) {
-                // Deduct stock quantity atomically; use two distinct named params (:qty1, :qty2)
-                // since some PDO drivers do not support the same named placeholder used twice.
-                $deductQuery = "UPDATE products
-                                SET stock_quantity = GREATEST(0, stock_quantity - :qty1),
-                                    stock_status = IF(stock_quantity - :qty2 <= 0, 'out_of_stock', 'in_stock')
-                                WHERE id = :id AND category NOT IN ('surprise_experience', 'subscription')";
-                $deductStmt = $db->prepare($deductQuery);
-                $deductStmt->bindParam(":qty1", $item->quantity, PDO::PARAM_INT);
-                $deductStmt->bindParam(":qty2", $item->quantity, PDO::PARAM_INT);
-                $deductStmt->bindParam(":id", $item->product_id);
-                $deductStmt->execute();
-            }
-            // else: subscription/surprise item → no stock deduction
         }
 
         // Auto-create customer subscription record in `subscriptions` table
@@ -453,49 +611,8 @@ function createOrder($db, $userId, $data)
             }
         }
 
-        // Generate WhatsApp Notification Message
-        $admin_whatsapp = "917353363881"; // Admin WhatsApp number
-        // Read API key from env; set CALLMEBOT_APIKEY in .env to enable notifications
-        $apikey = getenv('CALLMEBOT_APIKEY') ?: '';
-
-        $msg_userId = $userId;
-        $msg_name = $data->customer_name;
-        $msg_email = $data->customer_email;
-        $msg_phone = $data->customer_phone;
-        $msg_address = $finalAddress;
-        $msg_option = $data->delivery_option;
-        $msg_date = isset($data->delivery_date) ? $data->delivery_date : 'Not specified';
-        $msg_time = $data->delivery_time;
-        $msg_payment = $data->payment_method;
-        $msg_total = $data->total_amount;
-        $msg_created = date('Y-m-d H:i:s');
-
-        $message = "🛒 *New Order Received*\n\n" .
-            "📋 *Order Details:*\n" .
-            "User ID: $msg_userId\n" .
-            "Customer Name: $msg_name\n" .
-            "Email: $msg_email\n" .
-            "Phone: $msg_phone\n\n" .
-            "📍 *Delivery Address:*\n" .
-            "$msg_address\n\n" .
-            "🚚 *Delivery Info:*\n" .
-            "Option: $msg_option\n" .
-            "Date: $msg_date\n" .
-            "Time: $msg_time\n\n" .
-            "💳 *Payment Method:* $msg_payment\n" .
-            "💰 *Total Amount:* ₹$msg_total\n\n" .
-            "🕒 Order Time: $msg_created";
-
-        $encoded_message = urlencode($message);
-
-        // Send to CallMeBot
-        $url = "https://api.callmebot.com/whatsapp.php?phone=$admin_whatsapp&text=$encoded_message&apikey=$apikey";
-
-        // Use file_get_contents to send the request (server-side)
-        // Suppress errors to avoid breaking the order flow if API fails
-        $result = @file_get_contents($url);
-
         // ── CASHFREE PAYMENT GATEWAY INITIALIZATION ────────────────────────────
+        // Note: WhatsApp admin alert and confirmation emails are dispatched ONLY upon confirmed payment.
         $paymentSessionId = null;
         $cfOrderId = null;
         $cfConfig = getCashfreeConfig();
@@ -714,8 +831,14 @@ function verifyPayment($db, $userId, $data)
         );
         $upd->execute([':tx' => (string)$transactionId, ':id' => $orderId]);
 
-        // Dispatch Customer Confirmation & Store Admin Notification Emails
+        // 1. Deduct stock atomically upon confirmed payment
+        deductOrderStock($db, $orderId);
+
+        // 2. Dispatch Customer Confirmation & Store Admin Notification Emails
         dispatchOrderConfirmationAndAlertEmails($db, $orderId);
+
+        // 3. Dispatch confirmed order WhatsApp notification to Admin
+        sendOrderWhatsAppNotification($db, $orderId);
 
         echo json_encode([
             "success" => true,
@@ -769,12 +892,32 @@ function handleCashfreeWebhook($db)
         );
         $stmt->execute([':tx' => (string)$txId, ':cfid' => $cfOrderId]);
 
-        // Dispatch Customer Confirmation & Store Admin Notification Emails
+        // Dispatch Customer Confirmation & Store Admin Notification Emails, WhatsApp & Deduct Stock
         $findStmt = $db->prepare("SELECT id FROM orders WHERE cf_order_id = :cfid OR id = :cfid OR id = REPLACE(:cfid, 'omg_', '') LIMIT 1");
         $findStmt->execute([':cfid' => $cfOrderId]);
         $foundOrder = $findStmt->fetch(PDO::FETCH_ASSOC);
         if ($foundOrder && !empty($foundOrder['id'])) {
+            deductOrderStock($db, $foundOrder['id']);
             dispatchOrderConfirmationAndAlertEmails($db, $foundOrder['id']);
+            sendOrderWhatsAppNotification($db, $foundOrder['id']);
+        }
+    } else {
+        // Handle failed or user dropped payment webhook events
+        $isFailedOrDropped = in_array($eventType, [
+            'PAYMENT_FAILED_WEBHOOK', 'PAYMENT_FAILED', 'PAYMENT.FAILED',
+            'PAYMENT_USER_DROPPED_WEBHOOK', 'USER_DROPPED_WEBHOOK', 'USER_DROPPED', 'PAYMENT_DROPPED',
+            'ORDER_TERMINATED_WEBHOOK', 'ORDER_CANCELLED', 'ORDER.CANCELLED'
+        ], true) || in_array($paymentStatus, ['FAILED', 'USER_DROPPED', 'CANCELLED'], true);
+
+        if ($isFailedOrDropped && $cfOrderId) {
+            $findStmt = $db->prepare("SELECT id, payment_status, stock_deducted FROM orders WHERE cf_order_id = :cfid OR id = :cfid OR id = REPLACE(:cfid, 'omg_', '') LIMIT 1");
+            $findStmt->execute([':cfid' => $cfOrderId]);
+            $foundOrder = $findStmt->fetch(PDO::FETCH_ASSOC);
+            if ($foundOrder && $foundOrder['payment_status'] !== 'paid') {
+                restoreOrderStock($db, $foundOrder['id']);
+                $failStmt = $db->prepare("UPDATE orders SET payment_status = 'failed', status = 'cancelled' WHERE id = :id");
+                $failStmt->execute([':id' => $foundOrder['id']]);
+            }
         }
     }
 
@@ -784,7 +927,12 @@ function handleCashfreeWebhook($db)
 
 function getUserOrders($db, $userId)
 {
-    $query = "SELECT * FROM orders WHERE user_id = :user_id ORDER BY created_at DESC";
+    // Return only confirmed/paid orders for the customer view.
+    // Unpaid checkout drafts where payment was abandoned or failed must never appear.
+    $query = "SELECT * FROM orders 
+              WHERE user_id = :user_id 
+                AND (payment_status = 'paid' OR (payment_method != 'cashfree' AND status != 'cancelled'))
+              ORDER BY created_at DESC";
     $stmt = $db->prepare($query);
     $stmt->bindParam(":user_id", $userId);
     $stmt->execute();
@@ -866,37 +1014,8 @@ function cancelOrder($db, $userId, $orderId)
 
         $db->beginTransaction();
 
-        // Restore stock for each item in the cancelled order
-        $itemQuery = "SELECT product_id, quantity FROM order_items WHERE order_id = :order_id";
-        $itemStmt = $db->prepare($itemQuery);
-        $itemStmt->bindParam(":order_id", $orderId);
-        $itemStmt->execute();
-        $items = $itemStmt->fetchAll(PDO::FETCH_ASSOC);
-
-        foreach ($items as $item) {
-            // ── INVENTORY RULE: Only restore stock for normal physical products. ────────
-            // Subscriptions and Surprise Experiences have no stock to restore.
-            $cancelProductIdStr = (string)$item['product_id'];
-            $cancelIsProxy = strpos($cancelProductIdStr, 'exp-') === 0
-                          || strpos($cancelProductIdStr, 'surprise-') === 0
-                          || strpos($cancelProductIdStr, 'sub-') === 0
-                          || strpos($cancelProductIdStr, 'subscription-') === 0;
-            if ($cancelIsProxy) {
-                continue; // No stock to restore for subscription / surprise experience items
-            }
-
-            // Use two distinct named params (:qty1, :qty2) to avoid PDO duplicate
-            // named parameter issues when the same placeholder appears twice.
-            $restoreQuery = "UPDATE products
-                             SET stock_quantity = stock_quantity + :qty1,
-                                 stock_status = IF(stock_quantity + :qty2 > 0, 'in_stock', stock_status)
-                             WHERE id = :id AND category NOT IN ('surprise_experience', 'subscription')";
-            $restoreStmt = $db->prepare($restoreQuery);
-            $restoreStmt->bindParam(":qty1", $item['quantity'], PDO::PARAM_INT);
-            $restoreStmt->bindParam(":qty2", $item['quantity'], PDO::PARAM_INT);
-            $restoreStmt->bindParam(":id", $item['product_id']);
-            $restoreStmt->execute();
-        }
+        // Restore stock if previously deducted
+        restoreOrderStock($db, $orderId);
 
         // Update order status to cancelled
         $updateQuery = "UPDATE orders SET status = 'cancelled' WHERE id = :id";
@@ -954,6 +1073,9 @@ function updateOrderStatus($db, $data)
         $stmt->bindParam(":id", $data->order_id);
 
         if ($stmt->execute()) {
+            if (strtolower($data->status) === 'cancelled') {
+                restoreOrderStock($db, $data->order_id);
+            }
             echo json_encode(["message" => "Order status updated successfully."]);
         }
         else {
